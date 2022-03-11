@@ -341,8 +341,7 @@ void save_data_ode(Mat2D& array, const unsigned length, std::string filename) {
 		img << "# r\t     a\t    alpha\t    Phi\t    Psi\t    P" << std::endl;
 
 		for(unsigned i = 0; i < length; ++i) {
-        
-			//double r = p*Mass/( 1 + e*std::cos(array[i][0]) );
+
 			img <<std::fixed<<std::setprecision(10)<< array[i][0] << " " << array[i][1] << " " << array[i][2] << " " << array[i][3] << " " << array[i][4] << " " << array[i][5] << std::endl;
 		}
 	}
@@ -359,12 +358,11 @@ void save_data_MR(Mat2D& array, const unsigned length, std::string filename) {
 
 	if(img.is_open()) {
 
-		img << "# M\t R\t rho_c" << std::endl;
+		img << "# R [km]\t M [M_sun]\t rho_c [code units]" << std::endl;
 
 		for(unsigned i = 0; i < length; ++i) {
-        double r = 1.;
-			//double r = p*Mass/( 1 + e*std::cos(array[i][0]) );
-			img <<std::fixed<<std::setprecision(10)<< array[i][0] << " " << array[i][1] << " " << array[i][2] << std::endl;
+
+			img <<std::fixed<<std::setprecision(10)<< array[i][0]*1.476625061 << " " << array[i][1] << " " << array[i][2] << std::endl;
 		}
 	}
 	img.close();
@@ -415,8 +413,8 @@ int main() {
 
         // a, alpha, Phi, Psi, P(rho)
         vec5d inits(1.0, 1.0, 1e-20, 1e-20, myPolytrope.get_P_from_rho(rho_start) );
-        //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myPolytrope, mu, lambda);
-        Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
+        Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myPolytrope, mu, lambda);
+        //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
 
         MRarray[i][0] = R_fermi;
         MRarray[i][1] = M_total;
@@ -430,7 +428,7 @@ int main() {
     // print the results:
     for (unsigned j = 0; j < Nstars; ++j) {
         //std::cout << j << std::endl;
-        std::cout << "R = " << MRarray[j][0] << " [M], M = " << MRarray[j][1] << " [M_sun]" << std::endl;
+        std::cout << "R = " << MRarray[j][0]*1.476625061 << " [km], M = " << MRarray[j][1] << " [M_sun]" << std::endl;
     }
 
     // save MR data in text file:
