@@ -200,6 +200,8 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
 
     const double init_r = 1e-10;        // initial radius (cannot be zero due to coordinate singularity)
     const double init_dr = 1e-5;        // initial stepsize
+    const double r_end = 100.;
+    int max_step = 1000000;
 
     // declare the variables to be able to use them in the whole function scope
     double my_r = init_r;
@@ -207,49 +209,26 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
     vec5d ODE_vars = init_vars;
     vec5d ODE_vars2 = init_vars;
 
+    auto Rf_condition = [](const double r, const vec5d y, const void*params) { return y[4] < 1e-14; };
+    std::vector<RK45::step> results, events;
+
     // integrate one TOV star until a stable configuration has been reached (including shooting method):
     // outer shooting method loop:
     while(true) {
 
         // reset the initial values before each ODE itegration (only omega should change each iteration):
-        ODE_vars = init_vars;
-        ODE_vars2 = init_vars;
-        my_r = init_r;
-        my_dr = init_dr;
         Rfermionic = 0.0;
         Mtot = 0.0;
         // inner ODE integration loop first solution:
-        while (true) {
-            // step one ODE iteration:
-            sp->omega = omega_bar;
-            RK45::RK45_Fehlberg(&ODE_system, my_r, my_dr, ODE_vars, (void*)sp);
+        sp->omega = omega_bar;
+        int res =  RK45::RKF45(&ODE_system, init_r, init_vars, r_end, (void*) sp, max_step,  results,  events, false, Rf_condition);
+        ODE_vars = results[0].second; my_r = results[0].first;
 
-            // detect the fermionic radius defined by the point where P=0.
-            if ( (ODE_vars[4] < 1e-14) && (Rfermionic < 0.01) ) { // pressure is zero -> fermionic radius was found
-                Rfermionic = my_r;
-            }
-            // check for stopping condition (Abbruchbedingungen):
-            // integrate until radius is large (so that we include the whole bosonic scalar field as well):
-            if (my_r > 100.) {break;} // radius is 100M
-            //std::cout << "one_Fehlberg_iteration done loop1! at r=" << my_r << " fermi rad:" << Rfermionic <<std::endl;
-            //std::cout << "(a,alpha,Phi,Psi,P)=" << ODE_vars[0] <<" "<< ODE_vars[1] <<" "<< ODE_vars[2] <<" "<< ODE_vars[3] <<" "<< ODE_vars[4] << std::endl;
-           // if( std::isnan(ODE_vars[0])) {exit(1);}    // nan error
-        }
-        // reset all init values before integrating the second time (to perform the finite difference step for omega):
-        my_r = init_r;
-        my_dr = init_dr;
-        // inner ODE integration loop second solution (finite difference in omega was added):
-        while (true) {
-            // step two ODE iteration:
-            sp->omega = omega_bar + delta_omega;
-            RK45::RK45_Fehlberg(&ODE_system, my_r, my_dr, ODE_vars2, (void*)sp); // for the NR method relative to omega
-
-            // check for stopping condition (Abbruchbedingungen):
-            // integrate until radius is large (so that we include the whole bosonic scalar field as well):
-            if (my_r > 100.) {break;} // radius is 100M
-        }
-
-    //if (std::abs( ODE_vars2[2]) < root_desired_error) { break;}
+        Rfermionic = events.at(0).first;
+        // second solution
+        sp->omega = omega_bar + delta_omega;
+        res =  RK45::RKF45(&ODE_system, init_r, init_vars, r_end, (void*) sp, max_step,  results,  events);
+        ODE_vars2 = results[0].second;
 
         // take result from the integrator and try to obtain a new value for omega:
         // Newton-Raphson method to step in the right direction for omega
