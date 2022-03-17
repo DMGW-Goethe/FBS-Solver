@@ -1,12 +1,21 @@
-#include "eostable.hpp"
+#include "eos.hpp"
 
-// constructors:
-eostable::eostable() {	// default
+/* PolytropicEoS */
+PolytropicEoS::PolytropicEoS(const double kappa, const double Gamma) : kappa(kappa), Gamma(Gamma) {}
 
-	eos_table_name = "polytrope";	// use analytic expression for polytrope
+double PolytropicEoS::get_P_from_rho(const double rho_in) {
+
+	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
 }
 
-eostable::eostable(const std::string filename) {
+void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
+    	myrho = std::pow(P / this->kappa, 1./this->Gamma); // update restmass density according to polytropic EOS
+    	epsilon = this->kappa*std::pow(myrho, this->Gamma - 1.) / (this->Gamma - 1.);
+		return;
+}
+
+
+EoStable::EoStable(const std::string filename) {
 	// load in the tabulated EOS data and convert it to code units directly
 
 	eos_table_name = filename;
@@ -46,7 +55,7 @@ eostable::eostable(const std::string filename) {
 }
 
 // call EOS to obtain rho and e from input P:
-void eostable::callEOS(double& myrho, double& epsilon, const double P) {
+void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 
 	// use P to scan the EOS table (iterate from the top first because we start at high pressures):
 	unsigned table_len = Pres.size();
@@ -54,22 +63,13 @@ void eostable::callEOS(double& myrho, double& epsilon, const double P) {
 
 	//if(P < 0.) P = 0.;  // enforce positivity of the pressure
 
-	if (eos_table_name == "polytrope") {	// hard-code polytropic EOS:
-		const double kappa = 100.; // polytropic constant
-    	const double Gamma = 2.;  // adiabatic index
-
-    	// for these hydrodynamic relations see e.g. "Relativistic hydrodynamics, Rezzolla and Zanotti" chapter 2.4.7 pages 118+119
-    	myrho = std::pow(P / kappa, 1./Gamma); // update restmass density according to polytropic EOS
-    	epsilon = kappa*std::pow(myrho, Gamma - 1.) / (Gamma - 1.);
-		return;
-	}
 
 	if (P < Pres[0]) { // we are close to vacuum and don't need to search the table. Interpolate with zero
 		myrho = 0.0 + (rho[0] / Pres[0]) * P;
 		e_tot_tmp = 0.0 + (e_tot[0] / Pres[0]) * P;
 		epsilon = e_tot_tmp/myrho - 1.0;	// re-arrange to get epsilon. e=rho*(1+epsilon)
 		return;
-	}	
+	}
 
 	for (unsigned i = table_len-1; i>0; i--) {
 		// scan for the first matching P
@@ -89,16 +89,9 @@ void eostable::callEOS(double& myrho, double& epsilon, const double P) {
 }
 
 // obtain P from a rho input
-double eostable::get_P_from_rho(const double rho_in) {
+double EoStable::get_P_from_rho(const double rho_in) {
 	// search the table for the correct value:
 	unsigned table_len = rho.size();
-
-	const double kappa = 100.; // polytropic constant
-    const double Gamma = 2.;  // adiabatic index
-	if (eos_table_name == "polytrope") {	// hard-code polytropic EOS:
-		
-		return kappa*std::pow(rho_in, Gamma);	// p = k*rho^gamma
-	}
 
 	for (unsigned i = table_len-1; i>0; i--) {
 		// scan for the first matching rho
@@ -111,8 +104,8 @@ double eostable::get_P_from_rho(const double rho_in) {
 		}
 	}
 	// if nothing was found return a polytropic EOS value:
-	std::cout << "No matching rho found. Use polytrope" << std::endl;
-	return kappa*std::pow(rho_in, Gamma);	// p = k*rho^gamma
+	std::cout << "No matching rho found" << std::endl;
+	return 0.;
 }
 
 

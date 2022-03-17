@@ -6,7 +6,6 @@
 #include <utility>
 
 #include "vector.hpp"
-#include "eostable.hpp"
 
 
 namespace RK45

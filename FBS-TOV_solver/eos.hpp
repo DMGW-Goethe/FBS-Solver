@@ -1,5 +1,5 @@
-#ifndef EOSTABLE_HPP
-#define EOSTABLE_HPP
+#ifndef EOS_HPP
+#define EOS_HPP
 
 #include <vector>
 #include <cmath>
@@ -8,16 +8,37 @@
 #include <iostream>
 
 // a class to contain tabulated EOS
-// reads in a EOS table in the constructor. 
+// reads in a EOS table in the constructor.
 // Then it serves as a look-up table for the EOS (p=p(rho,epsilon,...)) to use in the integrator.
 
-class eostable
+class EquationOfState
+{
+public:
+    virtual double get_P_from_rho(const double rho_in)  = 0;
+
+	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
+
+};
+
+class PolytropicEoS : public EquationOfState
+{
+protected:
+    double kappa, Gamma;
+
+public:
+    PolytropicEoS(const double kappa=100., const double Gamma =2.);
+
+    double get_P_from_rho(const double rho_in);
+	void callEOS(double& myrho, double& epsilon, const double P);
+
+};
+
+class EoStable : public EquationOfState
 {
 public:
 	// constructors:
-	eostable();   // default constructor, defaults to polytrope with kappa=100, gamma=2
-    eostable(const std::string filename);   // chose which EOS to load in using the filename and fill the std::vectors
-	
+    EoStable(const std::string filename);   // chose which EOS to load in using the filename and fill the std::vectors
+
 	// call EOS lookup-table (including interpolation):
 	void callEOS(double& myrho, double& epsilon, const double P);
     double get_P_from_rho(const double rho_in);
