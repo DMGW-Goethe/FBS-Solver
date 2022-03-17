@@ -1,9 +1,9 @@
 CC = g++
 
-CFLAGS = -g
-LDFLAGS = 
+CFLAGS = -g -O3
+LDFLAGS =
 
-REQ = vec5d.o eostable.o RK45.o main.o
+REQ = vector.o eostable.o RK45.o main.o
 
 %.o: %.cpp %.hpp    ; $(CC) $(CFLAGS) -c $<
 

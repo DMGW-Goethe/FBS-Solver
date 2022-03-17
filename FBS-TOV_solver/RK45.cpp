@@ -1,8 +1,10 @@
 #include "RK45.hpp"
 
+namespace ublas = boost::numeric::ublas;
+
 // Runge-Kutta-Fehlberg stepper for one integration step:
 // for the scheme in detail, see https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method -> COEFFICIENTS FOR RK4(5), FORMULA 2 Table III in Fehlberg
-void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, const void *params)
+void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vector& V, const void *params)
 {
     // variables for error estimation:
     const double target_error = 1e-9;   // what truncation error should we allow/aim for?
@@ -10,7 +12,8 @@ void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, con
     const double min_stepsize = 1e-5;   // minimum stepsize in untis of dr (to prevent deadlock due to decreasing stepsize)
 
     // intermediate steps:
-    vec5d k1, k2, k3, k4, k5, k6;
+    int n = V.size();
+    vector k1(n), k2(n), k3(n), k4(n), k5(n), k6(n), dV_04(n), dV_05(n);
 
     // solve until we find an acceptable stepsize/error:
     while (true) {
@@ -24,16 +27,16 @@ void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, con
         k6 = dr * dy_dt(r + 1.0 / 2.0 * dr, V - 8.0 / 27.0 * k1 + 2.0 * k2 - 3544.0 / 2565.0 * k3 + 1859.0 / 4104.0 * k4 - 11.0 / 40.0 * k5, params);
 
         // 4th and 5th order accurate steps:
-		vec5d dV_O4 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
-        vec5d dV_O5 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
+		dV_04 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
+        dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
 
 		// approximating the truncation error:
-        double truncation_error = vec5d::max(dV_O5 - dV_O4) * dr; // inf-Norm
-		//double truncation_error = vec5d::dot(dV_O5 - dV_O4, dV_O5 - dV_O4) * dr; // 2-Norm
+        double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
+		//double truncation_error = vector::dot(dV_05 - dV_04, dV_05 - dV_04) * dr; // 2-Norm
 
 		// Updating the stepsize:
 
-        if( std::isnan(dV_O5[0]) || std::isnan(dV_O5[1]) || std::isnan(dV_O5[2]) || std::isnan(dV_O5[3]) || std::isnan(dV_O5[4])) {
+        if( std::isnan(dV_05[0]) || std::isnan(dV_05[1]) || std::isnan(dV_05[2]) || std::isnan(dV_05[3]) || std::isnan(dV_05[4])) {
         std::cout << "Nan found" << std::endl;
                 exit(1);}
 
@@ -45,7 +48,7 @@ void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, con
                 // error is not acceptable but the stepsize cannot get any smaller:
                 // write new values for r and the evolved quantities
                 r += dr;
-                V += dV_O5;
+                V += dV_05;
 
                 dr = min_stepsize; // ensure that the stepsize never gets too small
                 std::cout << "Error in RK45_Fehlberg(): Minimal stepsize underflow at r = " << r << ", dr = "<< dr << std::endl;  // error message for debugging
@@ -60,7 +63,7 @@ void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, con
 		else {
 			// error is small enough and therefore we can use this step. To save computation time, we then increase the stepsize
             r += dr;
-            V += dV_O5;
+            V += dV_05;
 
             dr *= 2.0;
 			if (dr > max_stepsize) dr = max_stepsize;   // enforce maximal stepsize
@@ -73,10 +76,11 @@ void RK45::RK45_Fehlberg(ODE_system dy_dt, double &r, double &dr , vec5d& V, con
 }
 
 
-void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vec& y, const void* params, const double target_error, const double max_stepsize, const double min_stepsize)
+void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const double target_error, const double max_stepsize, const double min_stepsize)
 {
     // intermediate steps:
-    vec5d k1, k2, k3, k4, k5, k6;
+    int n = y.size();
+    vector k1(n), k2(n), k3(n), k4(n), k5(n), k6(n), dV_04(n), dV_05(n);
 
     // solve until we find an acceptable stepsize/error:
     while (true) {
@@ -90,16 +94,16 @@ void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vec& y, const voi
         k6 = dr * dy_dt(r + 1.0 / 2.0 * dr, y - 8.0 / 27.0 * k1 + 2.0 * k2 - 3544.0 / 2565.0 * k3 + 1859.0 / 4104.0 * k4 - 11.0 / 40.0 * k5, params);
 
         // 4th and 5th order accurate steps:
-		vec5d dV_O4 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
-        vec5d dV_O5 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
+		dV_04 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
+        dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
 
 		// approximating the truncation error:
-        double truncation_error = vec5d::max(dV_O5 - dV_O4) * dr; // inf-Norm
-		//double truncation_error = vec5d::dot(dV_O5 - dV_O4, dV_O5 - dV_O4) * dr; // 2-Norm
+        double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
+		//double truncation_error = vector::dot(dV_05 - dV_04, dV_05 - dV_04) * dr; // 2-Norm
 
 		// Updating the stepsize:
 
-        if( std::isnan(dV_O5[0]) || std::isnan(dV_O5[1]) || std::isnan(dV_O5[2]) || std::isnan(dV_O5[3]) || std::isnan(dV_O5[4])) {
+        if( std::isnan(dV_05[0]) || std::isnan(dV_05[1]) || std::isnan(dV_05[2]) || std::isnan(dV_05[3]) || std::isnan(dV_05[4])) {
         std::cout << "Nan found" << std::endl;
                 exit(1);}
 
@@ -111,7 +115,7 @@ void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vec& y, const voi
                 // error is not acceptable but the stepsize cannot get any smaller:
                 // write new values for r and the evolved quantities
                 r += dr;
-                y += dV_O5;
+                y += dV_05;
 
                 dr = min_stepsize; // ensure that the stepsize never gets too small
                 std::cout << "Error in RK45_Fehlberg(): Minimal stepsize underflow at r = " << r << ", dr = "<< dr << std::endl;  // error message for debugging
@@ -126,7 +130,7 @@ void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vec& y, const voi
 		else {
 			// error is small enough and therefore we can use this step. To save computation time, we then increase the stepsize
             r += dr;
-            y += dV_O5;
+            y += dV_05;
 
             dr *= 2.0;
 			if (dr > max_stepsize) dr = max_stepsize;   // enforce maximal stepsize
@@ -138,7 +142,7 @@ void RK45::RKF45_step(ODE_system dy_dt, double &r, double &dr, vec& y, const voi
 	}
 }
 
-int RK45::RKF45(ODE_system dy_dt, const double r0, const vec y0, const double r_end, const void* params, const int max_step,
+int RK45::RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params, const int max_step,
                             std::vector<step>& results, std::vector<step>& events, const bool save_intermediate, event_condition event, event_condition stopping_condition)
 {
     double step_size = 1e-5;        // initial stepsize

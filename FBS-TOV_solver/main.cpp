@@ -5,7 +5,7 @@
 #include <fstream>	// file streams
 // #include <mpi.h>  // to use MPI (for parallelization) -> needs special compile rules!
 
-#include "vec5d.hpp"    // include custom 5-vector class
+#include "vector.hpp"    // include custom 5-vector class
 #include "RK45.hpp"
 #include "eostable.hpp" // include eos container class
 
@@ -24,8 +24,8 @@ void EOS_polytrope(double& myrho, double& myepsilon, const double P) {
 
 // define the system of equations:
 // implemented as in https://arxiv.org/abs/2110.11997 eq. 7-11
-// parameters:  radius r (evolution parameter), vec5d containing all evolved vars, mass mu, self-interaction parameter lambda, frequency omega:
-vec5d dy_dt(const double r, const vec5d& vars, eostable& myEOS, const double mu, const double lambda, const double omega) {
+// parameters:  radius r (evolution parameter), vector containing all evolved vars, mass mu, self-interaction parameter lambda, frequency omega:
+vector dy_dt(const double r, const vector& vars, eostable& myEOS, const double mu, const double lambda, const double omega) {
 
 	// rename input variables for simpler use:
 	const double a = vars[0]; const double alpha = vars[1]; const double Phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
@@ -52,7 +52,7 @@ vec5d dy_dt(const double r, const vec5d& vars, eostable& myEOS, const double mu,
 	double dPres_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha; // Pressure ODE
 
 	// write the ODE values into output vector:
-	return vec5d(da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dPres_dr);
+	return vector({da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dPres_dr});
 }
 
 struct SystemParameters {
@@ -62,7 +62,7 @@ struct SystemParameters {
     double omega;
 };
 
-vec5d ODE_system(const double r, const vec5d& y, const void* params) {
+vector ODE_system(const double r, const vector& y, const void* params) {
 
     SystemParameters* sp = (SystemParameters*)params;
     return dy_dt(r, y, sp->EOS, sp->mu, sp->lambda, sp->omega);
@@ -77,7 +77,7 @@ vec5d ODE_system(const double r, const vec5d& y, const void* params) {
 // 2D array to store all physical values, initial values, mu, lambda
 // returns all physical values in a 2D array, also R and M of the star
 template <typename Matrix2D>
-void Shooting_integrator_save_intermediate(Matrix2D& myarray, const unsigned Nmax_iterations, double& Rfermionic, double& Mtot, vec5d& init_vars, SystemParameters* sp) {
+void Shooting_integrator_save_intermediate(Matrix2D& myarray, const unsigned Nmax_iterations, double& Rfermionic, double& Mtot, vector& init_vars, SystemParameters* sp) {
 
     // define the evolution variables
     double omega_bar = 1.0;             // initial guess for omega and running variable
@@ -91,8 +91,8 @@ void Shooting_integrator_save_intermediate(Matrix2D& myarray, const unsigned Nma
     // declare the variables to be able to use them in the whole function scope
     double my_r = init_r;
     double my_dr = init_dr;
-    vec5d ODE_vars = init_vars;
-    vec5d ODE_vars2 = init_vars;
+    vector ODE_vars = init_vars;
+    vector ODE_vars2 = init_vars;
 
     // fill the array with the init values:
     myarray[0][0] = my_r;           // radius
@@ -190,7 +190,7 @@ void Shooting_integrator_save_intermediate(Matrix2D& myarray, const unsigned Nma
 // for shoooting method see e.g. https://sdsawtelle.github.io/blog/output/shooting-method-ode-numerical-solution.html
 // parameters: star Radius, Mass, initial values, mu, lambda
 // returns only the Mass and fermionic radius of ONE star
-void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, vec5d& init_vars, SystemParameters* sp) {
+void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, vector& init_vars, SystemParameters* sp) {
 
     // define the evolution variables
     double omega_bar = 1.0;             // initial guess for omega and running variable
@@ -206,10 +206,10 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
     // declare the variables to be able to use them in the whole function scope
     double my_r = init_r;
     double my_dr = init_dr;
-    vec5d ODE_vars = init_vars;
-    vec5d ODE_vars2 = init_vars;
+    vector ODE_vars = init_vars;
+    vector ODE_vars2 = init_vars;
 
-    auto Rf_condition = [](const double r, const vec5d y, const void*params) { return y[4] < 1e-14; };
+    auto Rf_condition = [](const double r, const vector y, const void*params) { return y[4] < 1e-14; };
     std::vector<RK45::step> results, events;
 
     // integrate one TOV star until a stable configuration has been reached (including shooting method):
@@ -314,7 +314,7 @@ int main() {
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
-    //vec5d inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
+    //vector inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
     // solve the ODEs WITH saing all intermediate steps.
     //Shooting_integrator_save_intermediate(ODEdata, N_steps, R_fermi, M_total, inits, mu, lambda);
     //save_data_ode(ODEdata, N_steps, "ODE_data_full.txt");
@@ -326,7 +326,7 @@ int main() {
     eostable myPolytrope; // default constructor => polytrope
     sp.EOS = myPolytrope;
 
-    //vec5d inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
+    //vector inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
     //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
 
 
@@ -340,7 +340,7 @@ int main() {
         double rho_start = (i+1)*rho_c;
 
         // a, alpha, Phi, Psi, P(rho)
-        vec5d inits(1.0, 1.0, 1e-20, 1e-20, myPolytrope.get_P_from_rho(rho_start) );
+        vector inits( {1.0, 1.0, 1e-20, 1e-20, myPolytrope.get_P_from_rho(rho_start)});
         Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, &sp);
         //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
 
