@@ -9,72 +9,18 @@
 #include "vector.hpp"    // include custom 5-vector class
 #include "RK45.hpp"
 #include "eos.hpp" // include eos container class
+#include "nsmodel.hpp"
 
 // --------------------------------------------------------------------
 
-// polytropic EOS: p=kappa*rho**Gamma
-void EOS_polytrope(double& myrho, double& myepsilon, const double P) {
 
-    const double kappa = 100.; // polytropic constant
-    const double Gamma = 2.;  // adiabatic index
-
-    // for these hydrodynamic relations see e.g. "Relativistic hydrodynamics, Rezzolla and Zanotti" chapter 2.4.7 pages 118+119
-    myrho = std::pow(P / kappa, 1./Gamma); // update restmass density according to polytropic EOS
-    myepsilon = kappa*std::pow(myrho, Gamma - 1.) / (Gamma - 1.);
-}
-
-// define the system of equations:
-// implemented as in https://arxiv.org/abs/2110.11997 eq. 7-11
-// parameters:  radius r (evolution parameter), vector containing all evolved vars, mass mu, self-interaction parameter lambda, frequency omega:
-vector dy_dt(const double r, const vector& vars, EquationOfState& myEOS, const double mu, const double lambda, const double omega) {
-
-	// rename input variables for simpler use:
-	const double a = vars[0]; const double alpha = vars[1]; const double Phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
-
-    // define hydrodynamic quantities:
-    double rho = 1.;      // restmass density, must be set using EOS
-    double epsilon = 1.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
-                          // epsilon is related to the total energy density "e" by: e = rho*(1+epsilon)
-
-    if(P < 0.) P = 0.;  // need this to prevent NaN errors...
-
-    // apply the EOS:
-    myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by pointer using EOS member function
-
-    if( std::isnan(vars[0]) || std::isnan(vars[1]) || std::isnan(vars[2]) || std::isnan(vars[3]) || std::isnan(vars[4])) {
-        std::cout << "Nan found" << std::endl;
-                exit(1);}
-
-	// compute the ODEs:
-	double da_dr = 0.5* a * ( (1.-a*a) / r + 4.*M_PI*r*( (omega*omega/ alpha*alpha + mu*mu + 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) ); // a (g_rr component) ODE
-	double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 4.*M_PI*r*( (omega*omega/ alpha*alpha - mu*mu - 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*P ) ); // alpha (g_tt component) ODE
-	double dPhi_dr = Psi; // Phi ODE
-	double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( mu*mu*Phi*Phi + 0.5*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha*alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi*Phi; // Psi ODE
-	double dPres_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha; // Pressure ODE
-
-	// write the ODE values into output vector:
-	return vector({da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dPres_dr});
-}
-
-struct SystemParameters {
-    std::shared_ptr<EquationOfState> EOS;
-    double mu;
-    double lambda;
-    double omega;
-};
-
-vector ODE_system(const double r, const vector& y, const void* params) {
-
-    SystemParameters* sp = (SystemParameters*)params;
-    return dy_dt(r, y, *(sp->EOS), sp->mu, sp->lambda, sp->omega);
-}
 
 
 // integrating the system of equations using the shooting method:
 // for shoooting method see e.g. https://sdsawtelle.github.io/blog/output/shooting-method-ode-numerical-solution.html
 // parameters: star Radius, Mass, initial values, mu, lambda
 // returns only the Mass and fermionic radius of ONE star
-void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, vector& init_vars, SystemParameters* sp) {
+void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, vector& init_vars, NSmodel* m) {
 
     // define the evolution variables
     double omega_bar = 1.0;             // initial guess for omega and running variable
@@ -104,14 +50,14 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
         Rfermionic = 0.0;
         Mtot = 0.0;
         // inner ODE integration loop first solution:
-        sp->omega = omega_bar;
-        int res =  RK45::RKF45(&ODE_system, init_r, init_vars, r_end, (void*) sp, max_step,  results,  events, false, Rf_condition);
+        m->omega = omega_bar;
+        int res =  RK45::RKF45(&(m->dy_dt_static), init_r, init_vars, r_end, (void*) m, max_step,  results,  events, false, Rf_condition);
         ODE_vars = results[0].second; my_r = results[0].first;
 
         Rfermionic = events.at(0).first;
         // second solution
-        sp->omega = omega_bar + delta_omega;
-        res =  RK45::RKF45(&ODE_system, init_r, init_vars, r_end, (void*) sp, max_step,  results,  events);
+        m->omega = omega_bar + delta_omega;
+        res =  RK45::RKF45(&(m->dy_dt_static), init_r, init_vars, r_end, (void*) m, max_step,  results,  events);
         ODE_vars2 = results[0].second;
 
         // take result from the integrator and try to obtain a new value for omega:
@@ -189,9 +135,8 @@ int main() {
     double MRarray[Nstars][3] = {0.};
 
     // define some global values:
-    SystemParameters sp;
-    sp.mu = 0.0;        // DM mass
-    sp.lambda = 0.0;    //self-interaction parameter
+    double mu = 0.0;        // DM mass
+    double lambda = 0.0;    //self-interaction parameter
     double R_fermi = 0.0; double M_total = 0.0; // fermionic radius of star and total mass of star
 
     double rho_c = 2e-4; // central density
@@ -207,10 +152,9 @@ int main() {
 
     // try the new tabulated EOS system:
     EoStable myDD2("DD2_eos.table");
-    sp.EOS = std::make_shared<PolytropicEoS>();
+    auto EOS = std::make_shared<PolytropicEoS>();
 
-    //vector inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
-    //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
+    NSmodel m( EOS, 0., 0., 0.);
 
 
     // uncomment this if you want to compute a full MR-diagram
@@ -223,8 +167,8 @@ int main() {
         double rho_start = (i+1)*rho_c;
 
         // a, alpha, Phi, Psi, P(rho)
-        vector inits( {1.0, 1.0, 1e-20, 1e-20, sp.EOS->get_P_from_rho(rho_start)});
-        Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, &sp);
+        vector inits( {1.0, 1.0, 1e-20, 1e-20, m.EOS->get_P_from_rho(rho_start)});
+        Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, &m);
         //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
 
         MRarray[i][0] = R_fermi;
