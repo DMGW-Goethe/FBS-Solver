@@ -140,6 +140,7 @@ int main() {
     double R_fermi = 0.0; double M_total = 0.0; // fermionic radius of star and total mass of star
 
     double rho_c = 2e-4; // central density
+    double phi_c = 0.;
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
@@ -167,7 +168,7 @@ int main() {
         double rho_start = (i+1)*rho_c;
 
         // a, alpha, Phi, Psi, P(rho)
-        vector inits( {1.0, 1.0, 1e-20, 1e-20, m.EOS->get_P_from_rho(rho_start)});
+        vector inits =  m.initial_conditions(0., rho_start, phi_c);
         Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, &m);
         //Shooting_integrator_nosave_intermediate(R_fermi, M_total, inits, myDD2, mu, lambda);
 

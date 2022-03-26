@@ -38,3 +38,7 @@ vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params
     return m->dy_dt(r, y);
 }
 
+vector NSmodel::initial_conditions(const double r0, const double rho_0, const double phi_0) {
+        return vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
+}
+
