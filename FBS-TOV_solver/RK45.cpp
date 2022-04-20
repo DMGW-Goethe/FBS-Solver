@@ -75,7 +75,7 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
     double step_size = 1e-5;        // initial stepsize
 
     integrator::step current_step = std::make_pair(r0, y0);
-    results.empty();
+    results.clear();
     if(save_intermediate) {
         results.reserve(max_step);
         results.push_back(current_step);

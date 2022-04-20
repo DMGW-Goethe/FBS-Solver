@@ -22,7 +22,7 @@ namespace integrator
         std::string name;
         Event(event_condition condition, bool stopping_condition=false, std::string name="") : condition(condition), stopping_condition(stopping_condition),
                                                                         active(false), name(name) {}
-        void reset() { steps.empty(); active=false; }
+        void reset() { steps.clear(); active=false; }
     };
 
     void RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const double target_error=1e-9, const double max_stepsize=1e-3, const double min_stepsize=1e-5);
