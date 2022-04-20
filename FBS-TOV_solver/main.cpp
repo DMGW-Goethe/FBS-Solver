@@ -10,6 +10,7 @@
 #include "RK45.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
+#include "plotting.hpp"
 
 // --------------------------------------------------------------------
 
@@ -80,7 +81,7 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
 
         // second solution
         m->omega = omega_bar + delta_omega;
-        res =  integrator::RKF45(&(m->dy_dt_static), init_r, init_vars, r_end, (void*) m, max_step,  results,  events);
+        res =  integrator::RKF45(&(m->dy_dt_static), init_r, init_vars, r_end, (void*) m, max_step,  results,  events, true);
         for(auto it = events.begin(); it != events.end(); ++it)
             it->reset();
         second_result = results[results.size()-1].second;
@@ -109,6 +110,7 @@ void Shooting_integrator_nosave_intermediate(double& Rfermionic, double& Mtot, v
     }
 
     m->omega = omega_0bestguess;
+    plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, "test.png");
     //save_integration_data(results, "test");
 
     Mtot = 0.5 * my_r * ( 1.0 - 1.0/(std::pow(first_result[0],2) ));
@@ -137,9 +139,12 @@ void save_data_MR(Mat2D& array, const unsigned length, std::string filename) {
 
 
 int main() {
+    /* see https://github.com/lava/matplotlib-cpp/issues/268
+     * if this doesn't work, look at the end of the function*/
+    //matplotlibcpp::backend("TkAgg");
 
     // for the MR diagram (multiple stars):
-    const unsigned Nstars = 10;
+    const unsigned Nstars = 1;
     double MRarray[Nstars][3] = {0.};
 
     // define some global values:
@@ -198,7 +203,9 @@ int main() {
 
     // print the results for now (later save them into a txt file).
     //std::cout << "Star with rho_c = " << rho_c << ": radius = " << R_fermi << " [M], mass = " << M_total << " [M_sun?]" << std::endl;
+    //matplotlibcpp::show();
 
-
+    /* see https://github.com/lava/matplotlib-cpp/issues/268 */
+    matplotlibcpp::detail::_interpreter::kill();
     return 0;
 }
