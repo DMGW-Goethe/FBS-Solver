@@ -25,9 +25,21 @@ namespace integrator
         void reset() { steps.clear(); active=false; }
     };
 
-    void RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const double target_error=1e-9, const double max_stepsize=1e-3, const double min_stepsize=1e-5);
-    int RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params, const int max_step,
-                            std::vector<step>& results, std::vector<Event>& events, const bool save_intermediate=false);
+    struct IntegrationOptions {
+        double target_error;
+        int max_step;
+        double min_stepsize;
+        double max_stepsize;
+        bool save_intermediate;
+        IntegrationOptions(const int max_step=1000000, const double target_error=1e-10, const double min_stepsize=1e-18, const double max_stepsize=1., const bool save_intermediate=false)
+                            : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), save_intermediate(save_intermediate) {}
+    };
+
+    enum  return_reason  {endpoint_reached=1, stepsize_underflow, iteration_number_exceeded,  event_stopping_condition };
+
+    bool RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options);
+    int RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params,
+                            std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options);
 
 }
 

@@ -3,7 +3,7 @@
 namespace ublas = boost::numeric::ublas;
 
 
-void integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const double target_error, const double max_stepsize, const double min_stepsize)
+bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options)
 {
     // intermediate steps:
     int n = y.size();
@@ -24,34 +24,33 @@ void integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
 		dV_04 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
         dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
 
-		// approximating the truncation error:
-        double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
-		//double truncation_error = vector::dot(dV_05 - dV_04, dV_05 - dV_04) * dr; // 2-Norm
-
-		// Updating the stepsize:
-
-        if( std::isnan(dV_05[0]) || std::isnan(dV_05[1]) || std::isnan(dV_05[2]) || std::isnan(dV_05[3]) || std::isnan(dV_05[4])) {
-        std::cout << "Nan found" << std::endl;
+        if( vector::is_nan(dV_05) || vector::is_nan(dV_04)) {
+        std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
                 exit(1);}
+
+        // approximating the truncation error:
+        double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
+		//double truncation_error = ublas::norm_2(dV_05 - dV_04) * dr; // 2-Norm
+
 
         //if (y[4] < 1e-15) max_stepsize = 0.1;   // allow a larger stepsize outside of the star (defined by P=0) (mainly we want an accurate result for the star radius)
 
-		if (truncation_error > target_error) {
+		if (truncation_error > options.target_error) {
+			dr *= 0.5;     // truncation error is too large. We repeat the iteration with smaller stepsize
 
-            if (dr < min_stepsize) {
+            if (dr < options.min_stepsize) {
                 // error is not acceptable but the stepsize cannot get any smaller:
                 // write new values for r and the evolved quantities
                 r += dr;
                 y += dV_05;
 
-                dr = min_stepsize; // ensure that the stepsize never gets too small
+                dr = options.min_stepsize; // ensure that the stepsize never gets too small
                 std::cout << "Error in RKF45_step(): Minimal stepsize underflow at r = " << r << ", dr = "<< dr << std::endl;  // error message for debugging
                 std::cout << "Truncation error = "<< truncation_error << std::endl;
-                std::cout << y[0] << " " << y[1] << " " << y[2] << " " << y[3] << " " << y[4] << " " << y[5] << std::endl;
-                return;
+                std::cout << y << std::endl;
+                return false;
             }
 
-			dr *= 0.5;     // truncation error is too large. We repeat the iteration with smaller stepsize
 			continue;
 		}
 		else {
@@ -60,33 +59,40 @@ void integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
             y += dV_05;
 
             dr *= 2.0;
-			if (dr > max_stepsize) dr = max_stepsize;   // enforce maximal stepsize
+			if (dr > options.max_stepsize) dr = options.max_stepsize;   // enforce maximal stepsize
 
-			return;
+			return true;
 		}
 
-	    return;  // stop this iteration step if the required accuracy and step size was acheived
+	    return true;  // stop this iteration step if the required accuracy and step size was acheived
 	}
 }
 
-int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params, const int max_step,
-                            std::vector<step>& results, std::vector<Event>& events, const bool save_intermediate)
+int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params,
+                            std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options)
 {
-    double step_size = 1e-5;        // initial stepsize
-
+    double step_size = options.max_stepsize;        // initial stepsize
     integrator::step current_step = std::make_pair(r0, y0);
+
+    // clear passed arguments
     results.clear();
-    if(save_intermediate) {
-        results.reserve(max_step);
+    for(auto it = events.begin(); it != events.end(); ++it)
+        it->reset();
+
+    // reserve space if necessary
+    if(options.save_intermediate) {
+        results.reserve(options.max_step);
         results.push_back(current_step);
     }
 
+    // begin integration
     int i = 0, stop = 0;
     while(true) {
 
-        RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params);
+        bool step_success = RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params, options);
+        //std::cout << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
 
-        if(save_intermediate)
+        if(options.save_intermediate)
             results.push_back(current_step);
 
         for(auto it = events.begin(); it != events.end(); ++it) {
@@ -95,18 +101,20 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
                     it->active = true;
                     it->steps.push_back(current_step);
                     if(it->stopping_condition)
-                        stop = 3;
+                        stop = event_stopping_condition;
                 }
             } else
                 it->active = false;
         }
 
         if (current_step.first > r_end)
-            stop = 2;
-        if(i > max_step)
-            stop = 1;
+            stop = endpoint_reached;
+        if(i > options.max_step)
+            stop = iteration_number_exceeded;
+        if(!step_success)
+            stop = stepsize_underflow;
         if(stop) {
-            if(!save_intermediate)
+            if(!options.save_intermediate)
                 results.push_back(current_step);
             std::cout << "stopped integration with code " << stop << " at r=" << current_step.first << std::endl;
             return stop;
