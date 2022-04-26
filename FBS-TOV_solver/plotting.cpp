@@ -3,7 +3,7 @@
 
 namespace plt = matplotlibcpp;
 
-void plotting::plot_evolution(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename) {
+void plotting::plot_evolution(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events, std::vector<int> plot_components, std::vector<std::string> labels) {
     assert(results.size() > 0);
     assert(plot_components.size() == labels.size());
     std::vector<double> r;
@@ -20,7 +20,5 @@ void plotting::plot_evolution(const std::vector<integrator::step>& results, cons
             y.push_back(it->second[index]);
         plt::plot(r, y, {{"label", labels[i]}});
     }
-    plt::yscale("log");
-    plt::save(filename);
 }
 
