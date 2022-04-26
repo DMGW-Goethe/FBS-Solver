@@ -23,10 +23,10 @@ vector NSmodel::dy_dt(const double r, const vector& vars) {
         exit(1);}
 
     // compute the ODEs:
-    double da_dr = 0.5* a * ( (1.-a*a) / r + 4.*M_PI*r*( (omega*omega/ alpha*alpha + mu*mu + 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) ); // a (g_rr component) ODE
-    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 4.*M_PI*r*( (omega*omega/ alpha*alpha - mu*mu - 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*P ) ); // alpha (g_tt component) ODE
+    double da_dr = 0.5* a * ( (1.-a*a) / r + 4.*M_PI*r*( (omega*omega/ alpha/alpha + mu*mu + 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) ); // a (g_rr component) ODE
+    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 4.*M_PI*r*( (omega*omega/ alpha/alpha - mu*mu - 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*P ) ); // alpha (g_tt component) ODE
     double dPhi_dr = Psi; // Phi ODE
-    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( mu*mu*Phi*Phi + 0.5*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha*alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi; // Psi ODE
+    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( mu*mu*Phi*Phi + 0.5*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha/alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi; // Psi ODE
     double dPres_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha; // Pressure ODE
 
     // write the ODE values into output vector:
