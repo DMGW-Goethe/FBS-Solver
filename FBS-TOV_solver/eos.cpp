@@ -1,8 +1,6 @@
 #include "eos.hpp"
 
 /* PolytropicEoS */
-PolytropicEoS::PolytropicEoS(const double kappa, const double Gamma) : kappa(kappa), Gamma(Gamma) {}
-
 double PolytropicEoS::get_P_from_rho(const double rho_in) {
 
 	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
@@ -16,53 +14,47 @@ void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 
 
 EoStable::EoStable(const std::string filename) {
-	// load in the tabulated EOS data and convert it to code units directly
+    // load in the tabulated EOS data and convert it to code units directly
 
-	eos_table_name = filename;
-	const double MeV_fm3_to_codeunits =	2.886376934e-6; // unit conversion from Mev/fm^3 to code units M_s*c^2/ (G*M_s/c^2)^3
-	const double neutron_mass = 939.565379;	 // nuclear density in MeV
+    eos_table_name = filename;
+    const double MeV_fm3_to_codeunits =	2.886376934e-6; // unit conversion from Mev/fm^3 to code units M_s*c^2/ (G*M_s/c^2)^3
+    const double neutron_mass = 939.565379;	 // nuclear density in MeV
 
-	if (eos_table_name == "polytrope") {std::cout << "To use polytrope please use default constructor!" << std::endl; return;}	// no need to read in a file
+    std::ifstream infile;	// declare input file stream
+    infile.open(eos_table_name);
 
-	std::ifstream infile;	// declare input file stream
-	infile.open(eos_table_name);
+    assert(infile.is_open());
+    std::string line;
 
-    if (infile.is_open()) {
+    while (std::getline(infile, line)) {
 
-        std::string line;
+        double temp;
+        std::stringstream ss(line);
 
-        while (std::getline(infile, line)) {
+        ss >> temp; // column 1 -> temperature in MeV (we don't need it)
+        ss >> temp; // column 2
+        rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 2nd column -> restmass density and convert to code units
 
-            double temp;
-            std::stringstream ss(line);
+        ss >> temp; // column 3 -> hadronic charge fraction (we don't need it)
+        ss >> temp; // column 4
+        Pres.push_back(temp*MeV_fm3_to_codeunits);	// write the 4nd column -> pressure and convert to code units
 
-            ss >> temp; // column 1 -> temperature in MeV (we don't need it)
-			ss >> temp; // column 2
-            rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 2nd column -> restmass density and convert to code units
+        ss >> temp; // column 5
+        e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 5nd column -> energy density e=rho*(1+epsilon) and convert to code units
+    }
+    infile.close();	// close file after reading from it
 
-            ss >> temp; // column 3 -> hadronic charge fraction (we don't need it)
-			ss >> temp; // column 4
-            Pres.push_back(temp*MeV_fm3_to_codeunits);	// write the 4nd column -> pressure and convert to code units
-
-            ss >> temp; // column 5
-            e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 5nd column -> energy density e=rho*(1+epsilon) and convert to code units
-    	}
-		infile.close();	// close file after reading from it
-	}
-	else {
-		std::cout << "ERROR in constructor. File " + eos_table_name + " not found" << std::endl;
-	}
 }
 
 // call EOS to obtain rho and e from input P:
 void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 
 	// use P to scan the EOS table (iterate from the top first because we start at high pressures):
-	unsigned table_len = Pres.size();
+	int table_len = Pres.size();
 	double e_tot_tmp = 0.0;
 
-	//if(P < 0.) P = 0.;  // enforce positivity of the pressure
-
+    assert(P >= 0.);
+    assert(P < Pres[table_len-1]);
 
 	if (P < Pres[0]) { // we are close to vacuum and don't need to search the table. Interpolate with zero
 		myrho = 0.0 + (rho[0] / Pres[0]) * P;
@@ -71,7 +63,7 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 		return;
 	}
 
-	for (unsigned i = table_len-1; i>0; i--) {
+	for (int i = table_len-1; i>=0; i--) {
 		// scan for the first matching P
 		if (Pres[i]< P) {
 
@@ -93,18 +85,15 @@ double EoStable::get_P_from_rho(const double rho_in) {
 	// search the table for the correct value:
 	unsigned table_len = rho.size();
 
-	for (unsigned i = table_len-1; i>0; i--) {
-		// scan for the first matching rho
+    assert(rho_in < rho[table_len-1]);
+    assert(rho_in > rho[0]);
+	for (int i = table_len-1; i>=0; i--) {
 		if (rho[i]< rho_in) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
-			double P_out = Pres[i] + (Pres[i+1] - Pres[i]) / (rho[i+1] - rho[i]) * (rho_in - rho[i]);
-
-			return P_out;
+			return  Pres[i] + (Pres[i+1] - Pres[i]) / (rho[i+1] - rho[i]) * (rho_in - rho[i]);
 		}
 	}
-	// if nothing was found return a polytropic EOS value:
-	std::cout << "No matching rho found" << std::endl;
 	return 0.;
 }
 
