@@ -6,11 +6,13 @@
 
 namespace ublas = boost::numeric::ublas;
 
-
 class vector : public ublas::vector<double> {
 public:
     using ublas::vector<double>::vector;
 
     vector(std::initializer_list<double> list);
+
+    static bool is_nan(const vector& v);
 };
+
 #endif
