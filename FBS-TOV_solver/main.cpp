@@ -4,6 +4,7 @@
 #include <iomanip> 	// for std::fixed and std::fixesprecission()
 #include <fstream>	// file streams
 #include <memory>
+#include <chrono>
 // #include <mpi.h>  // to use MPI (for parallelization) -> needs special compile rules!
 
 #include "vector.hpp"    // include custom 5-vector class
@@ -13,6 +14,10 @@
 #include "plotting.hpp"
 
 // --------------------------------------------------------------------
+using clock_type = std::chrono::steady_clock;
+using second_type = std::chrono::duration<double, std::ratio<1> >;
+
+typedef std::chrono::time_point<clock_type> time_point;
 
 
 void save_integration_data(const std::vector<integrator::step>& res, std::string filename) {
@@ -34,7 +39,7 @@ void save_integration_data(const std::vector<integrator::step>& res, std::string
 }
 
 
-void Bisection(NSmodel*m, const vector& init_vars, double omega_0, double omega_1) {
+void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, double omega_1) {
     // values for bisection
     double omega_mid;
     int n_zc_0, n_zc_1, n_zc_mid;
@@ -168,11 +173,14 @@ int main() {
     auto EOS_DD2 = std::make_shared<EoStable>("DD2_eos.table");
     auto EOS_poly = std::make_shared<PolytropicEoS>();
 
-    NSmodel m( EOS_poly, mu, lambda, 0.);
+    FermionBosonStar m( EOS_poly, mu, lambda, 0.);
 
     vector inits =  m.initial_conditions(0., rho_c, phi_c);
     double omega_0 = 1., omega_1 =10.;
+    time_point start{clock_type::now()};
     Bisection(&m, inits, omega_0, omega_1);
+    time_point end{clock_type::now()};
+    std::cout << "bisection took " << std::chrono::duration_cast<second_type>(end-start).count() << "s" << std::endl;
 
     /* see https://github.com/lava/matplotlib-cpp/issues/268 */
     matplotlibcpp::detail::_interpreter::kill();
