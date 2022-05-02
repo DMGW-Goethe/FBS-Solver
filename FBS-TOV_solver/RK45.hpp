@@ -12,7 +12,7 @@ namespace integrator
 {
     typedef vector (*ODE_system)(const double, const vector& , const void*);
     typedef std::pair<double, vector> step;
-    typedef bool (*event_condition)(const double, const vector, const void* params);
+    typedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params);
 
     struct Event {
         event_condition condition;

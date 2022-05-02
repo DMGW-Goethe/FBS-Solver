@@ -43,7 +43,7 @@ void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, dou
     // values for bisection
     double omega_mid;
     int n_zc_0, n_zc_1, n_zc_mid;
-    int n_mode = 0;
+    int n_mode = 2;
     double delta_omega = 1e-16;
     int phi_index = 2;
     int n_max_steps = 1000;
@@ -52,8 +52,8 @@ void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, dou
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
     double r_init = 1e-10, r_end= 1000;
-    integrator::Event phi_neg([](const double r, const vector y, const void*params) { return y[2] < 0.; });
-    integrator::Event phi_pos([](const double r, const vector y, const void*params) { return y[2] > 0.; });
+    integrator::Event phi_neg([](const double r, const double dr, const vector& y, const vector& dy, const void *params) { return y[2] < 0.; });
+    integrator::Event phi_pos([](const double r, const double dr, const vector& y, const vector& dy, const void *params) { return y[2] > 0.; });
     std::vector<integrator::Event> events = {phi_neg, phi_pos};
     std::vector<integrator::step> results_0, results_1, results_mid;
 
@@ -148,6 +148,26 @@ void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, dou
 }
 
 
+void evaluateModel(NSmodel* m, const vector& init_vars) {
+
+    integrator::IntegrationOptions intOpts;
+    intOpts.save_intermediate = true;
+    double r_init = 1e-10, r_end= 1000;
+
+    integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
+                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);                                                                                                         return  dM_dr < 1e-18 ; },
+                                                                                                 true);
+    std::vector<integrator::Event> events = {M_converged};
+    std::vector<integrator::step> results;
+
+    int res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results,  events, intOpts);
+    plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log");
+    matplotlibcpp::save("evaluation.png"); matplotlibcpp::close();
+
+}
+
+
 
 int main() {
     /* see https://github.com/lava/matplotlib-cpp/issues/268
@@ -170,7 +190,7 @@ int main() {
     //std::cout << "Star with rho_c = " << rho_c << ": radius = " << R_fermi << " [M], mass = " << M_total << " [M_sun]" << std::endl;
 
     // try the new tabulated EOS system:
-    auto EOS_DD2 = std::make_shared<EoStable>("DD2_eos.table");
+    //auto EOS_DD2 = std::make_shared<EoStable>("DD2_eos.table");
     auto EOS_poly = std::make_shared<PolytropicEoS>();
 
     FermionBosonStar m( EOS_poly, mu, lambda, 0.);
@@ -181,6 +201,11 @@ int main() {
     Bisection(&m, inits, omega_0, omega_1);
     time_point end{clock_type::now()};
     std::cout << "bisection took " << std::chrono::duration_cast<second_type>(end-start).count() << "s" << std::endl;
+
+    time_point start2{clock_type::now()};
+    evaluateModel(&m, inits);
+    time_point end2{clock_type::now()};
+    std::cout << "evaluation took " << std::chrono::duration_cast<second_type>(end2-start2).count() << "s" << std::endl;
 
     /* see https://github.com/lava/matplotlib-cpp/issues/268 */
     matplotlibcpp::detail::_interpreter::kill();

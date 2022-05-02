@@ -72,6 +72,7 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
                             std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options)
 {
     double step_size = options.max_stepsize;        // initial stepsize
+    vector dy;
     integrator::step current_step = std::make_pair(r0, y0);
 
     // clear passed arguments
@@ -91,12 +92,13 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
 
         bool step_success = RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params, options);
         //std::cout << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
+        dy = dy_dt(current_step.first, current_step.second, params);
 
         if(options.save_intermediate)
             results.push_back(current_step);
 
         for(auto it = events.begin(); it != events.end(); ++it) {
-            if(it->condition(current_step.first, current_step.second, params)) {
+            if(it->condition(current_step.first, step_size, current_step.second, dy, params)) {
                 if(!it->active) {
                     it->active = true;
                     it->steps.push_back(current_step);
