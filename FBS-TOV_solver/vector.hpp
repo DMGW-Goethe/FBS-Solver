@@ -1,6 +1,8 @@
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
 
+// include the external boost/ublas library and use the n-dimensional vector class
+// see: https://www.boost.org/
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
 
@@ -12,9 +14,9 @@ class vector : public ublas::vector<double> {
 public:
     using ublas::vector<double>::vector;
 
-    vector(std::initializer_list<double> list);
+    vector(std::initializer_list<double> list); // created a vector with size len(list)
 
-    static bool is_nan(const vector& v);
+    static bool is_nan(const vector& v);    // functions to check for NaNs
 };
 
 #endif

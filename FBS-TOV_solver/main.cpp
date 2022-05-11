@@ -4,22 +4,22 @@
 #include <iomanip> 	// for std::fixed and std::fixesprecission()
 #include <fstream>	// file streams
 #include <memory>
-#include <chrono>
+#include <chrono>   // for timing functionalities
 // #include <mpi.h>  // to use MPI (for parallelization) -> needs special compile rules!
 
 #include "vector.hpp"    // include custom 5-vector class
 #include "RK45.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
-#include "plotting.hpp"
+#include "plotting.hpp"     // to use python/matplotlib inside of c++
 
 // --------------------------------------------------------------------
 using clock_type = std::chrono::steady_clock;
 using second_type = std::chrono::duration<double, std::ratio<1> >;
-
 typedef std::chrono::time_point<clock_type> time_point;
 
 
+// saves the integation data into an txt file
 void save_integration_data(const std::vector<integrator::step>& res, std::string filename) {
 
 	std::ofstream img;
@@ -29,8 +29,8 @@ void save_integration_data(const std::vector<integrator::step>& res, std::string
 		img << "# r\t     a\t    alpha\t    Phi\t    Psi\t    P" << std::endl;
 
         for(auto it = res.begin(); it != res.end(); ++it) {
-			img << std::fixed << std::setprecision(10) << it->first;
-            for(int i = 0; i < it->second.size(); i++) img << " " << it->second[i];
+			img << std::fixed << std::setprecision(10) << it->first;    // radius
+            for(int i = 0; i < it->second.size(); i++) img << " " << it->second[i]; // the other variables
             img << std::endl;
 
 		}
@@ -39,91 +39,105 @@ void save_integration_data(const std::vector<integrator::step>& res, std::string
 }
 
 
-void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, double omega_1) {
-    // values for bisection
+// find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
+// args: FermionBosonStar, vector, min omega, max omega
+void Bisection(FermionBosonStar* myFBS, const vector& init_vars, double omega_0, double omega_1) {
+    
+    // values/parameters for bisection
     double omega_mid;
-    int n_zc_0, n_zc_1, n_zc_mid;
-    int n_mode = 0;
-    double delta_omega = 1e-16;
-    int phi_index = 2;
-    int n_max_steps = 1000;
+    int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in Phi(r) (number of roots corresponds to the modes of the scalar field)
+    int n_mode = 0;         // number of the mode we want to compute. (mode n has n roots in the scalar field Phi(r))
+    double delta_omega = 1e-16;     // accuracy for omega
+    int phi_index = 2;      // index of the Phi-component in the solution array
+    int n_max_steps = 1000; // max number of steps in the bisection search after which the bisection search will end
     int i = 0;
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    double r_init = 1e-10, r_end= 1000;
+    double r_init = 1e-10, r_end= 1000;     // initial integration radius and max radius for integration
+    // define events to check for during integration and put them inside of a std::vector:
     integrator::Event phi_neg([](const double r, const vector y, const void*params) { return y[2] < 0.; });
     integrator::Event phi_pos([](const double r, const vector y, const void*params) { return y[2] > 0.; });
-    std::vector<integrator::Event> events = {phi_neg, phi_pos};
+    std::vector<integrator::Event> events = {phi_neg, phi_pos};     // put the events into the event array
+    // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) omega
     std::vector<integrator::step> results_0, results_1, results_mid;
 
-    // find initial values
-    assert(omega_0 < omega_1);
-    m->omega = omega_0;
-    int res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_0,  events, intOpts);
-    n_zc_0 = events[0].steps.size() + events[1].steps.size() -1;
+    // find initial values for omega min and omega max
+    assert(omega_0 < omega_1);  // if the lower omega (omega_0) is larger than the upper omega (omega_1), we stop the code execution
+    
+    // set the lower omega and integrate the ODEs:
+    myFBS->omega = omega_0;
+    int res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_0,  events, intOpts);
+    n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
-    m->omega = omega_1;
-    res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_1,  events, intOpts);
-    n_zc_1 = events[0].steps.size() + events[1].steps.size() - 1;
-    assert(omega_0 < omega_1);
-    assert(n_zc_0 != n_zc_1);
-    assert(n_zc_0 <= n_mode && n_mode <= n_zc_1);
-    std::cout << "start with omega_0 =" << omega_0 << " with n_zc=" << n_zc_0 << " and omega_1=" << omega_1 << " with n_zc=" << n_zc_1 << std::endl;
+    // set the upper omega and integrate the ODEs:
+    myFBS->omega = omega_1;
+    res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_1,  events, intOpts);
+    n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
-    // find right number of zero crossings
-    while(n_zc_1 - n_zc_0 > 1) {
+    //assert(omega_0 < omega_1);      // redundant (see a few lines above)
+    assert(n_roots_0 != n_roots_1);
+    assert(n_roots_0 <= n_mode && n_mode <= n_roots_1);
+    std::cout << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+
+    // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
+    // iterate until the upper and lower omega produce results with one root difference
+    while(n_roots_1 - n_roots_0 > 1) {
         omega_mid = (omega_0 + omega_1)/2.;
         std::cout << "omega_mid = " << omega_mid << " ->";
-        m->omega = omega_mid;
-        res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_mid,  events, intOpts);
-        n_zc_mid = events[0].steps.size() + events[1].steps.size() -1;
-        std::cout << " with n_zc = " << n_zc_mid << std::endl;
+        myFBS->omega = omega_mid;
+        res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_mid,  events, intOpts);
+        n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
+        std::cout << " with n_roots = " << n_roots_mid << std::endl;
 
-        if(n_zc_mid == n_zc_0 || n_zc_mid <= n_mode) {
-            n_zc_0 = n_zc_mid;
+        if(n_roots_mid == n_roots_0 || n_roots_mid <= n_mode) {
+            n_roots_0 = n_roots_mid;
             omega_0 = omega_mid;
             continue;
         }
-        if(n_zc_mid == n_zc_1 || n_zc_mid >= n_mode) {
-            n_zc_1 = n_zc_mid;
+        if(n_roots_mid == n_roots_1 || n_roots_mid >= n_mode) {
+            n_roots_1 = n_roots_mid;
             omega_1 = omega_mid;
             continue;
         }
     }
-    std::cout << "found omega_0 =" << omega_0 << " with n_zc=" << n_zc_0 << " and omega_1=" << omega_1 << " with n_zc=" << n_zc_1 << std::endl;
+    std::cout << "found omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
 
-    // find right behavior at infty
-    int n_inft_0, n_inft_1, n_inft_mid;
-    m->omega = omega_0; intOpts.save_intermediate=true;
-    res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_0,  events, intOpts);
-    n_inft_0 = results_0[results_0.size()-1].second[phi_index] > 0.;
+    // find right behavior at infty ( Phi(r->infty) = 0 )
+    int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
+    myFBS->omega = omega_0; intOpts.save_intermediate=true; // save intermediate is only true because we plot it later with python
+    res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_0,  events, intOpts);
+    n_inft_0 = results_0[results_0.size()-1].second[phi_index] > 0.;    // save if sign(Phi(inf)) is positive or negative
 
-    m->omega = omega_1;
-    res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_1,  events, intOpts);
-    n_inft_1 = results_1[results_1.size()-1].second[phi_index] > 0.;
+    myFBS->omega = omega_1;
+    res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_1,  events, intOpts);
+    n_inft_1 = results_1[results_1.size()-1].second[phi_index] > 0.;    // save if sign(Phi(inf)) is positive or negative
     std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
+    // plot the evolution with python (comment this out later)
     plotting::plot_evolution(results_0, events, {2}, { "Phi_0" });
-    plotting::plot_evolution(results_1, events, {2}, { "Phi_1"});
+    plotting::plot_evolution(results_1, events, {2}, { "Phi_1" });
     matplotlibcpp::legend();
     matplotlibcpp::save("bisection_int.png"); matplotlibcpp::close();
 
     intOpts.save_intermediate=false;
-    while(omega_1 - omega_0 > delta_omega && i < n_max_steps) {
+    while(omega_1 - omega_0 > delta_omega && i < n_max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
         omega_mid = (omega_0 + omega_1)/2.;
         std::cout << "omega_mid = " << omega_mid << " ->";
-        m->omega = omega_mid;
-        res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_mid,  events, intOpts);
-        n_inft_mid = results_mid[results_mid.size()-1].second[phi_index] > 0.;
+        myFBS->omega = omega_mid;
+        res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_mid,  events, intOpts);
+        n_inft_mid = results_mid[results_mid.size()-1].second[phi_index] > 0.;  // save if sign(Phi(inf)) is positive or negative
         std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
+        // compare the signs of Phi at infinity of the omega-upper, -middle and -lower solution
+        // when middle and lower sign are equal, we can move omega_0 to omega_mid
         if(n_inft_mid == n_inft_0) {
             n_inft_0 = n_inft_mid;
             omega_0 = omega_mid;
             continue;
         }
+        // when middle and upper sign are equal, we can move omega_1 to omega_mid
         if(n_inft_mid == n_inft_1) {
             n_inft_1 = n_inft_mid;
             omega_1 = omega_mid;
@@ -132,21 +146,19 @@ void Bisection(FermionBosonStar* m, const vector& init_vars, double omega_0, dou
     }
 
     std::cout << "found omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
-    m->omega = omega_0;
+    myFBS->omega = omega_0;
 
-    m->omega = omega_0; intOpts.save_intermediate=true;
-    res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_0,  events, intOpts);
+    // integrate again with saving the intermediate steps to plot them (we remove this later)
+    myFBS->omega = omega_0; intOpts.save_intermediate=true;
+    res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_0,  events, intOpts);
 
-    m->omega = omega_1;
-    res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results_1,  events, intOpts);
+    myFBS->omega = omega_1;
+    res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results_1,  events, intOpts);
     plotting::plot_evolution(results_0, events, {2}, {"Phi_0"});
     plotting::plot_evolution(results_1, events, {2}, {"Phi_1"});
     matplotlibcpp::legend();
     matplotlibcpp::save("bisection_fin.png"); matplotlibcpp::close();
-
-
 }
-
 
 
 int main() {
@@ -159,8 +171,8 @@ int main() {
     double mu = 1.;        // DM mass
     double lambda = 0.0;    //self-interaction parameter
 
-    double rho_c = 0.002; // central density
-    double phi_c = 0.02;
+    double rho_c = 0.002;   // central density
+    double phi_c = 0.02;    // central value of scalar field
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
@@ -173,12 +185,15 @@ int main() {
     auto EOS_DD2 = std::make_shared<EoStable>("DD2_eos.table");
     auto EOS_poly = std::make_shared<PolytropicEoS>();
 
-    FermionBosonStar m( EOS_poly, mu, lambda, 0.);
+    // declare one FBS object with corresponding initial conditions:
+    FermionBosonStar myFBS(EOS_poly, mu, lambda, 0.);
+    vector inits =  myFBS.initial_conditions(0., rho_c, phi_c);
 
-    vector inits =  m.initial_conditions(0., rho_c, phi_c);
+    // start the bisection search for the correct omega-value in the range [omega_0,omega_1]
     double omega_0 = 1., omega_1 =10.;
     time_point start{clock_type::now()};
-    Bisection(&m, inits, omega_0, omega_1);
+    Bisection(&myFBS, inits, omega_0, omega_1);
+
     time_point end{clock_type::now()};
     std::cout << "bisection took " << std::chrono::duration_cast<second_type>(end-start).count() << "s" << std::endl;
 

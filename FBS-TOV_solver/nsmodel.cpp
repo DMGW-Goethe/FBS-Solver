@@ -5,6 +5,7 @@ vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params
     return m->dy_dt(r, y);
 }
 
+// define the system of coupled ODEs for a Fermion-Boson Star:
 vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 
     // rename input & class variables for simpler use:
