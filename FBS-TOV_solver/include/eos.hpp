@@ -6,7 +6,7 @@
 #include <fstream>	// filestream for file input
 #include <sstream>	// string stream used for reading the EOS table
 #include <iostream>
-#include <cassert>
+#include <cassert>	// for the assert() command
 
 // a class to contain tabulated EOS
 // reads in a EOS table in the constructor.

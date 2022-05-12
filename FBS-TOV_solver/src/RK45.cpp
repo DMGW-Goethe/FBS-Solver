@@ -2,7 +2,7 @@
 
 namespace ublas = boost::numeric::ublas;
 
-
+// integrate one step
 bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options)
 {
     // intermediate steps:
@@ -68,6 +68,8 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
 	}
 }
 
+
+// integrate the whole ODE system:
 int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params,
                             std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options)
 {
@@ -97,29 +99,32 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
         if(options.save_intermediate)
             results.push_back(current_step);
 
+        // iterate through all defined events and check them (happens every iteration step)
+        // (the std::vector "events" holds an Event object in every component)
         for(auto it = events.begin(); it != events.end(); ++it) {
             if(it->condition(current_step.first, step_size, current_step.second, dy, params)) {
                 if(!it->active) {
                     it->active = true;
-                    it->steps.push_back(current_step);
-                    if(it->stopping_condition)
+                    it->steps.push_back(current_step);  // add the current values of the ODE vars to the event object
+                    if(it->stopping_condition)      // if the event is defined as a stopping condition, we stop the iteration (see below)
                         stop = event_stopping_condition;
                 }
             } else
                 it->active = false;
         }
 
-        if (current_step.first > r_end)
+        // check additional stopping conditions
+        if(current_step.first > r_end)     // max r reached
             stop = endpoint_reached;
-        if(i > options.max_step)
+        if(i > options.max_step)            // max number of steps reached
             stop = iteration_number_exceeded;
-        if(!step_success)
+        if(!step_success)                   // problem in the last step (e.g. stepsize too small and/or truncation error too large)
             stop = stepsize_underflow;
         if(stop) {
-            if(!options.save_intermediate)
+            if(!options.save_intermediate)  // save intermediate steps if it was defined earlier
                 results.push_back(current_step);
             std::cout << "stopped integration with code " << stop << " at r=" << current_step.first << std::endl;
-            return stop;
+            return stop;    // exit the integrator if a stopping condition was reached
         }
         i++;
     }

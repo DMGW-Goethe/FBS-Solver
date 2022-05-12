@@ -7,7 +7,8 @@ double PolytropicEoS::get_P_from_rho(const double rho_in) {
 }
 
 void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
-    	myrho = std::pow(P / this->kappa, 1./this->Gamma); // update restmass density according to polytropic EOS
+	// update restmass density (rho) and specific energy (epsilon) according to polytropic EOS
+    	myrho = std::pow(P / this->kappa, 1./this->Gamma);
     	epsilon = this->kappa*std::pow(myrho, this->Gamma - 1.) / (this->Gamma - 1.);
 		return;
 }
