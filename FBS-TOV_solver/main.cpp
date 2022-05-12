@@ -161,7 +161,17 @@ void Bisection(FermionBosonStar* myFBS, const vector& init_vars, double omega_0,
 }
 
 
-void evaluateModel(NSmodel* m, const vector& init_vars) {
+void cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
+    assert(x.size() == y.size() && x.size() > 0);
+    res = std::vector<double>(x.size(), 0.);
+
+    for(int i = 1; i < x.size(); i++) {
+        res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2.;
+        res[i] += res[i-1];
+    }
+}
+
+void evaluateModel(FermionBosonStar* myFBS, const vector& init_vars) {
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
@@ -173,10 +183,51 @@ void evaluateModel(NSmodel* m, const vector& init_vars) {
     std::vector<integrator::Event> events = {M_converged};
     std::vector<integrator::step> results;
 
-    int res =  integrator::RKF45(&(m->dy_dt_static), r_init, init_vars, r_end, (void*) m,  results,  events, intOpts);
+    int res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results,  events, intOpts);
     plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"});
     matplotlibcpp::legend(); matplotlibcpp::yscale("log");
     matplotlibcpp::save("evaluation.png"); matplotlibcpp::close();
+
+    auto last_step = results[results.size()-1];
+    double M_T = last_step.first / 2. * (1. - 1./last_step.second[0]/last_step.second[0]);
+
+    // Extract the results and put them into a usable form to calculate N_B, N)F
+    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
+    vector v;
+    double rho, eps;
+
+    for(int i = 0; i < results.size(); i++) {
+        r[i] = results[i].first;
+        v = results[i].second;
+        N_B_integrand[i] = v[0] * myFBS->omega *  v[2] * v[2] * r[i] * r[i] / v[1];
+        myFBS->EOS->callEOS(rho, eps, std::max(0., v[4]));
+        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;
+    }
+
+    // Integrate
+    std::vector<double> N_F_integrated, N_B_integrated;
+    cumtrapz(r, N_F_integrand, N_F_integrated);
+    cumtrapz(r, N_B_integrand, N_B_integrated);
+
+    // Find where 99% of N_B,N_F are reached to get the radii
+    double N_F = N_F_integrated[N_F_integrated.size()-1], N_B = N_B_integrated[N_B_integrated.size()-1];
+
+    int i_B=-1, i_F=-1;
+    for(int i = 0; i < r.size(); i++) {
+        if(i_B < 0) {
+            if(N_B_integrated[i] > 0.99 * N_B)
+                i_B = i;
+        }
+        if(i_F < 0) {
+            if(N_F_integrated[i] > 0.99 * N_F)
+                i_F = i;
+        }
+        if(i_B > 0 && i_F > 0)
+            break;
+    }
+    double R_B = r[i_B], R_F = r[i_F];
+
+    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << "R_F = " << R_F << ", N_B/N_F = " << N_B / N_F << std::endl;
 
 }
 
