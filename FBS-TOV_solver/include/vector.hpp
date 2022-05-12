@@ -1,8 +1,8 @@
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
 
-#include <boost/numeric/ublas/vector.hpp>
-#include <boost/numeric/ublas/io.hpp>
+#include "boost/numeric/ublas/vector.hpp"
+#include "boost/numeric/ublas/io.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
