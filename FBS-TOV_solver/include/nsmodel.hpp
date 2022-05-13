@@ -3,6 +3,8 @@
 
 #include "vector.hpp"
 #include "eos.hpp"
+#include "integrator.hpp"
+#include "plotting.hpp"
 
 
 /* this is an abstract class that is supposed to be the backbone for
@@ -24,11 +26,15 @@ public:
 class FermionBosonStar : public NSmodel {
 public:
     double mu, lambda, omega;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda, frequency omega
+    vector initial_conditions;
+    double M_T, N_B, N_F, R_B, R_F;
 
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega) {}
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
-    vector initial_conditions(const double r0, const double rho_0, const double phi_0); // holds the FBS init conditions
+    void set_initial_conditions(const double r0, const double rho_0, const double phi_0); // holds the FBS init conditions
+    void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=1000, double delta_omega=1e-15);
+    void evaluate_model(bool plot=false, std::string filename="");
 };
 
 #endif
