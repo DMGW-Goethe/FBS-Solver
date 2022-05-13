@@ -25,8 +25,10 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
         dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
 
         if( vector::is_nan(dV_05) || vector::is_nan(dV_04)) {
-        std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
-                exit(1);}
+            if(options.verbose > 0)
+                std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
+            assert(false);
+        }
 
         // approximating the truncation error:
         double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
@@ -45,9 +47,11 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
                 y += dV_05;
 
                 dr = options.min_stepsize; // ensure that the stepsize never gets too small
-                std::cout << "Error in RKF45_step(): Minimal stepsize underflow at r = " << r << ", dr = "<< dr << std::endl;  // error message for debugging
-                std::cout << "Truncation error = "<< truncation_error << std::endl;
-                std::cout << y << std::endl;
+                if(options.verbose > 0) {
+                    std::cout << "Error in RKF45_step(): Minimal stepsize underflow at r = " << r << ", dr = "<< dr << std::endl;  // error message for debugging
+                    std::cout << "Truncation error = "<< truncation_error << std::endl;
+                    std::cout << y << std::endl;
+                }
                 return false;
             }
 
@@ -93,7 +97,8 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
     while(true) {
 
         bool step_success = RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params, options);
-        //std::cout << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
+        if(options.verbose > 2)
+            std::cout  << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
         dy = dy_dt(current_step.first, current_step.second, params);
 
         if(options.save_intermediate)
@@ -123,7 +128,8 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
         if(stop) {
             if(!options.save_intermediate)  // save intermediate steps if it was defined earlier
                 results.push_back(current_step);
-            std::cout << "stopped integration with code " << stop << " at r=" << current_step.first << std::endl;
+            if(options.verbose > 0)
+                std::cout << "stopped integration with code " << stop << " at r=" << current_step.first << std::endl;
             return stop;    // exit the integrator if a stopping condition was reached
         }
         i++;
