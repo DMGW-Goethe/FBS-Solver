@@ -28,8 +28,8 @@ namespace integrator
 
     // holds parameters/options relevant to the integrator
     struct IntegrationOptions {
-        double target_error;
         int max_step;
+        double target_error;
         double min_stepsize;
         double max_stepsize;
         bool save_intermediate;
@@ -45,6 +45,10 @@ namespace integrator
     // Full Runge-Kutta Fehlberg IVP integrator
     int RKF45(ODE_system dy_dt, const double r0, const vector y0, const double r_end, const void* params,
                             std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options);
+
+
+
+    void cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res);
 
 }
 

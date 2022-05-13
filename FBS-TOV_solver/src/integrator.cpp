@@ -1,4 +1,4 @@
-#include "RK45.hpp"
+#include "integrator.hpp"
 
 namespace ublas = boost::numeric::ublas;
 
@@ -127,5 +127,16 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
             return stop;    // exit the integrator if a stopping condition was reached
         }
         i++;
+    }
+}
+
+
+void integrator::cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
+    assert(x.size() == y.size() && x.size() > 0);
+    res = std::vector<double>(x.size(), 0.);
+
+    for(int i = 1; i < x.size(); i++) {
+        res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2.;
+        res[i] += res[i-1];
     }
 }

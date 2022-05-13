@@ -7,7 +7,7 @@
 
 #define WITHOUT_NUMPY
 #include "matplotlibcpp.h"
-#include "RK45.hpp"
+#include "integrator.hpp"
 
 
 

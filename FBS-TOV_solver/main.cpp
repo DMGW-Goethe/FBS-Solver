@@ -8,7 +8,7 @@
 // #include <mpi.h>  // to use MPI (for parallelization) -> needs special compile rules!
 
 #include "vector.hpp"    // include custom 5-vector class
-#include "RK45.hpp"
+#include "integrator.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
 #include "plotting.hpp"     // to use python/matplotlib inside of c++
@@ -161,17 +161,8 @@ void Bisection(FermionBosonStar* myFBS, const vector& init_vars, double omega_0,
 }
 
 
-void cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
-    assert(x.size() == y.size() && x.size() > 0);
-    res = std::vector<double>(x.size(), 0.);
 
-    for(int i = 1; i < x.size(); i++) {
-        res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2.;
-        res[i] += res[i-1];
-    }
-}
-
-void evaluateModel(FermionBosonStar* myFBS, const vector& init_vars) {
+void evaluateModel(FermionBosonStar* myFBS, const vector& init_vars, bool plot=false, std::string filename="") {
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
@@ -184,9 +175,11 @@ void evaluateModel(FermionBosonStar* myFBS, const vector& init_vars) {
     std::vector<integrator::step> results;
 
     int res =  integrator::RKF45(&(myFBS->dy_dt_static), r_init, init_vars, r_end, (void*) myFBS,  results,  events, intOpts);
-    plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"});
-    matplotlibcpp::legend(); matplotlibcpp::yscale("log");
-    matplotlibcpp::save("evaluation.png"); matplotlibcpp::close();
+    if(plot) {
+        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"});
+        matplotlibcpp::legend(); matplotlibcpp::yscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+    }
 
     auto last_step = results[results.size()-1];
     double M_T = last_step.first / 2. * (1. - 1./last_step.second[0]/last_step.second[0]);
@@ -206,8 +199,8 @@ void evaluateModel(FermionBosonStar* myFBS, const vector& init_vars) {
 
     // Integrate
     std::vector<double> N_F_integrated, N_B_integrated;
-    cumtrapz(r, N_F_integrand, N_F_integrated);
-    cumtrapz(r, N_B_integrand, N_B_integrated);
+    integrator::cumtrapz(r, N_F_integrand, N_F_integrated);
+    integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
 
     // Find where 99% of N_B,N_F are reached to get the radii
     double N_F = N_F_integrated[N_F_integrated.size()-1], N_B = N_B_integrated[N_B_integrated.size()-1];
