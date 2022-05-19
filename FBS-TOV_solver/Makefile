@@ -8,7 +8,7 @@ SRC_DIR :=src
 SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
-CPPFLAGS := -I/usr/include/python3.8  -I$(INC_DIR)
+CPPFLAGS := -I/usr/include/python3.8 -I$(INC_DIR)
 CFLAGS   := -Wall -O3 -g
 LDFLAGS :=
 LDLIBS = -lpython3.8
