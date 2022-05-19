@@ -19,24 +19,6 @@ using second_type = std::chrono::duration<double, std::ratio<1> >;
 typedef std::chrono::time_point<clock_type> time_point;
 
 
-// saves the integation data into an txt file
-void save_integration_data(const std::vector<integrator::step>& res, std::string filename) {
-
-	std::ofstream img;
-	img.open(filename);
-
-	if(img.is_open()) {
-		img << "# r\t     a\t    alpha\t    Phi\t    Psi\t    P" << std::endl;
-
-        for(auto it = res.begin(); it != res.end(); ++it) {
-			img << std::fixed << std::setprecision(10) << it->first;    // radius
-            for(int i = 0; i < it->second.size(); i++) img << " " << it->second[i]; // the other variables
-            img << std::endl;
-
-		}
-	}
-	img.close();
-}
 
 
 
@@ -78,12 +60,13 @@ int main() {
     std::cout << "bisection took " << std::chrono::duration_cast<second_type>(end-start).count() << "s" << std::endl;
 
     time_point start2{clock_type::now()};
-    //myFBS.evaluate_model(true, "plots/model.png");
-    myFBS.evaluate_model();
+    myFBS.evaluate_model("plots/model.txt");
     time_point end2{clock_type::now()};
     std::cout << "evaluation took " << std::chrono::duration_cast<second_type>(end2-start2).count() << "s" << std::endl;
 
+    #ifdef DEBUG_PLOTTING
     /* see https://github.com/lava/matplotlib-cpp/issues/268 */
     matplotlibcpp::detail::_interpreter::kill();
+    #endif
     return 0;
 }

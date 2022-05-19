@@ -1,6 +1,5 @@
 CC := g++
 
-
 OBJ_DIR :=build
 INC_DIR :=include
 SRC_DIR :=src
@@ -8,11 +7,16 @@ SRC_DIR :=src
 SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
-CPPFLAGS := -I/usr/include/python3.8 -I$(INC_DIR)
+CPPFLAGS := -I$(INC_DIR)
 CFLAGS   := -Wall -O3 -g
 LDFLAGS :=
-LDLIBS = -lpython3.8
+LDLIBS :=
 
+
+ifdef DEBUG_PLOTTING
+	CPPFLAGS:=$(CPPFLAGS) -I/usr/include/python3.8 -DDEBUG_PLOTTING
+	LDLIBS:=$(LDLIBS) -lpython3.8
+endif
 
 .PHONY: all clean
 

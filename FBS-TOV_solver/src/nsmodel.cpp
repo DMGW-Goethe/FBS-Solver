@@ -115,10 +115,13 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     //std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
     /* plot the evolution with python
+    #ifdef DEBUG_PLOTTING
     plotting::plot_evolution(results_0, events, {2}, { "Phi_0" });
     plotting::plot_evolution(results_1, events, {2}, { "Phi_1" });
     matplotlibcpp::legend();
-    matplotlibcpp::save("bisection_int.png"); matplotlibcpp::close(); */
+    matplotlibcpp::save("bisection_int.png"); matplotlibcpp::close();
+    #endif
+    */
 
     intOpts.save_intermediate=false;
     while(omega_1 - omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
@@ -155,16 +158,19 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     this->omega = omega_1;
     res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_1,  events, intOpts);
 
+    #ifdef DEBUG_PLOTTING
     plotting::plot_evolution(results_0, events, {2}, {"Phi_0"});
     plotting::plot_evolution(results_1, events, {2}, {"Phi_1"});
     matplotlibcpp::legend();
-    matplotlibcpp::save("bisection_fin.png"); matplotlibcpp::close(); */
+    matplotlibcpp::save("bisection_fin.png"); matplotlibcpp::close();
+    #endif
+    */
 
 }
 
 
 
-void FermionBosonStar::evaluate_model(bool plot, std::string filename) {
+void FermionBosonStar::evaluate_model(std::string filename) {
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
@@ -177,10 +183,15 @@ void FermionBosonStar::evaluate_model(bool plot, std::string filename) {
     std::vector<integrator::step> results;
 
     int res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results,  events, intOpts);
-    if(plot) {
-        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"});
+
+    if(!filename.empty()) {
+        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename);
+
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
         matplotlibcpp::legend(); matplotlibcpp::yscale("log");
         matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
     }
 
     auto last_step = results[results.size()-1];
