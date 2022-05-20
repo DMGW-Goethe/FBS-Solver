@@ -32,16 +32,24 @@ EoStable::EoStable(const std::string filename) {
         double temp;
         std::stringstream ss(line);
 
-        ss >> temp; // column 1 -> temperature in MeV (we don't need it)
-        ss >> temp; // column 2
-        rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 2nd column -> restmass density and convert to code units
+		// ignore lines with '#' in it (to make comment in the table)
+		if (line.find('#') != std::string::npos)
+    		continue; // '#' found, therefore we skip this line
 
-        ss >> temp; // column 3 -> hadronic charge fraction (we don't need it)
-        ss >> temp; // column 4
+		// ---------------------------------------
+		// read in the EOS format from the CompOSE code. Format is:
+		// n_b[1/fm^3]  Y_e[dimensionless]  energy density[MeV/fm^3]  p[MeV/fm^3]
+
+        ss >> temp; // column 1 -> restmass density
+        rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 1nd column -> restmass density and convert to code units
+
+        ss >> temp; // column 2 -> electron fraction (we don't need it, skip this column)
+		ss >> temp; // column 3 -> energy density
+        e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 3nd column -> energy density e=rho*(1+epsilon) and convert to code units
+
+        ss >> temp; // column 4 -> pressure
         Pres.push_back(temp*MeV_fm3_to_codeunits);	// write the 4nd column -> pressure and convert to code units
 
-        ss >> temp; // column 5
-        e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 5nd column -> energy density e=rho*(1+epsilon) and convert to code units
     }
     infile.close();	// close file after reading from it
 
@@ -54,6 +62,9 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 	int table_len = Pres.size();
 	double e_tot_tmp = 0.0;
 
+	//std::cout << "Pres: " << P << " table: " << Pres[table_len-1] << std::endl;
+
+	// those asserts will also trigger e.g. when th solution diverges in the end
     assert(P >= 0.);
     assert(P < Pres[table_len-1]);
 
@@ -64,21 +75,23 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 		return;
 	}
 
-	for (int i = table_len-1; i>=0; i--) {
+	// search the table from the smaller values on first
+	for (unsigned i = 1; i<table_len; i++) {
 		// scan for the first matching P
-		if (Pres[i]< P) {
-
-			// the correct value is between the ith index and the i+1th index:
+		if (Pres[i] > P) {
+			// the correct value is between the i-1th index and the ith index:
 			// interpolate linearily between them:
-
-			myrho = rho[i] + (rho[i+1] - rho[i]) / (Pres[i+1] - Pres[i]) * (P - Pres[i]);
-			e_tot_tmp = e_tot[i] + (e_tot[i+1] - e_tot[i]) / (Pres[i+1] - Pres[i]) * (P - Pres[i]);
-
+			myrho = rho[i-1] + (rho[i] - rho[i-1]) / (Pres[i] - Pres[i-1]) * (P - Pres[i-1]);
+			e_tot_tmp = e_tot[i-1] + (e_tot[i] - e_tot[i-1]) / (Pres[i] - Pres[i-1]) * (P - Pres[i-1]);
 			epsilon = e_tot_tmp/myrho - 1.0;	// re-arrange to get epsilon. e=rho*(1+epsilon)
-
 			return;
 		}
 	}
+	// failsafe if no case of the above was found:
+	// set ensure non-zero-value for rho or epsilon:
+	myrho = rho[0];
+	e_tot_tmp = e_tot[0];
+	epsilon = e_tot_tmp/myrho - 1.0;
 }
 
 // obtain P from a rho input
@@ -88,11 +101,12 @@ double EoStable::get_P_from_rho(const double rho_in) {
 
     assert(rho_in < rho[table_len-1]);
     assert(rho_in > rho[0]);
-	for (int i = table_len-1; i>=0; i--) {
-		if (rho[i]< rho_in) {
+	for (unsigned i = 1; i<table_len; i++) {
+		// scan for the first matching rho
+		if (rho[i] > rho_in) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
-			return  Pres[i] + (Pres[i+1] - Pres[i]) / (rho[i+1] - rho[i]) * (rho_in - rho[i]);
+			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (rho[i] - rho[i-1]) * (rho_in - rho[i-1]);
 		}
 	}
 	return 0.;

@@ -22,7 +22,7 @@ endif
 
 all: $(OBJ)
 	echo $(OBJ)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $^ main.cpp -o main $(LDFLAGS) $(LDLIBS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $^ main.cpp -o main.out $(LDFLAGS) $(LDLIBS)
 
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(INC_DIR)/%.hpp | $(OBJ_DIR)
@@ -32,4 +32,4 @@ $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	@$(RM) -rv  $(OBJ_DIR) main
+	@$(RM) -rv  $(OBJ_DIR) main.out

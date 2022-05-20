@@ -18,7 +18,7 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
     double epsilon = 1.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
     // epsilon is related to the total energy density "e" by: e = rho*(1+epsilon)
 
-    if(P < 0.) P = 0.;  // need this to prevent NaN errors...
+    if(P < 0.) P = 1e-20;  // need this to prevent NaN errors...
 
     // apply the EOS:
     myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by pointer using EOS member function
@@ -233,7 +233,7 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     }
     double R_B = r[i_B], R_F = r[i_F];
 
-    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << "R_F = " << R_F << ", N_B/N_F = " << N_B / N_F << std::endl;
+    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", N_B/N_F = " << N_B / N_F << std::endl;
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F;
 
 }

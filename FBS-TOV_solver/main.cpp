@@ -34,7 +34,7 @@ int main() {
     double lambda = 0.0;    //self-interaction parameter
 
     double rho_c = 0.002;   // central density
-    double phi_c = 0.02;    // central value of scalar field
+    double phi_c = 1e-40;    // central value of scalar field
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
@@ -44,7 +44,7 @@ int main() {
     //std::cout << "Star with rho_c = " << rho_c << ": radius = " << R_fermi << " [M], mass = " << M_total << " [M_sun]" << std::endl;
 
     // try the new tabulated EOS system:
-    //auto EOS_DD2 = std::make_shared<EoStable>("DD2_eos.table");
+    auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
     auto EOS_poly = std::make_shared<PolytropicEoS>();
 
     // declare one FBS object with corresponding initial conditions:
