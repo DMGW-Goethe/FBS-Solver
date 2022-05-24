@@ -34,7 +34,7 @@ int main() {
     double lambda = 0.0;    //self-interaction parameter
 
     double rho_c = 0.002;   // central density
-    double phi_c = 1e-40;    // central value of scalar field
+    double phi_c = 1e-2;    // central value of scalar field
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
@@ -48,7 +48,7 @@ int main() {
     auto EOS_poly = std::make_shared<PolytropicEoS>();
 
     // declare one FBS object with corresponding initial conditions:
-    FermionBosonStar myFBS(EOS_poly, mu, lambda, 0.);
+    FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
     myFBS.set_initial_conditions(0., rho_c, phi_c);
 
     // start the bisection search for the correct omega-value in the range [omega_0,omega_1]

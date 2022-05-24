@@ -34,7 +34,7 @@ namespace integrator
         double max_stepsize;
         bool save_intermediate;
         int verbose;
-        IntegrationOptions(const int max_step=1000000, const double target_error=1e-10, const double min_stepsize=1e-18, const double max_stepsize=1., const bool save_intermediate=false, const int verbose=0)
+        IntegrationOptions(const int max_step=1000000, const double target_error=1e-10, const double min_stepsize=1e-18, const double max_stepsize=1e-2, const bool save_intermediate=false, const int verbose=0)
                             : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), save_intermediate(save_intermediate), verbose(verbose) {}
     };
 

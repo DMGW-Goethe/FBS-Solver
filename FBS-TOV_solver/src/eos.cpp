@@ -43,7 +43,7 @@ EoStable::EoStable(const std::string filename) {
         ss >> temp; // column 1 -> restmass density
         rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 1nd column -> restmass density and convert to code units
 
-        ss >> temp; // column 2 -> electron fraction (we don't need it, skip this column)
+        ss >> temp; // column 2 -> electron (lepton) fraction (we don't need it, skip this column)
 		ss >> temp; // column 3 -> energy density
         e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 3nd column -> energy density e=rho*(1+epsilon) and convert to code units
 
@@ -65,8 +65,8 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 	//std::cout << "Pres: " << P << " table: " << Pres[table_len-1] << std::endl;
 
 	// those asserts will also trigger e.g. when th solution diverges in the end
-    assert(P >= 0.);
-    assert(P < Pres[table_len-1]);
+    //assert(P >= 0.);
+    //assert(P < Pres[table_len-1]);
 
 	if (P < Pres[0]) { // we are close to vacuum and don't need to search the table. Interpolate with zero
 		myrho = 0.0 + (rho[0] / Pres[0]) * P;

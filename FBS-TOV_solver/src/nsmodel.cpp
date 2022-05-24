@@ -59,7 +59,9 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     // define events to check for during integration and put them inside of a std::vector:
     integrator::Event phi_neg([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] < 0.; });
     integrator::Event phi_pos([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] > 0.; });
-    std::vector<integrator::Event> events = {phi_neg, phi_pos};     // put the events into the event array
+    // stop integration if solution diverges:
+    integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return std::abs(y[3]) > 1.0; }, true);
+    std::vector<integrator::Event> events = {phi_neg, phi_pos, sol_diverged};     // put the events into the event array
     // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) omega
     std::vector<integrator::step> results_0, results_1, results_mid;
 
@@ -177,9 +179,12 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     double r_init = 1e-10, r_end= 1000;
 
     integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);                                                                                                         return  dM_dr < 1e-18 ; },
-                                                                                                 true);
-    std::vector<integrator::Event> events = {M_converged};
+                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]); 
+                                                                                                        return  dM_dr < 1e-18 ; },true);
+    // stop integration if solution diverges:
+    integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
+    
+    std::vector<integrator::Event> events = {M_converged, sol_diverged};
     std::vector<integrator::step> results;
 
     int res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results,  events, intOpts);
@@ -194,8 +199,23 @@ void FermionBosonStar::evaluate_model(std::string filename) {
         #endif
     }
 
-    auto last_step = results[results.size()-1];
-    double M_T = last_step.first / 2. * (1. - 1./last_step.second[0]/last_step.second[0]);
+    // obtain estimate for the total mass:
+    // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
+    // start iterating through the solution array backwards
+    int min_index = results.size()-1;
+    double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+    for (int i=results.size()-2; i >= 0; i--) {
+        if (results[i].second[0] < curr_a_min) {
+            curr_a_min = results[i].second[0]; // update current minimum
+            min_index = i;  // update min_index
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
+    // calculate M_T in where the minimum of the a metric component is:
+    // M_T = r/2 * (1- 1/a^2)
+    double M_T = results[min_index].first / 2. * (1. - 1./results[min_index].second[0]/results[min_index].second[0]);
 
     // Extract the results and put them into a usable form to calculate N_B, N)F
     std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
@@ -218,6 +238,7 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     // Find where 99% of N_B,N_F are reached to get the radii
     double N_F = N_F_integrated[N_F_integrated.size()-1], N_B = N_B_integrated[N_B_integrated.size()-1];
 
+    // first find the index in array where 99% is contained
     int i_B=-1, i_F=-1;
     for(int i = 0; i < r.size(); i++) {
         if(i_B < 0) {
@@ -231,6 +252,7 @@ void FermionBosonStar::evaluate_model(std::string filename) {
         if(i_B > 0 && i_F > 0)
             break;
     }
+    // obtain radius from corresponding index
     double R_B = r[i_B], R_F = r[i_F];
 
     std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", N_B/N_F = " << N_B / N_F << std::endl;
