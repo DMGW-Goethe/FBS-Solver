@@ -136,7 +136,7 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
     }
 }
 
-
+// integrate function using trapezoid rule
 void integrator::cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
     assert(x.size() == y.size() && x.size() > 0);
     res = std::vector<double>(x.size(), 0.);

@@ -202,22 +202,38 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     // obtain estimate for the total mass:
     // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
     // start iterating through the solution array backwards
-    int min_index = results.size()-1;
+    int min_index_a = results.size()-1;
     double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
     for (int i=results.size()-2; i >= 0; i--) {
         if (results[i].second[0] < curr_a_min) {
             curr_a_min = results[i].second[0]; // update current minimum
-            min_index = i;  // update min_index
+            min_index_a = i;  // update min_index
         }
         else {
             break; // the component is increasing again. that means we have found out minimum
         }
     }
-    // calculate M_T in where the minimum of the a metric component is:
-    // M_T = r/2 * (1- 1/a^2)
-    double M_T = results[min_index].first / 2. * (1. - 1./results[min_index].second[0]/results[min_index].second[0]);
+    // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
+    // Note: this method will maybe not work well if we consider higher modes of phi!
+    int min_index_phi = results.size()-1;
+    double curr_phi_min = std::abs(results[results.size()-1].second[2]);  // last value for the phi field a at r=0
+    for (int i=results.size()-2; i >= 0; i--) {
+        if (std::abs(results[i].second[2]) < curr_phi_min) {
+            curr_phi_min = std::abs(results[i].second[2]); // update current minimum
+            min_index_phi = i;  // update min_index
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
 
-    // Extract the results and put them into a usable form to calculate N_B, N)F
+    // calculate M_T in where the minimum of the 'a' metric component is:
+    // M_T = r/2 * (1 - 1/a^2)
+    double M_T = results[min_index_a].first / 2. * (1. - 1./results[min_index_a].second[0]/results[min_index_a].second[0]);
+
+    std::cout << "min_index_a: " << min_index_a << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
+
+    // Extract the results and put them into a usable form to calculate N_B, N_F
     std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
     vector v;
     double rho, eps;
@@ -225,9 +241,9 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     for(int i = 0; i < results.size(); i++) {
         r[i] = results[i].first;
         v = results[i].second;
-        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];
+        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
         this->EOS->callEOS(rho, eps, std::max(0., v[4]));
-        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;
+        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
     }
 
     // Integrate
@@ -236,18 +252,21 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
 
     // Find where 99% of N_B,N_F are reached to get the radii
-    double N_F = N_F_integrated[N_F_integrated.size()-1], N_B = N_B_integrated[N_B_integrated.size()-1];
+    // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
+    // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
+    double N_F = N_F_integrated[min_index_a], N_B = N_B_integrated[min_index_phi];
 
     // first find the index in array where 99% is contained
-    int i_B=-1, i_F=-1;
-    for(int i = 0; i < r.size(); i++) {
+    // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
+    int i_B=-1, i_F=-1; // index of fermionic/bsonic radius
+    for(int i = 0; i < results.size(); i++) {
         if(i_B < 0) {
             if(N_B_integrated[i] > 0.99 * N_B)
-                i_B = i;
+                {i_B = i; std::cout << "found i_B at: " << i_B << std::endl;}
         }
         if(i_F < 0) {
             if(N_F_integrated[i] > 0.99 * N_F)
-                i_F = i;
+                {i_F = i; std::cout << "found i_F at: " << i_F << std::endl;}
         }
         if(i_B > 0 && i_F > 0)
             break;
