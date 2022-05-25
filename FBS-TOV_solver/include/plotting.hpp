@@ -21,6 +21,9 @@ void save_integration_data(const std::vector<integrator::step>& results, std::ve
 
 void plot_evolution(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename="");
 
+//write any 2D array (2D std::vector) into a txt file
+
+void save_MR_data(std::vector<std::vector<double>> &array, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename);
 
 }
 #endif

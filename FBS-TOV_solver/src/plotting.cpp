@@ -1,4 +1,3 @@
-
 #include "plotting.hpp"
 
 #ifdef DEBUG_PLOTTING
@@ -49,6 +48,30 @@ void plotting::save_integration_data(const std::vector<integrator::step>& result
 			img << std::fixed << std::setprecision(10) << it->first;    // radius
             for(int i = 0; i < plot_components.size(); i++)
                 img << " " << it->second[plot_components[i]]; // the other variables
+            img << std::endl;
+		}
+	}
+	img.close();
+}
+
+
+void plotting::save_MR_data(std::vector<std::vector<double>> &array, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename) {
+
+    std::ofstream img;
+    if(filename.empty())
+        return;
+	img.open(filename);
+
+	if(img.is_open()) {
+        // print the labels in line 1:
+        for(int i = 0; i < plot_components.size(); i++)
+            {img << labels[i] << "\t";}
+		img << std::endl;
+
+        // print all the data:
+        for(unsigned i = 0; i < array.size(); ++i) {
+            for(int j = 0; j < plot_components.size(); j++)
+                {img << array[i][j] << " ";} // write the variables line by line
             img << std::endl;
 		}
 	}

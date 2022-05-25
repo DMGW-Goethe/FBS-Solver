@@ -19,10 +19,6 @@ using second_type = std::chrono::duration<double, std::ratio<1> >;
 typedef std::chrono::time_point<clock_type> time_point;
 
 
-
-
-
-
 int main() {
     /* see https://github.com/lava/matplotlib-cpp/issues/268
      * if this doesn't work, look at the end of the function*/
@@ -35,6 +31,7 @@ int main() {
 
     double rho_c = 0.002;   // central density
     double phi_c = 1e-2;    // central value of scalar field
+    double omega_0 = 1., omega_1 =10.;
 
     // integrate ONE star and save all intermediate values into a txt file:
     // a, alpha, Phi, Psi, P(rho)
@@ -49,6 +46,7 @@ int main() {
 
     // declare one FBS object with corresponding initial conditions:
     FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
+    /*
     myFBS.set_initial_conditions(0., rho_c, phi_c);
 
     // start the bisection search for the correct omega-value in the range [omega_0,omega_1]
@@ -63,6 +61,45 @@ int main() {
     myFBS.evaluate_model("plots/model.txt");
     time_point end2{clock_type::now()};
     std::cout << "evaluation took " << std::chrono::duration_cast<second_type>(end2-start2).count() << "s" << std::endl;
+    */
+
+    // ----------------------------------------------------------------
+    // generate MR curves:
+    const unsigned Nstars = 10;     // number of stars in MR curve of constant Phi_c
+    const unsigned NstarsPhi = 1;   // number of MR curves of constant Phi_c
+    std::vector<std::vector<double>> myMRcurve(Nstars, std::vector<double>(8, 0.0));
+
+    time_point start3{clock_type::now()};
+    for (unsigned i = 0; i < Nstars; ++i) {
+        for (unsigned j = 0; j < NstarsPhi; ++j) {
+
+            double rho_start = i*2e-4 + 0.0002;
+            double Phi_start = j*1.6e-3 + 1e-20;
+
+            // set init data for each star:
+            myFBS.set_initial_conditions(0., rho_start, Phi_start);
+            myFBS.bisection(omega_0, omega_1);  // compute bisection
+            myFBS.evaluate_model("");   // evaluate the model but do not save the intermediate data into txt file
+
+            // extract the relevant values from the solution and fill the MR curve array:
+            unsigned index = i + j * Nstars;
+            myMRcurve[index][0] = myFBS.M_T;                // total mass
+            myMRcurve[index][1] = rho_start;                // central density
+            myMRcurve[index][2] = Phi_start;                // central scalar field
+            myMRcurve[index][3] = myFBS.R_F*1.476625061;    // fermionic radius
+            myMRcurve[index][4] = myFBS.N_F;                // number of fermions
+            myMRcurve[index][5] = myFBS.R_B*1.476625061;    // bosonic radius
+            myMRcurve[index][6] = myFBS.N_B;                // number of bosons
+            myMRcurve[index][7] = myFBS.N_B / myFBS.N_F;    // ratio N_B / N_F
+        }
+    }
+    time_point end3{clock_type::now()};
+    std::cout << "evaluation of "<< Nstars*NstarsPhi <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
+    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(Nstars*NstarsPhi)) << "s" << std::endl;
+
+    plotting::save_MR_data(myMRcurve, {0,1,2,3,4,5,6,7}, {"M","rho_c","phi_c","R_F","N_F","R_B","N_B","N_B/N_F"}, "plots/DD2_MR_test.txt");
+    //plotting::save_MR_data(myMRcurve, {0,1,2}, {"M", "rho_c" , "phi_c"}, "coolfilename.txt");
+    // ----------------------------------------------------------------
 
     #ifdef DEBUG_PLOTTING
     /* see https://github.com/lava/matplotlib-cpp/issues/268 */
