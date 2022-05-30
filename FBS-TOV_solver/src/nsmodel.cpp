@@ -274,7 +274,21 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     // obtain radius from corresponding index
     double R_B = r[i_B], R_F = r[i_F];
 
-    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", N_B/N_F = " << N_B / N_F << std::endl;
-    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F;
+    // compute the fermionic radius R_f using the definition where P(R_f)==0:
+    // iterate the Pressure-array until we find the first point where the pressure is zero:
+    double R_F_0 = 0.0; // fermionic radius where pressure is zero
+    int i_F_0 = 0; // index of fermionic radius wher repressure is zero
+
+    // find the first point where the pressure is (approx) zero and take this as the fermionic radius
+    for (unsigned i = 1; i < results.size(); ++i) {
+        if (results[i].second[4] < 1e-15) {
+            i_F_0 = i;
+            break;
+        }
+    }
+    R_F_0 = r[i_F_0];
+
+    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
+    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
 
 }

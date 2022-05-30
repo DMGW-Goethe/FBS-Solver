@@ -27,7 +27,8 @@ class FermionBosonStar : public NSmodel {
 public:
     double mu, lambda, omega;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda, frequency omega
     vector initial_conditions;
-    double M_T, N_B, N_F, R_B, R_F;
+    // total mass M_T; number of bosons N_B; number of fermions N_F; bosonic radius R_B; fermionic radius R_F; fermionic radius where pressure is zero R_F_0
+    double M_T, N_B, N_F, R_B, R_F, R_F_0;
 
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega) {}
 

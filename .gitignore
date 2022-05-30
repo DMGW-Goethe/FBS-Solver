@@ -6,5 +6,6 @@ FBS-TOV_solver/3
 FBS-TOV_solver/a.out
 FBS-TOV_solver/*.tab
 FBS-TOV_solver/main.out
+FBS-TOV_solver/plots/*
 *.json
 *.txt
