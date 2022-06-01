@@ -5,6 +5,7 @@
 #include <fstream>	// file streams
 #include <memory>
 #include <chrono>   // for timing functionalities
+#include <omp.h>
 // #include <mpi.h>  // to use MPI (for parallelization) -> needs special compile rules!
 
 #include "vector.hpp"    // include custom 5-vector class
@@ -19,34 +20,36 @@ using second_type = std::chrono::duration<double, std::ratio<1> >;
 typedef std::chrono::time_point<clock_type> time_point;
 
 
-void calculate_MRphi_curve(const FermionBosonStar& fbs_model, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve) {
+void calculate_MRphi_curve(std::vector<FermionBosonStar>& MRphi_curve) {
 
-    double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
-    MRphi_curve.clear();
-    MRphi_curve.reserve(rho_c_grid.size()*phi_c_grid.size());
+    const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
 
     time_point start3{clock_type::now()};
-    for(unsigned int i = 0; i < rho_c_grid.size(); i++) {
-        for(unsigned int j = 0; j < phi_c_grid.size(); j++) {
-            FermionBosonStar fbs(fbs_model);
-            fbs.set_initial_conditions(0., rho_c_grid[i], phi_c_grid[j]);
-            fbs.bisection(omega_0, omega_1);  // compute bisection
-            fbs.evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
-            MRphi_curve.push_back(fbs);
-        }
+    #pragma omp parallel for
+    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
+        MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+        MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
     }
     time_point end3{clock_type::now()};
     std::cout << "evaluation of "<< MRphi_curve.size() <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
     std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
-
 }
 
 void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::string filename) {
 
-    FermionBosonStar myFBS(EOS, mu, lambda, 0.);    // create model for star
+    FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
     std::vector<FermionBosonStar> MRphi_curve;
+    MRphi_curve.reserve(rho_c_grid.size()*phi_c_grid.size());
 
-    calculate_MRphi_curve(myFBS, rho_c_grid, phi_c_grid, MRphi_curve); // calculate curves
+    for(unsigned int i = 0; i < rho_c_grid.size(); i++) {
+        for(unsigned int j = 0; j < phi_c_grid.size(); j++) {
+            FermionBosonStar fbs(fbs_model);
+            fbs.set_initial_conditions(0., rho_c_grid[i], phi_c_grid[j]);
+            MRphi_curve.push_back(fbs);
+        }
+    }
+
+    calculate_MRphi_curve(MRphi_curve); // calculate curves
 
     if(filename.empty())    // write to file
         return;
@@ -114,7 +117,7 @@ int main() {
     // ----------------------------------------------------------------
     // generate MR curves:
     const unsigned Nstars = 20;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 1;   // number of MR curves of constant Phi_c
+    const unsigned NstarsPhi = 20;   // number of MR curves of constant Phi_c
 
     // define some global values:
     double mu = 1.;        // DM mass

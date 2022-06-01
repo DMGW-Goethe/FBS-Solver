@@ -1,5 +1,8 @@
 CC := g++
 
+# Comment to remove OMP support
+OMP:=1
+
 OBJ_DIR :=build
 INC_DIR :=include
 SRC_DIR :=src
@@ -16,6 +19,10 @@ LDLIBS :=
 ifdef DEBUG_PLOTTING
 	CPPFLAGS:=$(CPPFLAGS) -I/usr/include/python3.8 -DDEBUG_PLOTTING
 	LDLIBS:=$(LDLIBS) -lpython3.8
+endif
+
+ifdef OMP
+	CPPFLAGS:=$(CPPFLAGS) -fopenmp
 endif
 
 .PHONY: all clean
