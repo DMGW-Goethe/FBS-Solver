@@ -292,3 +292,17 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
 
 }
+
+std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
+    double rho_c, eps; fbs.EOS->callEOS(rho_c, eps, fbs.initial_conditions[4]);
+    return os   << fbs.M_T << " "
+                << rho_c                     << " "   // central density
+                << fbs.initial_conditions[2] << " "   // central scalar field
+                << fbs.R_F*1.476625061       << " "   // fermionic radius
+                << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
+                << fbs.N_F                   << " "   // number of fermions
+                << fbs.R_B*1.476625061       << " "   // bosonic radius
+                << fbs.N_B                   << " "   // number of bosons
+                << fbs.N_B / fbs.N_F;    // ratio N_B / N_F
+}
+
