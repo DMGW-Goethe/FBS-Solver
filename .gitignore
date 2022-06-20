@@ -1,11 +1,8 @@
-Reproducing_2110.11997/img/picture.png
-Reproducing_2110.11997/eos.table
 *.table
-FBS-TOV_solver/build
-FBS-TOV_solver/3
-FBS-TOV_solver/a.out
-FBS-TOV_solver/*.tab
-FBS-TOV_solver/main.out
-FBS-TOV_solver/plots/*
+build
+a.out
+*.tab
+main.out
+plots/*
 *.json
 *.txt
