@@ -171,6 +171,88 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 }
 
 
+// uses the bisection method to calculate a FBS solution with fixed rho_c and fixed particle ratio Nb/Nf
+// optimized phi_c and omega in the process.
+void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega) {
+
+    // calc the FBS solution once using an initial Phi value
+    double my_NbNf;
+    double phi_c_init = this->initial_conditions[2];
+
+    while (true) {
+
+        this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+        this->evaluate_model();
+        // obtain the ration Nb/Nf
+        my_NbNf = this->N_B / this->N_F;
+        // check if obtained ratio is above the wanted ratio
+        // if yes, we perform a bisection search in the range [0, Phi_initial]
+        // if no, we increase Phi_initial by an amount and perform the above steps again
+
+        if (NbNf_ratio < my_NbNf) {
+            // the calculated ratio is above the wanted ratio. We can now perform the bisection search!
+            break;
+        }
+        // the wanted ratio is above the calculated ratio. Increase the phi-field for higher ratio Nb/Nf
+        if (my_NbNf > 1e-5) {
+            phi_c_init = phi_c_init*2.;
+        } else{
+            phi_c_init = phi_c_init*100.;
+        }
+        
+        this->initial_conditions[2] = phi_c_init;
+        continue;
+    }
+    
+    // now perform te bisection until the wanted accuracy is reached:
+    // define a few local variables:
+    double phi_c_0 = 1e-20;
+    double phi_c_1 = phi_c_init;
+    double phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
+
+    double NbNf_0;
+    double NbNf_mid;    // NbNftio of the mid point in phi
+    double NbNf_1 = my_NbNf;
+
+    //double my_omega;
+
+    this->initial_conditions[2] = phi_c_0;
+    this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+    this->evaluate_model();
+    NbNf_0 = this->N_B / this->N_F;
+    
+    int i = 0;
+    // continue bisection until the wanted accuracy was reached
+    while ( (std::abs(NbNf_0 - NbNf_1) > NbNf_accuracy) && (i < max_steps) ) {
+        i++;
+
+        phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
+
+        this->initial_conditions[2] = phi_c_mid;
+        this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+        //my_omega = this->omega;
+        this->evaluate_model();
+        // obtain the ration Nb/Nf
+        NbNf_mid = this->N_B / this->N_F;
+
+        if (NbNf_mid < NbNf_ratio) {
+            // the mid point is below the wanted ratio and we can adjust the lower bound
+            NbNf_0 = NbNf_mid;
+            phi_c_0 = phi_c_mid;
+            continue;
+        }
+        else if (NbNf_mid > NbNf_ratio) {
+            // the mid point is above the wanted ratio and we can adjust the upper bound
+            NbNf_1 = NbNf_mid;
+            phi_c_1 = phi_c_mid;
+            continue;
+        }
+
+    }
+    // the now obtained omega and phi_c values are now optimized for the wanted Nb/Nf and we can quit the function
+
+}
+
 
 void FermionBosonStar::evaluate_model(std::string filename) {
 
@@ -303,6 +385,9 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.N_F                   << " "   // number of fermions
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
                 << fbs.N_B                   << " "   // number of bosons
-                << fbs.N_B / fbs.N_F;    // ratio N_B / N_F
+                << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
+                << fbs.omega                 << " "   // omega
+                << fbs.mu                    << " "   // mass mu
+                << fbs.lambda;      // self-interaction parameter lambda
 }
 

@@ -55,7 +55,7 @@ void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, co
         return;
     std::ofstream img;
 	img.open(filename);
-    std::vector<std::string> labels({"M","rho_c","phi_c","R_F","R_F_0","N_F","R_B","N_B","N_B/N_F"});
+    std::vector<std::string> labels({"M","rho_c","phi_c","R_F","R_F_0","N_F","R_B","N_B","N_B/N_F","omega","mu","lambda"});
 
 	if(img.is_open()) {
         // print the labels in line 1:
@@ -117,7 +117,7 @@ int main() {
     // ----------------------------------------------------------------
     // generate MR curves:
     const unsigned Nstars = 20;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 20;   // number of MR curves of constant Phi_c
+    const unsigned NstarsPhi = 2;   // number of MR curves of constant rho_c
 
     // define some global values:
     double mu = 1.;        // DM mass
@@ -129,7 +129,7 @@ int main() {
 
     // declare initial conditions:
     double rho_c = 0.0002;   // central density of first star
-    double phi_c = 1e-20;    // central value of scalar field of first star
+    double phi_c = 1e-10;    // central value of scalar field of first star
 
     std::vector<double> rho_c_grid, phi_c_grid;
     for (unsigned i = 0; i < Nstars; ++i)
@@ -138,8 +138,15 @@ int main() {
             phi_c_grid.push_back(j*0.005 + phi_c);
 
 
-    test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot2.txt");
+    //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot3.txt");
     // space for more EOS
+
+    // method for the bisection with respect to Nb/Nf:
+    double omega_0 = 1., omega_1 = 10.;
+    FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
+    myFBS.set_initial_conditions(0., rho_c, phi_c);
+    myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
+    myFBS.evaluate_model();
 
     // ----------------------------------------------------------------
 
