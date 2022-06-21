@@ -35,6 +35,7 @@ void calculate_MRphi_curve(std::vector<FermionBosonStar>& MRphi_curve) {
     std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
 }
 
+
 void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::string filename) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
@@ -69,6 +70,69 @@ void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, co
 	}
 	img.close();
 }
+
+
+void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::string filename) {
+
+    
+    // FermionBosonStar myFBS(EOS, mu, lambda, 0.);
+    // myFBS.set_initial_conditions(0., rho_c, phi_c);
+    // myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
+    // myFBS.evaluate_model();
+
+    //FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    
+    std::vector<FermionBosonStar> MRphi_curve;
+    MRphi_curve.reserve(rho_c_grid.size()*NbNf_grid.size());
+
+    for (unsigned j = 0; j < NbNf_grid.size(); j++) {
+        for(unsigned i = 0; i < rho_c_grid.size(); i++) {
+
+            FermionBosonStar fbs(EOS, mu, lambda, 0.);  // create a star
+            fbs.set_initial_conditions(0., rho_c_grid[i], 1e-10);
+            MRphi_curve.push_back(fbs);
+        }
+    }
+
+    std::cout << "start loop" << std::endl;
+    // compute the MR-diagrams:
+    double omega_0 = 1., omega_1 = 10.;
+
+    #pragma omp parallel for
+    for(unsigned int i = 0; i < NbNf_grid.size() ; i++) {
+        for(unsigned int j = 0; j < rho_c_grid.size() ; j++) {
+            int index = i*rho_c_grid.size() + j;
+            MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4, omega_0, omega_1);  // compute star with set NbNf ratio
+            //MRphi_curve[index].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
+    
+        }
+    }
+
+    std::cout << "end loop" << std::endl;
+
+    // save data in file:
+
+    if(filename.empty())    // write to file
+        return;
+    std::ofstream img;
+	img.open(filename);
+    std::vector<std::string> labels({"M","rho_c","phi_c","R_F","R_F_0","N_F","R_B","N_B","N_B/N_F","omega","mu","lambda"});
+
+	if(img.is_open()) {
+        // print the labels in line 1:
+        img << "# ";
+        for(int i = 0; i < labels.size(); i++) {
+            img << labels[i] << "\t"; }
+		img << std::endl;
+
+        // print all the data:
+        for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
+            img << *it << std::endl;
+        }
+	}
+	img.close();
+
+}
+
 
 int main() {
     /* see https://github.com/lava/matplotlib-cpp/issues/268
@@ -116,8 +180,9 @@ int main() {
 
     // ----------------------------------------------------------------
     // generate MR curves:
-    const unsigned Nstars = 20;     // number of stars in MR curve of constant Phi_c
+    const unsigned Nstars = 5;     // number of stars in MR curve of constant Phi_c
     const unsigned NstarsPhi = 2;   // number of MR curves of constant rho_c
+    const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
     double mu = 1.;        // DM mass
@@ -128,25 +193,32 @@ int main() {
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
 
     // declare initial conditions:
-    double rho_c = 0.0002;   // central density of first star
+    double rho_c = 0.0005;   // central density of first star
     double phi_c = 1e-10;    // central value of scalar field of first star
 
-    std::vector<double> rho_c_grid, phi_c_grid;
-    for (unsigned i = 0; i < Nstars; ++i)
+    std::vector<double> rho_c_grid, phi_c_grid, NbNf_grid;
+    for (unsigned i = 0; i < Nstars; ++i) {
             rho_c_grid.push_back(i*1e-4 + rho_c);
-    for (unsigned j = 0; j < NstarsPhi; ++j)
-            phi_c_grid.push_back(j*0.005 + phi_c);
-
+            std::cout << rho_c_grid[i] << std::endl;}
+    for (unsigned j = 0; j < NstarsPhi; ++j) {
+            phi_c_grid.push_back(j*0.005 + phi_c); }
+    for (unsigned k = 0; k < NstarsNbNf; ++k) {
+            NbNf_grid.push_back(k*0.1 + 0.1); 
+            std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot3.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
-    double omega_0 = 1., omega_1 = 10.;
-    FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
-    myFBS.set_initial_conditions(0., rho_c, phi_c);
-    myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
-    myFBS.evaluate_model();
+    //double omega_0 = 1., omega_1 = 10.;
+    //FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
+    //myFBS.set_initial_conditions(0., rho_c, phi_c);
+    //myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
+    // myFBS.evaluate_model();
+
+    // calc three MR-curves with different Nb/Nf Ratios!
+    calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, "plots/NbNf_test1.txt");
+
 
     // ----------------------------------------------------------------
 
