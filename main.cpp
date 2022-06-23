@@ -45,7 +45,7 @@ void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, co
     for(unsigned int i = 0; i < rho_c_grid.size(); i++) {
         for(unsigned int j = 0; j < phi_c_grid.size(); j++) {
             FermionBosonStar fbs(fbs_model);
-            fbs.set_initial_conditions(0., rho_c_grid[i], phi_c_grid[j]);
+            fbs.set_initial_conditions(rho_c_grid[i], phi_c_grid[j]);
             MRphi_curve.push_back(fbs);
         }
     }
@@ -74,13 +74,13 @@ void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, co
 
 void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::string filename) {
 
-    
+
     // FermionBosonStar myFBS(EOS, mu, lambda, 0.);
-    // myFBS.set_initial_conditions(0., rho_c, phi_c);
+    // myFBS.set_initial_conditions( rho_c, phi_c);
     // myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
     // myFBS.evaluate_model();
 
-    //FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    
+    //FermionBosonStar fbs_model(EOS, mu, lambda, 0.);
     std::vector<FermionBosonStar> MRphi_curve;
     MRphi_curve.reserve(rho_c_grid.size()*NbNf_grid.size());
 
@@ -88,7 +88,7 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
         for(unsigned i = 0; i < rho_c_grid.size(); i++) {
 
             FermionBosonStar fbs(EOS, mu, lambda, 0.);  // create a star
-            fbs.set_initial_conditions(0., rho_c_grid[i], 1e-10);
+            fbs.set_initial_conditions(rho_c_grid[i], 1e-10);
             MRphi_curve.push_back(fbs);
         }
     }
@@ -103,7 +103,7 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
             int index = i*rho_c_grid.size() + j;
             MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4, omega_0, omega_1);  // compute star with set NbNf ratio
             //MRphi_curve[index].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
-    
+
         }
     }
 
@@ -162,7 +162,7 @@ int main() {
     // declare one FBS object with corresponding initial conditions:
     //FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
     /*
-    myFBS.set_initial_conditions(0., rho_c, phi_c);
+    myFBS.set_initial_conditions(rho_c, phi_c);
 
     // start the bisection search for the correct omega-value in the range [omega_0,omega_1]
     double omega_0 = 1., omega_1 =10.;
@@ -203,7 +203,7 @@ int main() {
     for (unsigned j = 0; j < NstarsPhi; ++j) {
             phi_c_grid.push_back(j*0.005 + phi_c); }
     for (unsigned k = 0; k < NstarsNbNf; ++k) {
-            NbNf_grid.push_back(k*0.1 + 0.1); 
+            NbNf_grid.push_back(k*0.1 + 0.1);
             std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot3.txt");
@@ -212,7 +212,7 @@ int main() {
     // method for the bisection with respect to Nb/Nf:
     //double omega_0 = 1., omega_1 = 10.;
     //FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
-    //myFBS.set_initial_conditions(0., rho_c, phi_c);
+    //myFBS.set_initial_conditions(rho_c, phi_c);
     //myFBS.shooting_NbNf_ratio(0.2, 1e-3, omega_0, omega_1); // evaluate model is included
     // myFBS.evaluate_model();
 

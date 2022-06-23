@@ -39,7 +39,7 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 }
 
 
-void FermionBosonStar::set_initial_conditions(const double r0, const double rho_0, const double phi_0) {
+void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
         this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
 }
 
@@ -199,11 +199,11 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
         } else{
             phi_c_init = phi_c_init*100.;
         }
-        
+
         this->initial_conditions[2] = phi_c_init;
         continue;
     }
-    
+
     // now perform te bisection until the wanted accuracy is reached:
     // define a few local variables:
     double phi_c_0 = 1e-20;
@@ -220,7 +220,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
     this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
     this->evaluate_model();
     NbNf_0 = this->N_B / this->N_F;
-    
+
     int i = 0;
     // continue bisection until the wanted accuracy was reached
     while ( (std::abs(NbNf_0 - NbNf_1) > NbNf_accuracy) && (i < max_steps) ) {
@@ -261,11 +261,11 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     double r_init = 1e-10, r_end= 1000;
 
     integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]); 
+                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
                                                                                                         return  dM_dr < 1e-18 ; },true);
     // stop integration if solution diverges:
     integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
-    
+
     std::vector<integrator::Event> events = {M_converged, sol_diverged};
     std::vector<integrator::step> results;
 

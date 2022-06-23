@@ -35,7 +35,7 @@ public:
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega) {}
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
-    void set_initial_conditions(const double r0, const double rho_0, const double phi_0); // holds the FBS init conditions
+    void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
     void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::string filename="");
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
