@@ -6,3 +6,5 @@ main.out
 plots/*
 *.json
 *.txt
+libfbs.a
+python/__pycache__

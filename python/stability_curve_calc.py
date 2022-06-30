@@ -165,7 +165,7 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 			perp /= np.linalg.norm(perp)
 
 			# calc dot product of Nf gradient wit line perp to mass:
-			deriv_array_2D[i][j] = perp.dot(grad_Nf)
+			deriv_array_2D[j][i] = perp.dot(grad_Nf)
 
 	# obtain all points where deriv_array is (almost) zero/ has a minimum and add these points to the stability curve:
 	# save the stability curve in terms of rho_c and Phi_c AND in terms of the corresponding M and R:
@@ -188,13 +188,27 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 	phigrid = []
 
 	for i in range(num_rho_stars):
-		rhogrid.append(data_array_2D_w_ghost_cells[i][0][1])
+		rhogrid.append(data_array_2D_w_ghost_cells[i+stencil_order][0][1])
 	for j in range(num_phi_stars):
-		phigrid.append(data_array_2D_w_ghost_cells[0][j][2])
+		phigrid.append(data_array_2D_w_ghost_cells[0][j+stencil_order][2])
 
 	# obtain the contour line in a different way:
-	X, Y = np.meshgrid(phigrid, rhogrid)
+
+	
+	Y, X = np.meshgrid(rhogrid, phigrid)
 	contours = plt.contour(Y, X, deriv_array_2D, colors='black', levels=[0.0])
+	#plt.show()
+	#plt.imshow(deriv_array_2D, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
+	#plt.show()
+
+	M_array = test
+	for i in range(num_rho_stars):
+		for j in range(num_phi_stars):
+			M_array[j][i] = data_array_2D_w_ghost_cells[i+stencil_order][j+stencil_order][0]
+
+	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.62, 1.0, 1.2, 1.4, 1.6])
+
+	plt.imshow(M_array, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
 	plt.show()
 
 	return stab_curve
