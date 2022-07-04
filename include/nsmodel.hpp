@@ -26,9 +26,12 @@ public:
 // https://arxiv.org/pdf/2110.11997.pdf
 // constructor: EOS (ptr), mu (double), lambda (double), omega (double)
 class FermionBosonStar : public NSmodel {
+protected:
+    vector initial_conditions;
+
 public:
     double mu, lambda, omega;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda, frequency omega
-    vector initial_conditions;
+    double rho_0, phi_0;
     // total mass M_T; number of bosons N_B; number of fermions N_F; bosonic radius R_B; fermionic radius R_F; fermionic radius where pressure is zero R_F_0
     double M_T, N_B, N_F, R_B, R_F, R_F_0;
 
@@ -37,7 +40,8 @@ public:
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
     void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
-    void evaluate_model(std::string filename="");
+    void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
+    void evaluate_model();
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStar&);

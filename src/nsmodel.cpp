@@ -40,7 +40,9 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 
 
 void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
-        this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
+    this->rho_0 = rho_0;
+    this->phi_0 = phi_0;
+    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
 }
 
 // find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
@@ -253,8 +255,12 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
 }
 
+void FermionBosonStar::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
 
-void FermionBosonStar::evaluate_model(std::string filename) {
+void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
@@ -267,7 +273,8 @@ void FermionBosonStar::evaluate_model(std::string filename) {
     integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
 
     std::vector<integrator::Event> events = {M_converged, sol_diverged};
-    std::vector<integrator::step> results;
+    //std::vector<integrator::step> results;
+    results.clear();
 
     int res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results,  events, intOpts);
 
@@ -376,10 +383,9 @@ void FermionBosonStar::evaluate_model(std::string filename) {
 }
 
 std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
-    double rho_c, eps; fbs.EOS->callEOS(rho_c, eps, fbs.initial_conditions[4]);
-    return os   << fbs.M_T << " "
-                << rho_c                     << " "   // central density
-                << fbs.initial_conditions[2] << " "   // central scalar field
+    return os   << fbs.M_T                   << " "   // total gravitational mass
+                << fbs.rho_0                 << " "   // central density
+                << fbs.phi_0                 << " "   // central scalar field
                 << fbs.R_F*1.476625061       << " "   // fermionic radius
                 << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
                 << fbs.N_F                   << " "   // number of fermions
