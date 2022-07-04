@@ -61,13 +61,13 @@ void test_EOS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, co
 	if(img.is_open()) {
         // print the labels in line 1:
         img << "# "; // hashtag so that python recognizes it as a commented line
-        for(int i = 0; i < labels.size(); i++)
+        for(unsigned i = 0; i < labels.size(); i++)
             img << labels[i] << "\t";
 		img << std::endl;
 
         // print all the data:
         for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it)
-            img << *it << std::endl;
+            img << std::fixed << std::setprecision(10) << *it << std::endl;
 	}
 	img.close();
 }
@@ -99,8 +99,8 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
     double omega_0 = 1., omega_1 = 10.;
 
     #pragma omp parallel for
-    for(unsigned int i = 0; i < NbNf_grid.size() ; i++) {
-        for(unsigned int j = 0; j < rho_c_grid.size() ; j++) {
+    for(unsigned i = 0; i < NbNf_grid.size(); i++) {
+        for(unsigned j = 0; j < rho_c_grid.size() ; j++) {
             int index = i*rho_c_grid.size() + j;
             MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4, omega_0, omega_1);  // compute star with set NbNf ratio
             //MRphi_curve[index].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
@@ -121,13 +121,13 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 	if(img.is_open()) {
         // print the labels in line 1:
         img << "# "; // hashtag so that python recognizes it as a commented line
-        for(int i = 0; i < labels.size(); i++) {
+        for(unsigned i = 0; i < labels.size(); i++) {
             img << labels[i] << "\t"; }
 		img << std::endl;
 
         // print all the data:
         for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
-            img << *it << std::endl;
+            img << std::fixed << std::setprecision(10) << *it << std::endl;
         }
 	}
 	img.close();
@@ -215,7 +215,7 @@ int main() {
             std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
-    test_EOS(mu, lambda, Polytrope, rho_c_grid, phi_c_grid, "plots/polytrope_stab_curve_test3.txt");
+    test_EOS(mu, lambda, Polytrope, rho_c_grid, phi_c_grid, "plots/polytrope_stab_curve_test5.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:

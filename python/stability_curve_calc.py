@@ -117,6 +117,33 @@ def central_stencil(vals, i, j, order, val_index):
 	derivJdir /= delta_phi	# derivative in phi_c dir
 	return derivIdir, derivJdir # rho-dir, phi-dir
 
+# forward stenctils
+def forward_stencil(vals, i, j, order, val_index):
+    stencil1st = [-1.0, 1.0]
+    stencil2nd = [-3.0/2.0, 2.0, -1.0/2.0]
+    stencil3rd = [-11.0/6.0, 3.0, -3.0/2.0, 1.0/3.0]
+    stencil4th = [-25.0/12.0, 4.0, -3.0, 4.0/3.0, -1.0/4.0]
+
+    stencil = []
+    if order == 1:
+        stencil = stencil1st
+    elif order == 2:
+        stencil = stencil2nd
+    elif order == 3:
+        stencil = stencil3rd
+    elif order == 4:
+        stencil = stencil4th
+
+    derivIdir = 0
+    derivJdir = 0
+    for iTemp in range(0, order + 1):
+        # print(iTemp)
+        derivIdir += vals[i + iTemp][j][val_index] * stencil[iTemp]
+        derivJdir += vals[i][j + iTemp][val_index] * stencil[iTemp]
+
+    derivIdir /= vals[i + 1][j][1] - vals[i][j][1]
+    derivJdir /= vals[i][j + 1][2] - vals[i][j][2]
+    return derivIdir, derivJdir
 
 # calculate the stability curve using the definition in arXiv:2006.08583v2
 # by computing partial derivatives of Nb and Nf
@@ -156,9 +183,13 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 			# holds the derivative
 			grad_M = [0,0]
 			grad_Nf = [0,0]
-
+			
+			# (last function argument: 0=totalmass, 5=fermion number, 7=boson number)
 			grad_M[0], grad_M[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
-			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
+			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 7) #calc deriv. of Nf in rho and ohi dir
+			
+			#grad_M[0], grad_M[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
+			#grad_Nf[0], grad_Nf[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
 
 			# define a vector perpendicular to the derivative in M
 			perp = np.array([grad_M[1], -grad_M[0]])
@@ -170,7 +201,7 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 	# obtain all points where deriv_array is (almost) zero/ has a minimum and add these points to the stability curve:
 	# save the stability curve in terms of rho_c and Phi_c AND in terms of the corresponding M and R:
 	stab_curve = []
-
+	# deprecated! needs to be removed later
 	for i in range(num_rho_stars-1):
 		for j in range(num_phi_stars-1):
 
@@ -184,6 +215,8 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 	
 	#print(deriv_array_2D)
 
+
+	# TODO: move all the plotting related parts of the code to other functions, once the stability curve calculation is working correctly
 	rhogrid = []
 	phigrid = []
 
@@ -196,17 +229,37 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 
 	
 	Y, X = np.meshgrid(rhogrid, phigrid)
-	contours = plt.contour(Y, X, deriv_array_2D, colors='black', levels=[0.0])
+	contours = plt.contour(Y, X, deriv_array_2D, colors='black', levels=[0.00], antialiased = True)
 	#plt.show()
 	#plt.imshow(deriv_array_2D, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
 	#plt.show()
+
+	plt.clf()	# to prevent the contour to be plotted (i.e we need this to remove the small "islands" in the plot)
 
 	M_array = test
 	for i in range(num_rho_stars):
 		for j in range(num_phi_stars):
 			M_array[j][i] = data_array_2D_w_ghost_cells[i+stencil_order][j+stencil_order][0]
 
-	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.62, 1.0, 1.2, 1.4, 1.6])
+	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.6250, 1.0, 1.2, 1.4, 1.6])
+
+	# extract the contour lines:
+	lines = []
+	for line in contours.collections[0].get_paths():
+		lines.append(line.vertices)
+
+	# select only the longest line (this is the one that we want):
+	longestindex = 0
+	maxlen = 0
+	for k in range(len(lines)):
+		print(len(lines[k]))
+		if len(lines[k]) > maxlen:
+			maxlen = len(lines[k])
+			longestindex = k
+
+	print(lines[longestindex][:,0])
+
+	plt.plot(lines[longestindex][:,0], lines[longestindex][:,1], c='black', linewidth=2)
 
 	plt.imshow(M_array, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
 	plt.show()

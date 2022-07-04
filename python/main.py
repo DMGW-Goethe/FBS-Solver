@@ -10,14 +10,14 @@ if __name__ == "__main__":
 
 	filename1 = "../plots/NbNf_test1.txt"
 	filename2 = "../plots/DD2_MR_MRphi-plot1.txt"
-	filename3 = "../plots/polytrope_stab_curve_test3.txt"
+	filename3 = "../plots/polytrope_stab_curve_test5.txt"
 	df = load_data.load_MRPhi_data(filename3)
 	#print(df)
 	#pfuncts.scatter_plotter(df)
 
-	#pfuncts.plot_interpolate_stability_region(df, 2, 20., 2.5, 0.6)
+	#pfuncts.plot_interpolate_stability_region(df, 2, 20., 2.5, 0.45)
 
-	stab_curve = scc.calc_stability_curve(df, 40, 40, 2)
+	stab_curve = scc.calc_stability_curve(df, 40, 40, 4)
 
 	#print(stab_curve)
 	Mdata = []
