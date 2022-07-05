@@ -212,7 +212,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
             phi_c_init = phi_c_init*100.;
         }
 
-        this->initial_conditions[2] = phi_c_init;
+        this->set_initial_conditions(this->rho_0, phi_c_init);
         continue;
     }
 
@@ -228,7 +228,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
     //double my_omega;
 
-    this->initial_conditions[2] = phi_c_0;
+    this->set_initial_conditions(this->rho_0, phi_c_0);
     this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
     this->evaluate_model();
     NbNf_0 = this->N_B / this->N_F;
@@ -240,7 +240,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
         phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
 
-        this->initial_conditions[2] = phi_c_mid;
+        this->set_initial_conditions(this->rho_0, phi_c_mid);
         this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
         //my_omega = this->omega;
         this->evaluate_model();
