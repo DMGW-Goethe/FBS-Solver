@@ -27,6 +27,16 @@ cdef extern from "eos.hpp":
 
 cdef extern from "integrator.hpp" namespace "integrator":
     ctypedef pair[double, vector] step
+    ctypedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params)
+
+    cdef cppclass Event:
+        event_condition condition
+        bool stopping_condition
+        stdvector[step] steps
+        bool active
+        string name
+        Event(event_condition condition, bool stopping_condition, string name)
+        void reset()
 
     cdef cppclass IntegrationOptions:
         int max_step
@@ -51,6 +61,7 @@ cdef extern from "nsmodel.hpp":
 
         void set_initial_conditions(const double rho_0, const double phi_0)
         void bisection(double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
+        int integrate(stdvector[step]& result, stdvector[Event]& events, IntegrationOptions intOpts, double r_init, double r_end)
         void evaluate_model()
         void evaluate_model(stdvector[step]& results)
         void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
@@ -61,6 +72,11 @@ cdef extern from "nsmodel.hpp":
         double R_B
         double R_F
         double R_F_0
+
+        const Event M_converged
+        const Event Psi_diverging
+        const Event phi_negative
+        const Event phi_positive
 
 
 

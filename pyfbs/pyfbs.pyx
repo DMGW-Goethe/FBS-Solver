@@ -84,7 +84,7 @@ cdef class PyFermionBosonStar:
         for i in range(res.size()):
             self.results[i, 0] = res[i].first
             for j in range(res[i].second.size()):
-                self.results[i,j] = res[i].second[j]
+                self.results[i,1+j] = res[i].second[j]
         return self.results
 
     def shooting_NbNf_ratio(self, NbNf_ratio, NbNf_accuracy, omega_0, omega_1, n_mode=0, max_step=500, delta_omega=1e-15):
