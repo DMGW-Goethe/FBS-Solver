@@ -39,10 +39,24 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 }
 
 
+const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
+                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
+                                                                                                        return  dM_dr < 1e-18 ; },true);
+
+const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
+
+const integrator::Event FermionBosonStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] < 0.; });
+const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] > 0.; });
+
 void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
     this->rho_0 = rho_0;
     this->phi_0 = phi_0;
     this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
+}
+
+
+int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) {
+    return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
 }
 
 // find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
@@ -57,13 +71,9 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    double r_init = 1e-10, r_end= 1000;     // initial integration radius and max radius for integration
     // define events to check for during integration and put them inside of a std::vector:
-    integrator::Event phi_neg([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] < 0.; });
-    integrator::Event phi_pos([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] > 0.; });
     // stop integration if solution diverges:
-    integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return std::abs(y[3]) > 1.0; }, true);
-    std::vector<integrator::Event> events = {phi_neg, phi_pos, sol_diverged};     // put the events into the event array
+    std::vector<integrator::Event> events = {phi_negative, phi_positive, Psi_diverging};     // put the events into the event array
     // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) omega
     std::vector<integrator::step> results_0, results_1, results_mid;
 
@@ -72,12 +82,12 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
-    int res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_0,  events, intOpts);
+    int res = this->integrate(results_0, events, intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper omega and integrate the ODEs:
     this->omega = omega_1;
-    res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_1,  events, intOpts);
+    res = this->integrate(results_1, events, intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     assert(n_roots_0 != n_roots_1);
@@ -90,7 +100,7 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
         omega_mid = (omega_0 + omega_1)/2.;
         //std::cout << "omega_mid = " << omega_mid << " ->";
         this->omega = omega_mid;
-        res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_mid,  events, intOpts);
+        res = this->integrate(results_mid, events, intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
         //std::cout << " with n_roots = " << n_roots_mid << std::endl;
 
@@ -110,11 +120,11 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
     this->omega = omega_0; // intOpts.save_intermediate=true;
-    res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_0,  events, intOpts);
+    res = this->integrate(results_0, events, intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
 
     this->omega = omega_1;
-    res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_1,  events, intOpts);
+    res = this->integrate(results_1, events, intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
     //std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
@@ -132,7 +142,7 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
         omega_mid = (omega_0 + omega_1)/2.;
         //std::cout << "omega_mid = " << omega_mid << " ->";
         this->omega = omega_mid;
-        res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_mid,  events, intOpts);
+        res = this->integrate(results_mid, events, intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[2] > 0.;  // save if sign(Phi(inf)) is positive or negative
         //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
@@ -157,10 +167,10 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 
     /* integrate again with saving the intermediate steps to plot them (we remove this later)
     this->omega = omega_0; intOpts.save_intermediate=true;
-    res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_0,  events, intOpts);
+    res = this->integrate(results_0, events, intOpts);
 
     this->omega = omega_1;
-    res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results_1,  events, intOpts);
+    res = this->integrate(results_1, events, intOpts);
 
     #ifdef DEBUG_PLOTTING
     plotting::plot_evolution(results_0, events, {2}, {"Phi_0"});
@@ -264,19 +274,18 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
-    double r_init = 1e-10, r_end= 1000;
 
-    integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
-                                                                                                        return  dM_dr < 1e-18 ; },true);
+    //integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
+    //                                                                                                    double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
+    //                                                                                                    return  dM_dr < 1e-18 ; },true);
     // stop integration if solution diverges:
-    integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
+    //integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
 
-    std::vector<integrator::Event> events = {M_converged, sol_diverged};
+    std::vector<integrator::Event> events = {FermionBosonStar::M_converged, FermionBosonStar::Psi_diverging};
     //std::vector<integrator::step> results;
     results.clear();
 
-    int res =  integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  results,  events, intOpts);
+    int res = this->integrate(results, events, intOpts);
 
     if(!filename.empty()) {
         plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename);
