@@ -64,8 +64,8 @@ int main() {
 
     // ----------------------------------------------------------------
     // generate MR curves:
-    const unsigned Nstars = 40;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 40;   // number of MR curves of constant rho_c
+    const unsigned Nstars = 5;     // number of stars in MR curve of constant Phi_c
+    const unsigned NstarsPhi = 5;   // number of MR curves of constant rho_c
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
@@ -98,7 +98,10 @@ int main() {
             std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
-    test_EOS(mu, lambda, Polytrope, rho_c_grid, phi_c_grid, "plots/polytrope_stab_curve_test5.txt");
+    std::vector<FermionBosonStar> MRphi_curve;
+    calc_rhophi_curves(mu, lambda, Polytrope, rho_c_grid, phi_c_grid, MRphi_curve);
+
+    write_MRphi_curve(MRphi_curve, "plots/polytrope_stab_curve_test5.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
