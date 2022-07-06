@@ -4,6 +4,14 @@ from Cython.Distutils import build_ext
 
 import os
 import numpy as np
+#import subprocess as sbp
+
+
+# Recover the gcc compiler
+#GCCPATH_STRING = sbp.Popen(
+#    ['g++', '-print-libgcc-file-name'],
+#    stdout=sbp.PIPE).communicate()[0]
+#GCCPATH = os.path.normpath(os.path.dirname(GCCPATH_STRING)).decode()
 
 pyfbs_file = "pyfbs.pyx"
 
@@ -20,7 +28,9 @@ pyfbs_ext = Extension("pyfbs",
                         language="c++",
                         libraries=liblist,
                         library_dirs=[root_folder],
-                         #extra_linkargs=['-lgomp']
+                        # library_dirs=[root_folder, GCCPATH],
+                        extra_compile_args = ["-O3", "-ffast-math", "-fopenmp" ],
+                        extra_link_args=['-lgomp']
                     )
 
 import six

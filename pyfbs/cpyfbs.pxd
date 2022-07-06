@@ -12,17 +12,21 @@ cdef extern from "vector.hpp":
         size_type size()
 
 cdef extern from "eos.hpp":
-    cdef cppclass EoStable:
+    cdef cppclass EquationOfState:
+        void callEOS(double& myrho, double& epsilon, const double P)
+        double get_P_from_rho(const double rho_in)
+
+    cdef cppclass EoStable(EquationOfState):
         EoStable(const string filename) except +
 
-        void callEOS(double& myrho, double& epsilon, const double P)
-        double get_P_from_rho(const double rho_in)
+        #void callEOS(double& myrho, double& epsilon, const double P)
+        #double get_P_from_rho(const double rho_in)
 
-    cdef cppclass PolytropicEoS:
+    cdef cppclass PolytropicEoS(EquationOfState):
         PolytropicEoS(const double kappa, const double Gamma)
 
-        void callEOS(double& myrho, double& epsilon, const double P)
-        double get_P_from_rho(const double rho_in)
+        #void callEOS(double& myrho, double& epsilon, const double P)
+        #double get_P_from_rho(const double rho_in)
 
 
 cdef extern from "integrator.hpp" namespace "integrator":
@@ -78,5 +82,10 @@ cdef extern from "nsmodel.hpp":
         const Event phi_negative
         const Event phi_positive
 
+cdef extern from "mr_curves.hpp":
+    void write_MRphi_curve(const stdvector[FermionBosonStar]& MRphi_curve, string filename);
 
+    void calc_rhophi_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& phi_c_grid, stdvector[FermionBosonStar]& MRphi_curve);
+
+    void calc_NbNf_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& NbNf_grid, stdvector[FermionBosonStar]& MRphi_curve);
 
