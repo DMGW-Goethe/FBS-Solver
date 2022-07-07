@@ -14,19 +14,16 @@ cdef extern from "vector.hpp":
 cdef extern from "eos.hpp":
     cdef cppclass EquationOfState:
         void callEOS(double& myrho, double& epsilon, const double P)
-        double get_P_from_rho(const double rho_in)
+        double get_P_from_rho(const double rho_in, const double epsilon)
 
     cdef cppclass EoStable(EquationOfState):
         EoStable(const string filename) except +
 
-        #void callEOS(double& myrho, double& epsilon, const double P)
-        #double get_P_from_rho(const double rho_in)
-
     cdef cppclass PolytropicEoS(EquationOfState):
         PolytropicEoS(const double kappa, const double Gamma)
 
-        #void callEOS(double& myrho, double& epsilon, const double P)
-        #double get_P_from_rho(const double rho_in)
+    cdef cppclass CausalEoS(EquationOfState):
+        CausalEoS(const double eps_f, const double P_f)
 
 
 cdef extern from "integrator.hpp" namespace "integrator":

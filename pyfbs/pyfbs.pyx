@@ -19,8 +19,8 @@ cdef class PyEoS:
         deref(self.eos).callEOS(rho, eps, P)
         return rho, eps
 
-    def get_P_from_rho(self, rho_in):
-        return deref(self.eos).get_P_from_rho(rho_in)
+    def get_P_from_rho(self, rho_in, epsilon=0.):
+        return deref(self.eos).get_P_from_rho(rho_in, epsilon)
 
 cdef class PyEoStable(PyEoS):
 #    cdef shared_ptr[EoStable] eos
@@ -31,33 +31,16 @@ cdef class PyEoStable(PyEoS):
         self.eos = ptr
         # see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
-#    def __dealloc__(self):
-#        del self.eos
-
-    # def callEOS(self, P):
-    #     cdef double rho, eps
-    #     deref(self.eos).callEOS(rho, eps, P)
-    #     return rho, eps
-
-    # def get_P_from_rho(self, rho_in):
-    #     return deref(self.eos).get_P_from_rho(rho_in)
 
 cdef class PyPolytropicEoS(PyEoS):
-#    cdef shared_ptr[PolytropicEoS] eos
 
     def __cinit__(self, double kappa, double Gamma):
         self.eos = make_shared[PolytropicEoS](kappa, Gamma)
 
-#    def __dealloc__(self):
-#        del self.eos
+cdef class PyCausalEoS(PyEoS):
 
-    # def callEOS(self, P):
-    #     cdef double rho, eps
-    #     deref(self.eos).callEOS(rho, eps, P)
-    #     return rho, eps
-
-    # def get_P_from_rho(self, rho_in):
-    #     return deref(self.eos).get_P_from_rho(rho_in)
+    def __cinit__(self, double eps_f, double P_f=0.):
+        self.eos = make_shared[CausalEoS](eps_f, P_f)
 
 
 cdef class PyIntegrationOptions:
@@ -77,7 +60,7 @@ cdef class PyFermionBosonStar:
         self.evaluated=False
 
     @staticmethod
-    def FromParameters(PyEoStable pyEoS, mu, lambda_=0., omega=0.):
+    def FromParameters(PyEoS pyEoS, mu, lambda_=0., omega=0.):
         cdef PyFermionBosonStar pfbs = PyFermionBosonStar.__new__(PyFermionBosonStar)
         pfbs.fbs = make_shared[FermionBosonStar](pyEoS.eos, <double>mu, <double>lambda_, <double>omega)
         return pfbs

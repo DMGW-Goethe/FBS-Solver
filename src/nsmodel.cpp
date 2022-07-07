@@ -51,7 +51,7 @@ const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](co
 void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
     this->rho_0 = rho_0;
     this->phi_0 = phi_0;
-    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0)});
+    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0, 0.)});
 }
 
 

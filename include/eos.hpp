@@ -17,7 +17,7 @@
 class EquationOfState
 {
 public:
-    virtual double get_P_from_rho(const double rho_in)  = 0;
+    virtual double get_P_from_rho(const double rho_in, const double epsilon)  = 0;
 
 	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
 
@@ -32,7 +32,22 @@ protected:
 public:
     PolytropicEoS(const double kappa=100., const double Gamma =2.) : kappa(kappa), Gamma(Gamma) {}
 
-    double get_P_from_rho(const double rho_in);
+    double get_P_from_rho(const double rho_in, const double epsilon);
+	void callEOS(double& myrho, double& epsilon, const double P);
+
+};
+
+
+/* a class modeling a Polytropic equation of state */
+class CausalEoS : public EquationOfState
+{
+protected:
+    double eps_f, P_f;
+
+public:
+    CausalEoS(const double eps_f, const double P_f =0.) : eps_f(eps_f), P_f(P_f) {}
+
+    double get_P_from_rho(const double rho_in, const double epsilon);
 	void callEOS(double& myrho, double& epsilon, const double P);
 
 };
@@ -44,7 +59,7 @@ public:
     EoStable(const std::string filename);
 	// call EOS lookup-table (including interpolation):
 	void callEOS(double& myrho, double& epsilon, const double P);
-    double get_P_from_rho(const double rho_in);
+    double get_P_from_rho(const double rho_in, const double epsilon);
 
 private:
 	// vectors to hold the tabulated EOS values:

@@ -1,7 +1,7 @@
 #include "eos.hpp"
 
 /* PolytropicEoS */
-double PolytropicEoS::get_P_from_rho(const double rho_in) {
+double PolytropicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
 
 	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
 }
@@ -14,6 +14,20 @@ void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 }
 
 
+/* CausalEoS */
+double CausalEoS::get_P_from_rho(const double rho_in, const double epsilon) {
+
+	return this->P_f + rho_in*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
+}
+
+void CausalEoS::callEOS(double& myrho, double& epsilon, const double P) {
+	// update restmass density (rho) and specific energy (epsilon) according to causal EOS
+        myrho = P - this->P_f + this->eps_f;
+        epsilon = 0.;
+}
+
+
+/* EoStable */
 EoStable::EoStable(const std::string filename) {
     // load in the tabulated EOS data and convert it to code units directly
 
@@ -95,7 +109,7 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 }
 
 // obtain P from a rho input
-double EoStable::get_P_from_rho(const double rho_in) {
+double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
 	// search the table for the correct value:
 	unsigned table_len = rho.size();
 
