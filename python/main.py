@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
 	#pfuncts.plot_interpolate_stability_region(df, 2, 20., 2.5, 0.45)
 
-	stab_curve = scc.calc_stability_curve(df, 40, 40, 4)
+	stab_curve = scc.calc_stability_curve(df, 40, 40, 2)
 
 	#print(stab_curve)
 	Mdata = []

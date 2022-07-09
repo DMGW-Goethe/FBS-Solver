@@ -64,8 +64,8 @@ int main() {
 
     // ----------------------------------------------------------------
     // generate MR curves:
-    const unsigned Nstars = 5;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 5;   // number of MR curves of constant rho_c
+    const unsigned Nstars = 40;     // number of stars in MR curve of constant Phi_c
+    const unsigned NstarsPhi = 40;   // number of MR curves of constant rho_c
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:

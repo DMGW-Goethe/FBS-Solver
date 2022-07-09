@@ -299,9 +299,11 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
 
     // obtain estimate for the total mass:
     // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
-    // start iterating through the solution array backwards
+    // start iterating through the solution array backwards:
     int min_index_a = results.size()-1;
     double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+     
+    // find the index of the minimum of the g_rr metric component:
     for (int i=results.size()-2; i >= 0; i--) {
         if (results[i].second[0] < curr_a_min) {
             curr_a_min = results[i].second[0]; // update current minimum
@@ -311,6 +313,35 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
             break; // the component is increasing again. that means we have found out minimum
         }
     }
+
+    // find the index of the optimum of the total mass M_T (before it diverges).
+    // M_T := r/2 * ( 1 - 1/(a^2) )
+    // M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
+    // Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
+    // the optimum can be found at the point where the derivative of M_t with respect to r is minimal:
+
+    int min_index_dMdr = results.size()-1;
+    // last value of the total mass M_T:
+    double curr_M_last = results[results.size()-1].first / 2. * (1. - 1./results[results.size()-1].second[0]/results[results.size()-1].second[0]);
+    double curr_M_last_minus1 = results[results.size()-2].first / 2. * (1. - 1./results[results.size()-2].second[0]/results[results.size()-2].second[0]);
+    double curr_dMdr_min = (curr_M_last - curr_M_last_minus1) / (results[results.size()-1].first - results[results.size()-2].first);
+
+    for (int i=results.size()-2; i > 0; i--) {
+
+        curr_M_last         = results[i].first / 2. * (1. - 1./results[i].second[0]/results[i].second[0]);
+        curr_M_last_minus1  = results[i-1].first / 2. * (1. - 1./results[i-1].second[0]/results[i-1].second[0]);
+        double curr_dMdr_value_i = (curr_M_last - curr_M_last_minus1) / (results[i].first - results[i-1].first);
+
+        if (curr_dMdr_value_i < curr_dMdr_min) {
+            curr_dMdr_min = curr_dMdr_value_i; // update current minimum
+            min_index_dMdr = i;  // update min_index
+            //std::cout << min_index_dMdr << std::endl;
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
+
     // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
     // Note: this method will maybe not work well if we consider higher modes of phi!
     int min_index_phi = results.size()-1;
@@ -325,11 +356,11 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
         }
     }
 
-    // calculate M_T in where the minimum of the 'a' metric component is:
+    // calculate M_T in where the last local minimum of M_T is:
     // M_T = r/2 * (1 - 1/a^2)
-    double M_T = results[min_index_a].first / 2. * (1. - 1./results[min_index_a].second[0]/results[min_index_a].second[0]);
+    double M_T = results[min_index_dMdr].first / 2. * (1. - 1./results[min_index_dMdr].second[0]/results[min_index_dMdr].second[0]);
 
-    std::cout << "min_index_a: " << min_index_a << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
+    std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
     // Extract the results and put them into a usable form to calculate N_B, N_F
     std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());

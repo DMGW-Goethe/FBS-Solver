@@ -186,7 +186,7 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 			
 			# (last function argument: 0=totalmass, 5=fermion number, 7=boson number)
 			grad_M[0], grad_M[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
-			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 7) #calc deriv. of Nf in rho and ohi dir
+			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
 			
 			#grad_M[0], grad_M[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
 			#grad_Nf[0], grad_Nf[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
@@ -241,7 +241,7 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 		for j in range(num_phi_stars):
 			M_array[j][i] = data_array_2D_w_ghost_cells[i+stencil_order][j+stencil_order][0]
 
-	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.6250, 1.0, 1.2, 1.4, 1.6])
+	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.620, 1.0, 1.2, 1.4, 1.6])
 
 	# extract the contour lines:
 	lines = []

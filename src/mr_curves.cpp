@@ -12,7 +12,7 @@ void write_MRphi_curve(const std::vector<FermionBosonStar>& MRphi_curve, std::st
         // print the labels in line 1:
         img << "# "; // hashtag so that python recognizes it as a commented line
         for(unsigned i = 0; i < labels.size(); i++)
-            img << labels[i] << "\t";
+            img << labels[i] << "\t ";
 		img << std::endl;
 
         // print all the data:
@@ -23,13 +23,14 @@ void write_MRphi_curve(const std::vector<FermionBosonStar>& MRphi_curve, std::st
 }
 
 
-
+// compute curves of constant rho_c and pyh_c:
 void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
     MRphi_curve.clear();
     MRphi_curve.reserve(rho_c_grid.size()*phi_c_grid.size());
 
+    // set initial conditions for every star in the list:
     for(unsigned int j = 0; j < phi_c_grid.size(); j++) {
         for(unsigned int i = 0; i < rho_c_grid.size(); i++) {
             FermionBosonStar fbs(fbs_model);
@@ -54,11 +55,12 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
 }
 
 
-
+// compute curves of constant rho_c and Nb/NF-ratio:
 void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve) {
     MRphi_curve.clear();
     MRphi_curve.reserve(rho_c_grid.size()*NbNf_grid.size());
 
+    // set initial conditions for every star in the list:
     for (unsigned j = 0; j < NbNf_grid.size(); j++) {
         for(unsigned i = 0; i < rho_c_grid.size(); i++) {
             FermionBosonStar fbs(EOS, mu, lambda, 0.);  // create a star
