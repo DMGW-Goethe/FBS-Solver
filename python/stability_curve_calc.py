@@ -1,28 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt	# for the contour plot
 
+
+def create_3D_array(num_i, num_j, len_inner_arr):
+	tmp = []
+	for i in range(num_i):
+		tmp2 = []
+		for j in range(num_j):
+			tmp2.append([0.]*len_inner_arr)
+		tmp.append(tmp2)
+	return tmp
+
+
 # create a value array with padding ghost cells
 def create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_order):
 
-	#data_array_w_ghost_cells = np.zeros(shape=(num_rho_stars+2*stencil_order, num_phi_stars+2*stencil_order, len(sol_array[0])))
-	#data_array_w_ghost_cells = [[[None]*len(sol_array[0])]*(num_phi_stars+2*stencil_order)]*(num_rho_stars+2*stencil_order)
-	#data_array_w_ghost_cells = [[[0]*len(sol_array[0]) ]* (num_phi_stars+2*stencil_order)]* (num_rho_stars+2*stencil_order)
-
 	# create the array which holds data AND ghost cells:
-	test = []
-	for i in range(num_rho_stars+2*stencil_order):
-		test2 = []
-		for j in range(num_phi_stars+2*stencil_order):
-			test2.append([0.]*len(sol_array[0]))
-		test.append(test2)
-
-	#print(data_array_w_ghost_cells)
-	data_array_w_ghost_cells = test
-	#print(data_array_w_ghost_cells)
-
-	#print(test)
-	#test[0][0][1] = 1.
-	#print(test)
+	data_array_w_ghost_cells = create_3D_array(num_rho_stars+2*stencil_order, num_phi_stars+2*stencil_order, len(sol_array[0]))
 
 	# extract the Nb and Nf values and arrange them into a 2D array:
 	# in each entry we now hold all values corresponding to one star
@@ -32,18 +26,8 @@ def create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_ord
 				tmp = sol_array[i+ num_rho_stars*j][k]
 				data_array_w_ghost_cells[i+stencil_order][j+stencil_order][k] = tmp
 				#print(data_array_w_ghost_cells[i][j])
-
-	# prepare the array including ghost cells:
-	# set the corners:
-	# for i in range(num_rho_stars+2*stencil_order):
-	# 	for j in range(num_phi_stars+2*stencil_order):
-	# 		#print(i,j)
-	# 		#print(sol_array[i+j*num_rho_stars][0], end=" ")
-	# 		print(data_array_w_ghost_cells[i][j][0], end = " ")
-	# 	print()
-	# exit()
-
 	
+	# fill the corners of the ghost cell-domain:
 	for i in range(stencil_order):
 		for j in range(stencil_order):
 			# lower left corner (use the upper left corner value):
@@ -55,9 +39,6 @@ def create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_ord
 			# upper left corner:
 			data_array_w_ghost_cells[i][j+stencil_order+num_phi_stars] = np.array(sol_array[num_rho_stars*num_phi_stars-num_rho_stars])
 
-	#exit()
-	#print(data_array_w_ghost_cells[:,:,0])
-
 	# set the sides without the corners:
 	# left and right side:
 	for i in range(stencil_order):
@@ -67,7 +48,6 @@ def create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_ord
 			# right side:
 			data_array_w_ghost_cells[i+stencil_order+num_rho_stars][j+stencil_order] = sol_array[num_rho_stars*j+num_rho_stars-1]
 	
-
 	# upper and lower side:
 	for i in range(num_rho_stars):
 		for j in range(stencil_order):
@@ -75,13 +55,6 @@ def create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_ord
 			data_array_w_ghost_cells[i+stencil_order][j] = sol_array[i]
 			# upper side:
 			data_array_w_ghost_cells[i+stencil_order][j+stencil_order+num_phi_stars] = sol_array[num_rho_stars*num_phi_stars-num_rho_stars+i]
-
-
-	# for i in range(num_rho_stars+2*stencil_order):
-	# 	for j in range(num_phi_stars+2*stencil_order):
-	# 		#print(i,j)
-	# 		print(data_array_w_ghost_cells[i][j][0], end=" ")
-	# 	print()
 
 	return data_array_w_ghost_cells
 
@@ -145,103 +118,55 @@ def forward_stencil(vals, i, j, order, val_index):
     derivJdir /= vals[i][j + 1][2] - vals[i][j][2]
     return derivIdir, derivJdir
 
+
 # calculate the stability curve using the definition in arXiv:2006.08583v2
 # by computing partial derivatives of Nb and Nf
 # data must be parametrized in terms of rho_c and phi_c!
 def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order):
 
-	# arrays to hold the Nb and Nf values of all points on the stability curve:
-	Rpos = []
-	Mpos = []	
-	#deriv_array_2D = [[0]*(num_phi_stars)]*(num_rho_stars)
+	# create a 2D array to hold the values of the partial derivatives which are used to find the stability curve:
+	deriv_array_2D = create_3D_array(num_rho_stars, num_phi_stars, 1) # 3D array with the last index having length=1 is just a 2D array
 
-	test = []
-	for i in range(num_rho_stars):
-		test2 = []
-		for j in range(num_phi_stars):
-			test2.append([0.])
-		test.append(test2)
-	
-	deriv_array_2D = test
-
-	# extract the Nb and Nf values and arrange them into a 2D array:
+	# extract the Nb and Nf values (actually all physical values) and arrange them into a 2D array:
 	data_array_2D_w_ghost_cells = create_ghost_cell_array(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 
-	#for i in range(num_rho_stars):
-	#	for j in range(num_phi_stars):
-	#		
-	#		print(data_array_2D_w_ghost_cells[i][j][1])
-	#print(sol_array)
-	#exit()
-
 	# now use this array filled with the wanted values AND padding ghost cells togehter with a stencil of wanted order:
-	
 	for i in range(num_rho_stars):
 		for j in range(num_phi_stars):
 			irho = i + stencil_order
 			jphi = j + stencil_order
-			# holds the derivative
-			grad_M = [0,0]
-			grad_Nf = [0,0]
+			# holds the partial derivative (gradient):
+			grad_M = [0.0,0.0]
+			grad_Nf = [0.0,0.0]
 			
 			# (last function argument: 0=totalmass, 5=fermion number, 7=boson number)
 			grad_M[0], grad_M[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
-			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
-			
-			#grad_M[0], grad_M[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
-			#grad_Nf[0], grad_Nf[1] = forward_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and ohi dir
+			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and phi dir
 
-			# define a vector perpendicular to the derivative in M
+			# define a vector perpendicular to the derivative (gradiant) of M and normalize it:
 			perp = np.array([grad_M[1], -grad_M[0]])
 			perp /= np.linalg.norm(perp)
 
 			# calc dot product of Nf gradient wit line perp to mass:
+			# this is the directional derivative of Nf in the direction where M=const
 			deriv_array_2D[j][i] = perp.dot(grad_Nf)
 
 	# obtain all points where deriv_array is (almost) zero/ has a minimum and add these points to the stability curve:
-	# save the stability curve in terms of rho_c and Phi_c AND in terms of the corresponding M and R:
-	stab_curve = []
-	# deprecated! needs to be removed later
-	for i in range(num_rho_stars-1):
-		for j in range(num_phi_stars-1):
+	stab_curve = [] # init empty array to hold the stability line
 
-			if ((deriv_array_2D[i][j] * deriv_array_2D[i][j+1] < 0) or (deriv_array_2D[i][j] * deriv_array_2D[i+1][j] < 0)):
-				# add this point to the stability curve:
-				Rpos = data_array_2D_w_ghost_cells[stencil_order+i][stencil_order+j][4]	# Rvalue
-				Mpos = data_array_2D_w_ghost_cells[stencil_order+i][stencil_order+j][0]	# Mvalue
-				Rho_c_pos = data_array_2D_w_ghost_cells[stencil_order+i][stencil_order+j][1] # Rhoc value
-				Phi_c_pos = data_array_2D_w_ghost_cells[stencil_order+i][stencil_order+j][2] # Phic value
-				stab_curve.append([Rpos,Mpos, Rho_c_pos, Phi_c_pos])
-	
-	#print(deriv_array_2D)
-
-
-	# TODO: move all the plotting related parts of the code to other functions, once the stability curve calculation is working correctly
+	# obtain the contour line using the plt.contour function!:
 	rhogrid = []
 	phigrid = []
-
+	# create a grid in rho_c and phi_c using the available data:
 	for i in range(num_rho_stars):
 		rhogrid.append(data_array_2D_w_ghost_cells[i+stencil_order][0][1])
 	for j in range(num_phi_stars):
 		phigrid.append(data_array_2D_w_ghost_cells[0][j+stencil_order][2])
-
-	# obtain the contour line in a different way:
-
-	
+	# now call the function:
 	Y, X = np.meshgrid(rhogrid, phigrid)
 	contours = plt.contour(Y, X, deriv_array_2D, colors='black', levels=[0.00], antialiased = True)
-	#plt.show()
+
 	#plt.imshow(deriv_array_2D, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
-	#plt.show()
-
-	plt.clf()	# to prevent the contour to be plotted (i.e we need this to remove the small "islands" in the plot)
-
-	M_array = test
-	for i in range(num_rho_stars):
-		for j in range(num_phi_stars):
-			M_array[j][i] = data_array_2D_w_ghost_cells[i+stencil_order][j+stencil_order][0]
-
-	contours2 = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.620, 1.0, 1.2, 1.4, 1.6])
 
 	# extract the contour lines:
 	lines = []
@@ -257,17 +182,16 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 			maxlen = len(lines[k])
 			longestindex = k
 
-	print(lines[longestindex][:,0])
+	# the wanted stability curve is the line which has the longest length (in case there would be multiple lines)
+	stab_curve = lines[longestindex]
 
-	plt.plot(lines[longestindex][:,0], lines[longestindex][:,1], c='black', linewidth=2)
-
-	plt.imshow(M_array, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
-	plt.show()
-
+	plt.clf()	# to prevent the contour to be plotted (also we need this to remove the small "islands" in the plot)
+	# return the (raw/unprocessed) stability curve:
 	return stab_curve
 
 
-
+# use the stability curve to filte out which FBS solutions are inside the stability region and which are not:
+# return the stable configurations only:
 def filter_stab_curve_data():
 
 

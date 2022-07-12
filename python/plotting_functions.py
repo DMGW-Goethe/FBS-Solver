@@ -4,6 +4,8 @@ import numpy as np
 from scipy.interpolate import griddata
 import matplotlib.tri as tri # to create a mask for a concarve shape
 
+import stability_curve_calc as scc # import custom python file which computes the stability curve
+
 def scatter_plotter(sol_array):
 	# extract wanted solution from the array:
 	allRadii = sol_array[:,4]
@@ -28,7 +30,7 @@ def apply_mask(triang, x, y, triang_cutoff=0.5):
     # apply masking
     triang.set_mask(maxi > triang_cutoff)
 
-# plot the stability region by interpolaring between all stable points:
+# plot the stability region in an MR-diagram (!) by interpolaring between all stable points:
 # input an array with filtered stars (only the ones that are stable)
 def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_cutoff):
 
@@ -66,5 +68,58 @@ def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_
 	cb1 = plt.colorbar(orientation="vertical")
 	#cb1.ax.tick_params(labelsize=10, fontsize=16)
 	cb1.set_label(label=r"$\phi_c$",size=16)#, weight='bold')
+
+	plt.show()
+
+
+# plot the stability curve and contour lines of constanf M in a rho_c phi_c diagram:
+def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_stars, num_phi_stars):
+
+	# ------------------------------------------------------------
+	# data pre-processing:
+
+	# re-arrange the solution array:
+	# create empty 3D solution array:
+	ordered_sol = scc.create_3D_array(num_rho_stars, num_phi_stars, len(sol_array[0]))
+	# fill the "ordered" (in a sense that it is nw a 2D array and not a simple list) solution array:
+	for i in range(num_rho_stars):
+		for j in range(num_phi_stars):
+			for k in range(len(sol_array[0]) ):
+				tmp = sol_array[i+ num_rho_stars*j][k]
+				ordered_sol[i][j][k] = tmp
+
+
+	M_array = scc.create_3D_array(num_rho_stars, num_phi_stars, 1) # is actually a 2D array
+	for i in range(num_rho_stars):
+		for j in range(num_phi_stars):
+			M_array[j][i] = ordered_sol[i][j][0]
+
+	# init the grid on which the 2D plot is oriented on
+	rhogrid = []
+	phigrid = []
+	# create a grid in rho_c and phi_c using the available data:
+	for i in range(num_rho_stars):
+		rhogrid.append(ordered_sol[i][0][1])
+	for j in range(num_phi_stars):
+		phigrid.append(ordered_sol[0][j][2])
+
+	# ------------------------------------------------------------
+	# start with the plotting:
+
+	# plotting contour lines of constant M:
+	contours_M = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.62, 1.0, 1.2, 1.40, 1.6])
+
+	# plot a 2D plot:
+	plt.imshow(M_array, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
+
+	# plot the stability curve:
+	plt.plot(mystability_curve[:,0], mystability_curve[:,1], c='black', linewidth=2)
+
+	# add labels and stuff:
+	plt.clabel(contours_M, inline=True, fontsize = 10)
+	plt.xlabel(r"$\rho_c$ [Code Units]", fontsize = 15)
+	plt.ylabel(r"$\phi_c$ [Code Units]", fontsize = 15)
+
+	plt.title("Polytropic EOS", fontsize = 15)
 
 	plt.show()

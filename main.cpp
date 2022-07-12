@@ -20,46 +20,8 @@
 
 int main() {
     /* see https://github.com/lava/matplotlib-cpp/issues/268
-     * if this doesn't work, look at the end of the function*/
+      if this doesn't work, look at the end of the function
     //matplotlibcpp::backend("TkAgg");
-
-    // for the MR diagram (multiple stars):
-    // define some global values:
-    // double mu = 1.;        // DM mass
-    // double lambda = 0.0;    //self-interaction parameter
-
-    // double rho_c = 0.0002;   // central density
-    // double phi_c = 1e-2;    // central value of scalar field
-    // double omega_0 = 1., omega_1 =10.;
-
-    // integrate ONE star and save all intermediate values into a txt file:
-    // a, alpha, Phi, Psi, P(rho)
-    //vector inits(1.0, 1.0, 1e-20, 1e-20, 100*std::pow(10*rho_c, 2.) );
-    // solve the ODEs WITH saing all intermediate steps.
-    // print the results for now (later save them into a txt file).
-    //std::cout << "Star with rho_c = " << rho_c << ": radius = " << R_fermi << " [M], mass = " << M_total << " [M_sun]" << std::endl;
-
-    // try the new tabulated EOS system:
-    //auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
-    //auto EOS_poly = std::make_shared<PolytropicEoS>();
-
-    // declare one FBS object with corresponding initial conditions:
-    //FermionBosonStar myFBS(EOS_DD2, mu, lambda, 0.);
-    /*
-    myFBS.set_initial_conditions(rho_c, phi_c);
-
-    // start the bisection search for the correct omega-value in the range [omega_0,omega_1]
-    double omega_0 = 1., omega_1 =10.;
-    time_point start{clock_type::now()};
-    myFBS.bisection(omega_0, omega_1);
-
-    time_point end{clock_type::now()};
-    std::cout << "bisection took " << std::chrono::duration_cast<second_type>(end-start).count() << "s" << std::endl;
-
-    time_point start2{clock_type::now()};
-    myFBS.evaluate_model("plots/model.txt");
-    time_point end2{clock_type::now()};
-    std::cout << "evaluation took " << std::chrono::duration_cast<second_type>(end2-start2).count() << "s" << std::endl;
     */
 
     // ----------------------------------------------------------------
@@ -99,9 +61,9 @@ int main() {
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
     std::vector<FermionBosonStar> MRphi_curve;
-    calc_rhophi_curves(mu, lambda, Polytrope, rho_c_grid, phi_c_grid, MRphi_curve);
+    calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
 
-    write_MRphi_curve(MRphi_curve, "plots/polytrope_stab_curve_test5.txt");
+    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test1.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
