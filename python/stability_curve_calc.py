@@ -1,7 +1,12 @@
 import numpy as np
+import matplotlib.path as mplPath # to check if a point is inside a polygon
 import matplotlib.pyplot as plt	# for the contour plot
 
+##############################################################################################
+# utility and helper functions:
 
+# creates a nested (2) 3D array which does not suffer from the "shared pointer" bug in python
+# to create a 2D array, leave last input == 1
 def create_3D_array(num_i, num_j, len_inner_arr):
 	tmp = []
 	for i in range(num_i):
@@ -119,6 +124,29 @@ def forward_stencil(vals, i, j, order, val_index):
     return derivIdir, derivJdir
 
 
+# find the nearest point in the rho_c-phi_c diagram to a given input point
+def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
+	
+	nearestpointMR = [0,0]	# hold one point in the MR diagram
+	distance = 1.0
+	min_distance = 100.0
+
+	# iterate through the whole array to find the smallest distance/ point nearest to stancurve_point
+	for i in range(len(sol)):
+		# compute the distance between a point in the sol array and the given stabcurve_point:
+		distance = np.sqrt( (stabcurve_point[0]-sol[i][index1])**2 + (stabcurve_point[1]-sol[i][index2])**2 ) # set distance
+		# find the nearest point:
+		if (distance < min_distance):
+			nearestpointMR = [sol[i][0], sol[i][4]]  # [M, R] point
+			min_distance = distance  # update the current smallest distance
+
+	# output the nearest point:
+	return nearestpointMR
+
+
+##############################################################################################
+# main "work horse" functions which actually compute the things we want to compute:
+
 # calculate the stability curve using the definition in arXiv:2006.08583v2
 # by computing partial derivatives of Nb and Nf
 # data must be parametrized in terms of rho_c and phi_c!
@@ -190,18 +218,75 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 	return stab_curve
 
 
-# use the stability curve to filte out which FBS solutions are inside the stability region and which are not:
+# use the stability curve to filter out which FBS solutions are inside the stability region and which are not:
 # return the stable configurations only:
-def filter_stab_curve_data():
+def filter_stab_curve_data(sol_array, stab_curve):
 
+	# extend the stability curve to make it a closed polygon
+	# Then, use it to search for all star configurations inside of the stability curve polygon:
 
-	# call stability curve finder:
-
-
+	# extend the stab_curve to a polygon
+	# append additional elements:
+	stab_curve_polygon = np.append(stab_curve, np.array([[-0.5,-0.5]]), axis=0)  # chose a point in the lower left corner which is guaranteed to produce a polygon with the remaining curve
+	bbPath = mplPath.Path(stab_curve_polygon) # convert stab curve so that mplPath can use it
+	
 	# construct check if the stars are inside of the stability curve
 	# (stab curve is a polygon and we check which points are inside it!)
+	filtered_data = [] # create dummy output array
 
-	filtered_data = []
+	# iterate through the array to see which point is inside the stab curve:
+	for i in range(0,len(sol_array)):
+		point = [sol_array[i][1], sol_array[i][2]]  # point with [rho_c, Phi_c]
+		accuracy = 1e-10
+		# check if point is inside:
+		if (bbPath.contains_point(point,radius=accuracy) or bbPath.contains_point(point,radius=-accuracy)):
+			tmplist = sol_array[i]
+			filtered_data.append(tmplist) # append points inside the polygon (i.e. stable NS configurations) to the output array
 
-	# return the filtered data which holds ONLY the stable configurations
-	return filtered_data
+	# return the filtered data which holds ONLY the stable configurations:
+	# but before that, convert the python list to a numpy ndarray
+	# (we need to do this to ensure compatibility with other plotting functions)
+	return np.array(filtered_data)
+
+
+# converts a stability curve in rho_c-phi_c space into MR space, so that a polygon can be constructed from it
+def stab_curve_to_MR(sol_array, old_stabcurve, num_rho_stars, num_phi_stars):
+
+	MR_stabcurve = [] # list which holds arrays with 2 entries
+
+	# iterate through the stability curve in the rhoc-phi_c diagram and find the nearest point to each stab curve segment respectively:
+	for i in range(len(old_stabcurve)):
+		MRpoint = findnearest_to_stabcurve(sol_array, old_stabcurve[i], 1, 2)  # [M, R] point
+		MR_stabcurve.append(MRpoint) # append the nearest point
+
+	# now the lines of rho_c=0 and phi_c=0 need to be added to the curve:
+	# line where rho_c = 0:
+	MR_stabcurve_rho0 = []
+	for j in range(num_phi_stars):
+		index = j*num_rho_stars
+		MRpoint = [sol_array[index][0], sol_array[index][4]] # [M, R] point
+		# iterate until the point is not on the stability curve anymore
+		if (sol_array[index][2] > old_stabcurve[len(old_stabcurve)-1][1]):   #check for phi_c < phi_c stabcurve
+			break
+
+		MR_stabcurve_rho0.append(MRpoint)
+
+	# line where phi_c = 0:
+	MR_stabcurve_phi0 = []
+	for j in range(num_rho_stars):
+		index = j
+		MRpoint = [sol_array[index][0], sol_array[index][4]] # [M, R] point
+		if (sol_array[index][1] > old_stabcurve[0][0]):   #check for rho_c < rho_c stabcurve
+			break
+
+		MR_stabcurve_phi0.append(MRpoint)
+	
+	# append the MR curves as phi_c=0 and rho_c=0 to the stability curve:
+	tmp1 = MR_stabcurve_rho0[::-1] # reverse element order to get the correct item order for appending later
+	for k in range(len(MR_stabcurve_rho0)):
+		MR_stabcurve.append(tmp1[k])
+	
+	for j in range(len(MR_stabcurve_phi0)):
+		MR_stabcurve.append(MR_stabcurve_phi0[j])
+
+	return np.array(MR_stabcurve) # return the stability curve in the MR diagram

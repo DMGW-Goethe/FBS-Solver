@@ -31,7 +31,7 @@ int main() {
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
-    double mu = 1.;        // DM mass
+    double mu = 2.0;        // DM mass
     double lambda = 0.0;    //self-interaction parameter
 
 
@@ -42,7 +42,7 @@ int main() {
     // declare initial conditions:
     double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
     double phi_cmin = 1e-10;    // central value of scalar field of first star
-    double rho_cmax = 0.008;
+    double rho_cmax = 0.004;
     double phi_cmax = 0.14;
 
     double drho = (rho_cmax - rho_cmin) / (Nstars -1.);
@@ -63,7 +63,7 @@ int main() {
     std::vector<FermionBosonStar> MRphi_curve;
     calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
 
-    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test1.txt");
+    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test2_mu2.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:

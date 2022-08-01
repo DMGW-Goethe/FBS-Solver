@@ -1,11 +1,13 @@
-from matplotlib import scale
+#from matplotlib import scale
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import griddata
+#from scipy.interpolate import griddata
 import matplotlib.tri as tri # to create a mask for a concarve shape
 
 import stability_curve_calc as scc # import custom python file which computes the stability curve
 
+# plot a number of points in a scatter plot
+# !unfinished!
 def scatter_plotter(sol_array):
 	# extract wanted solution from the array:
 	allRadii = sol_array[:,4]
@@ -16,7 +18,6 @@ def scatter_plotter(sol_array):
 	#print(allMasses)
 	plt.scatter(allRadii, allMasses, label="FBS Configurations")
 	plt.show()
-
 
 
 # helping function to plot a concarve surface (mask out some regions)
@@ -32,7 +33,7 @@ def apply_mask(triang, x, y, triang_cutoff=0.5):
 
 # plot the stability region in an MR-diagram (!) by interpolaring between all stable points:
 # input an array with filtered stars (only the ones that are stable)
-def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_cutoff):
+def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_cutoff, BOOLplotpoints, myfigtitle, myfilename):
 
 	# data coordinates and values
 	allRadii = sol_filtered[:,4]
@@ -41,7 +42,7 @@ def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_
 
 	# target grid to interpolate to
 	xi = np.arange(0.0 , maxR, 0.01) # range for R
-	yi = np.arange(0.0 , maxM, 0.01)	# range for M
+	yi = np.arange(0.0 , maxM, 0.01) # range for M
 	xi,yi = np.meshgrid(xi,yi)
 
 	
@@ -53,7 +54,7 @@ def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_
 	apply_mask(mytriang, allRadii, allMasses, triang_cutoff)
 
 	# plot
-	fig = plt.figure()
+	fig = plt.figure(figsize=(8,6))
 	ax = fig.add_subplot(111)
 	# interpolate
 	plt.tricontourf(mytriang, allZvalues, cmap='rainbow')
@@ -61,19 +62,22 @@ def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_
 	plt.xlim([0.0, maxR])
 	plt.ylim([0.0, maxM])
 
-	plt.plot(allRadii, allMasses,'k.')
-	plt.title("stability region DD2", fontsize=16)
-	plt.xlabel(r'$R$',fontsize=16)
-	plt.ylabel(r'$M$',fontsize=16)
+	if BOOLplotpoints:
+		plt.plot(allRadii, allMasses,'k.')
+
+	plt.title(myfigtitle, fontsize=16)
+	plt.xlabel(r'$R$ [km]',fontsize=16)
+	plt.ylabel(r"Total Gravitational Mass [M$_\odot$]",fontsize=16)
 	cb1 = plt.colorbar(orientation="vertical")
 	#cb1.ax.tick_params(labelsize=10, fontsize=16)
-	cb1.set_label(label=r"$\phi_c$",size=16)#, weight='bold')
+	cb1.set_label(label=r"$\phi_c$ [Code Units]",size=16)#, weight='bold')
 
-	plt.show()
+	#plt.show()
+	plt.savefig(fname=myfilename, dpi=300)
 
 
 # plot the stability curve and contour lines of constanf M in a rho_c phi_c diagram:
-def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_stars, num_phi_stars):
+def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_stars, num_phi_stars, cont_colour, cont_levels, rhoplotmax, phiplotmax, myplottitle, myfilename):
 
 	# ------------------------------------------------------------
 	# data pre-processing:
@@ -105,12 +109,13 @@ def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_s
 
 	# ------------------------------------------------------------
 	# start with the plotting:
+	plt.figure(figsize=(8,6))
 
 	# plotting contour lines of constant M:
-	contours_M = plt.contour(rhogrid, phigrid, M_array, colors=['purple', 'brown', 'red', 'green', 'orange'], levels=[0.62, 1.0, 1.2, 1.40, 1.6])
+	contours_M = plt.contour(rhogrid, phigrid, M_array, colors=cont_colour, levels=cont_levels)
 
 	# plot a 2D plot:
-	plt.imshow(M_array, extent=[0.0, 0.008, 0.0, 0.14], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
+	plt.imshow(M_array, extent=[0.0, rhoplotmax, 0.0, phiplotmax], origin='lower', cmap='turbo', aspect='auto', interpolation='none', alpha=0.8)
 
 	# plot the stability curve:
 	plt.plot(mystability_curve[:,0], mystability_curve[:,1], c='black', linewidth=2)
@@ -120,6 +125,12 @@ def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_s
 	plt.xlabel(r"$\rho_c$ [Code Units]", fontsize = 15)
 	plt.ylabel(r"$\phi_c$ [Code Units]", fontsize = 15)
 
-	plt.title("Polytropic EOS", fontsize = 15)
+	plt.title(myplottitle, fontsize = 15)
 
-	plt.show()
+	# add color bar on the side of the plot
+	cbar = plt.colorbar()
+	cbar.set_label(r"Total Gravitational Mass [M$_\odot$]", rotation=270, fontsize=15)
+	cbar.ax.get_yaxis().labelpad = 15
+
+	#plt.show()
+	plt.savefig(fname=myfilename, dpi=300)
