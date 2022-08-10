@@ -128,15 +128,6 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
     //std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
-    /* plot the evolution with python
-    #ifdef DEBUG_PLOTTING
-    plotting::plot_evolution(results_0, events, {2}, { "Phi_0" });
-    plotting::plot_evolution(results_1, events, {2}, { "Phi_1" });
-    matplotlibcpp::legend();
-    matplotlibcpp::save("bisection_int.png"); matplotlibcpp::close();
-    #endif
-    */
-
     intOpts.save_intermediate=false;
     while(omega_1 - omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
         omega_mid = (omega_0 + omega_1)/2.;
@@ -164,22 +155,6 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 
     //std::cout << "found omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
     this->omega = omega_0;
-
-    /* integrate again with saving the intermediate steps to plot them (we remove this later)
-    this->omega = omega_0; intOpts.save_intermediate=true;
-    res = this->integrate(results_0, events, intOpts);
-
-    this->omega = omega_1;
-    res = this->integrate(results_1, events, intOpts);
-
-    #ifdef DEBUG_PLOTTING
-    plotting::plot_evolution(results_0, events, {2}, {"Phi_0"});
-    plotting::plot_evolution(results_1, events, {2}, {"Phi_1"});
-    matplotlibcpp::legend();
-    matplotlibcpp::save("bisection_fin.png"); matplotlibcpp::close();
-    #endif
-    */
-
 }
 
 
@@ -275,11 +250,6 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
-    //integrator::Event M_converged([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-    //                                                                                                    double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
-    //                                                                                                    return  dM_dr < 1e-18 ; },true);
-    // stop integration if solution diverges:
-    //integrator::Event sol_diverged([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
 
     std::vector<integrator::Event> events = {FermionBosonStar::M_converged, FermionBosonStar::Psi_diverging};
     //std::vector<integrator::step> results;
@@ -302,7 +272,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // start iterating through the solution array backwards:
     int min_index_a = results.size()-1;
     double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
-     
+
     // find the index of the minimum of the g_rr metric component:
     for (int i=results.size()-2; i >= 0; i--) {
         if (results[i].second[0] < curr_a_min) {
@@ -360,7 +330,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // M_T = r/2 * (1 - 1/a^2)
     double M_T = results[min_index_dMdr].first / 2. * (1. - 1./results[min_index_dMdr].second[0]/results[min_index_dMdr].second[0]);
 
-    std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
+    // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
     // Extract the results and put them into a usable form to calculate N_B, N_F
     std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
@@ -391,11 +361,11 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     for(int i = 0; i < results.size(); i++) {
         if(i_B < 0) {
             if(N_B_integrated[i] > 0.99 * N_B)
-                {i_B = i; std::cout << "found i_B at: " << i_B << std::endl;}
+                {i_B = i; /*std::cout << "found i_B at: " << i_B << std::endl;*/}
         }
         if(i_F < 0) {
             if(N_F_integrated[i] > 0.99 * N_F)
-                {i_F = i; std::cout << "found i_F at: " << i_F << std::endl;}
+                {i_F = i; /*std::cout << "found i_F at: " << i_F << std::endl;*/}
         }
         if(i_B > 0 && i_F > 0)
             break;
@@ -417,7 +387,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     }
     R_F_0 = r[i_F_0];
 
-    std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
+    //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
 
 }
