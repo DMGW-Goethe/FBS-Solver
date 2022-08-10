@@ -6,6 +6,7 @@
 #include "integrator.hpp"
 #include "plotting.hpp"
 
+#define _PI_ 3.14159265358979323846
 
 /* this is an abstract class that is supposed to be the backbone for
  * a physical model of a neutron star

@@ -28,10 +28,10 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
         assert(false);}
 
     // compute the ODEs:
-    double da_dr = 0.5* a * ( (1.-a*a) / r + 4.*M_PI*r*( (omega*omega/ alpha/alpha + mu*mu + 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) );
-    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 4.*M_PI*r*( (omega*omega/ alpha/alpha - mu*mu - 0.5*lambda*Phi*Phi )*a*a*Phi*Phi + Psi*Psi + 2.*a*a*P ) );
+    double da_dr = 0.5* a * ( (1.-a*a) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha + mu*mu + lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) );
+    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*P ) );
     double dPhi_dr = Psi;
-    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( mu*mu*Phi*Phi + 0.5*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha/alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi;
+    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( 2.*mu*mu*Phi*Phi + 2.*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha/alpha - mu*mu - 2.*lambda*Phi*Phi )*a*a*Phi;
     double dP_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha;
 
     // write the ODE values into output vector:
@@ -353,7 +353,8 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // Find where 99% of N_B,N_F are reached to get the radii
     // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
     // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
-    double N_F = N_F_integrated[min_index_a], N_B = N_B_integrated[min_index_phi];
+    double N_F = 4.*_PI_* N_F_integrated[min_index_a],
+           N_B = 8.*_PI_* N_B_integrated[min_index_phi];
 
     // first find the index in array where 99% is contained
     // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
