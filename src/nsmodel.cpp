@@ -404,8 +404,226 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
                 << fbs.N_B                   << " "   // number of bosons
                 << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
+                << fbs.M_T / fbs.R_F_0           << " "   // compactness
                 << fbs.omega                 << " "   // omega
                 << fbs.mu                    << " "   // mass mu
                 << fbs.lambda;      // self-interaction parameter lambda
 }
 
+
+/***********************
+ * FermionBosonStarTLN *
+ ***********************/
+
+void FermionBosonStarTLN::set_initial_conditions(const double phi_1_0, const double H_0, const double r_init) {
+    this->H_0 = H_0;
+    this->phi_1_0 = phi_1_0;
+    this->initial_conditions =  vector( {1.0, 1.0, this->phi_0, 0., this->EOS->get_P_from_rho(this->rho_0, 0.), H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
+}
+
+vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
+    const double a = vars[0], alpha = vars[1], Phi = vars[2], Psi = vars[3];
+    double P = vars[4];
+    const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
+
+    EquationOfState& myEOS = *(this->EOS);
+    const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
+
+    double rho, epsilon;
+    if(P < 0.) P = 1e-20;  // need this to prevent NaN errors...
+    myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by pointer using EOS member function
+
+    vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
+    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dPhi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
+
+    const double V = mu*mu*Phi*Phi + lambda/2.*Phi*Phi*Phi*Phi;
+    const double dV_deps = mu*mu + lambda*Phi*Phi;
+    const double ddV_deps2 = lambda;
+    const double dPdrho = myEOS.dP_drho(rho, epsilon);
+
+    // additional TLN equations
+    const double ddalpha_dr2 = 4.*M_PI*omega*omega* (2.*Phi*Phi*a*da_dr + 2.*a*a*Phi*Psi*+Phi*Phi*a*a)/alpha
+                                + (4.*M_PI*r *(-omega*omega*Phi*Phi*a*a/alpha/alpha + P*a*a - V*Phi*Phi*a*a + Psi*Psi)
+                                            + a*a/2./r - 1./2./r) * dalpha_dr
+                                + (8.*M_PI*r *(P*a*da_dr - V*Phi*Phi*a*da_dr - Phi*a*a*Psi*dV_deps + a*a*dP_dr/2. + Psi*dPsi_dr)
+                                    + 4.*M_PI *(P*a*a - V * Phi*Phi*a*a + Psi*Psi)
+                                    + a*da_dr/r - a*a/2./r/r + 1./2/r/r) * alpha;
+
+    const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
+                            + (8.*omega*omega*M_PI*Phi*Phi*a*a/alpha/alpha*(-1.+ 1./dPdrho) + 8.*M_PI *dPhi_dr*dPhi_dr*(3. + 1./dPdrho)
+                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ 1./dPdrho) - dalpha_dr/r/alpha*(7. + 1./dPdrho)
+                                    + 6*a*a/r/r) * H
+                            + (16.*omega*omega*M_PI*Phi*a*a/r/alpha/alpha*(1.-1./dPdrho) + 16.*M_PI*Phi*a*a*dV_deps/r*(1. + 1./dPdrho) - 16.*M_PI* dPsi_dr/r*(3. + 1./dPdrho)
+                                    +16.*M_PI*dPhi_dr*da_dr/r/a *(3. + 1./dPdrho) + 16.*M_PI*dalpha_dr*dPhi_dr/r/alpha*(1. - 1./dPdrho) - 32.*M_PI*dPhi_dr/r/r*(3. + 1./dPdrho)) * phi_1;
+
+    const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
+                                + (omega*omega*r*Phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dPhi_dr )* H
+                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*dPhi_dr*dPhi_dr + 2.*Phi*Phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
+
+    /*std::cout << "r = " << r
+                << ", dP/drho = " << dPdrho
+                << ", ddH_dr2 = " << ddH_dr2
+                << ", dH_dr = " << dH_dr
+                << ", H = " << H
+                << ". ddphi_1_dr2 = " << ddphi_1_dr2
+                << ", dphi_1_dr = " << dphi_1_dr
+                << ", phi_1 = " << phi_1
+                << std::endl;*/
+    return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
+}
+
+
+void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+
+    FermionBosonStar::evaluate_model(results, "");
+
+    if(!filename.empty()) {
+        plotting::save_integration_data(results, {0,1,2,3,4,5,6,7,8}, {"a", "alpha", "Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"}, filename);
+
+        std::vector<integrator::Event> events;
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {0,1,2,3,4,5,6,7,8}, {"a", "alpha", "Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::yscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
+
+    // add TLN calculation
+    // find maximum of y = r H'(r) / H  going from the back to the front
+
+    int max_index_y = results.size()-1;
+    // last value of the total mass y:
+    auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
+    double curr_y_last = y_func(results.size()-1);
+
+    for (int i=results.size()-2; i > 0; i--) {
+        double curr_y = y_func(i);
+
+        if (curr_y > curr_y_last) {
+            curr_y_last = curr_y; // update current maximum
+            max_index_y = i;  // update max_index
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
+    double y = y_func(max_index_y);
+    std::cout << "found y = " << y << " at " << max_index_y << ", r=" << results[max_index_y].first << std::endl;
+
+    double C = this->M_T / this->R_F_0; // the compactness
+
+    /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
+    double k2 = 8.*pow(C,5)/5. * (2. + 2.*C*(y-1.) - y)
+                    / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
+                        + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
+                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
+
+    this->k2 = k2;
+}
+
+std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
+    return os   << (FermionBosonStar)fbs   << " "   // parent class parameters
+                << fbs.k2;  // tidal love number
+}
+
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e4); }, true);
+
+const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
+const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
+
+
+// find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
+void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
+    // values/parameters for bisection
+    double phi_1_mid;
+    int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
+    int i = 0;
+
+    // variables regarding the integration
+    integrator::IntegrationOptions intOpts;
+    //intOpts.verbose = 2;
+    // define events to check for during integration and put them inside of a std::vector:
+    // stop integration if solution diverges:
+    std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};     // put the events into the event array
+    // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) phi_1
+    std::vector<integrator::step> results_0, results_1, results_mid;
+
+    // find initial values for phi_1 min and phi_1 max
+    assert(phi_1_0 < phi_1_1);  // if the lower phi_1 is larger than the upper phi_1
+
+    // set the lower phi_1 and integrate the ODEs:
+    this->set_initial_conditions(phi_1_0, this->H_0);
+    int res = this->integrate(results_0, events, intOpts);
+    n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
+
+    // set the upper phi_1 and integrate the ODEs:
+    this->set_initial_conditions(phi_1_1, this->H_0);
+    res = this->integrate(results_1, events, intOpts);
+    n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
+
+    std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    assert(n_roots_0 != n_roots_1);
+    assert(n_roots_1 <= n_mode && n_mode <= n_roots_0);
+
+    // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
+    // iterate until the upper and lower phi_1 produce results with one root difference
+    while(n_roots_0 - n_roots_1 > 1) {
+        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
+        //std::cout << "phi_1_mid = " << phi_1_mid << " ->";
+        this->set_initial_conditions(phi_1_mid, this->H_0);
+        res = this->integrate(results_mid, events, intOpts);
+        n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
+        //std::cout << " with n_roots = " << n_roots_mid << std::endl;
+
+        if(n_roots_mid == n_roots_1 || n_roots_mid <= n_mode) {
+            n_roots_1 = n_roots_mid;
+            phi_1_1 = phi_1_mid;
+            continue;
+        }
+        if(n_roots_mid == n_roots_0 || n_roots_mid >= n_mode) {
+            n_roots_0 = n_roots_mid;
+            phi_1_0 = phi_1_mid;
+            continue;
+        }
+    }
+    std::cout << "found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+
+    // find right behavior at infty ( Phi(r->infty) = 0 )
+    int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
+    // intOpts.save_intermediate=true;
+    this->set_initial_conditions(phi_1_0, this->H_0);
+    res = this->integrate(results_0, events, intOpts);
+    n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
+
+    this->set_initial_conditions(phi_1_1, this->H_0);
+    res = this->integrate(results_1, events, intOpts);
+    n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
+    std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+
+    intOpts.save_intermediate=false;
+    while(phi_1_1 - phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
+        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
+        //std::cout << "phi_1_mid = " << phi_1_mid << " ->";
+        this->set_initial_conditions(phi_1_mid, this->H_0);
+        res = this->integrate(results_mid, events, intOpts);
+        n_inft_mid = results_mid[results_mid.size()-1].second[2] > 0.;  // save if sign(Phi(inf)) is positive or negative
+        //std::cout << " with n_inft= " << n_inft_mid << std::endl;
+
+        i++;
+        // compare the signs of Phi at infinity of the phi_1-upper, -middle and -lower solution
+        // when middle and lower sign are equal, we can move phi_1_0 to phi_1_mid
+        if(n_inft_mid == n_inft_0) {
+            n_inft_0 = n_inft_mid;
+            phi_1_0 = phi_1_mid;
+            continue;
+        }
+        // when middle and upper sign are equal, we can move phi_1_1 to phi_1_mid
+        if(n_inft_mid == n_inft_1) {
+            n_inft_1 = n_inft_mid;
+            phi_1_1 = phi_1_mid;
+            continue;
+        }
+    }
+    std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+    this->set_initial_conditions(phi_1_1, this->H_0);
+}
