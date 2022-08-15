@@ -6,7 +6,8 @@
 #include "integrator.hpp"
 #include "plotting.hpp"
 
-#define _PI_ 3.14159265358979323846
+#define R_INIT 1e-10
+#define R_MAX 40.
 
 /* this is an abstract class that is supposed to be the backbone for
  * a physical model of a neutron star
@@ -40,7 +41,7 @@ public:
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
-    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=1e-10, double r_end=1000);
+    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX);
     void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
     void evaluate_model();
