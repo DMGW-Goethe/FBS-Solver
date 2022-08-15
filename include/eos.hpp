@@ -18,6 +18,7 @@ class EquationOfState
 {
 public:
     virtual double get_P_from_rho(const double rho_in, const double epsilon)  = 0;
+    virtual double dP_drho(const double rho, double epsilon) = 0;
 
 	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
 
@@ -34,6 +35,7 @@ public:
 
     double get_P_from_rho(const double rho_in, const double epsilon);
 	void callEOS(double& myrho, double& epsilon, const double P);
+    double dP_drho(const double rho, double epsilon);
 
 };
 
@@ -48,6 +50,7 @@ public:
     CausalEoS(const double eps_f, const double P_f =0.) : eps_f(eps_f), P_f(P_f) {}
 
     double get_P_from_rho(const double rho_in, const double epsilon);
+    double dP_drho(const double rho, double epsilon);
 	void callEOS(double& myrho, double& epsilon, const double P);
 
 };
@@ -59,6 +62,7 @@ public:
     EoStable(const std::string filename);
 	// call EOS lookup-table (including interpolation):
 	void callEOS(double& myrho, double& epsilon, const double P);
+    double dP_drho(const double rho, double epsilon);
     double get_P_from_rho(const double rho_in, const double epsilon);
 
 private:

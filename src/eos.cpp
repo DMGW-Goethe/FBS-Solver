@@ -6,6 +6,11 @@ double PolytropicEoS::get_P_from_rho(const double rho_in, const double epsilon) 
 	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
 }
 
+double PolytropicEoS::dP_drho(const double rho_in, const double epsilon) {
+
+	return this->kappa*this->Gamma*std::pow(rho_in, this->Gamma-1.);
+}
+
 void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 	// update restmass density (rho) and specific energy (epsilon) according to polytropic EOS
     	myrho = std::pow(P / this->kappa, 1./this->Gamma);
@@ -18,6 +23,11 @@ void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 double CausalEoS::get_P_from_rho(const double rho_in, const double epsilon) {
 
 	return this->P_f + rho_in*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
+}
+
+double CausalEoS::dP_drho(const double rho_in, const double epsilon) {
+
+	return (1. + epsilon);   // p = P_f + eps - eps_f
 }
 
 void CausalEoS::callEOS(double& myrho, double& epsilon, const double P) {
@@ -114,13 +124,32 @@ double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
 	unsigned table_len = rho.size();
 
     assert(rho_in < rho[table_len-1]);
-    assert(rho_in > rho[0]);
+    assert(rho_in > rho[1]);
 	for (unsigned i = 1; i<table_len; i++) {
 		// scan for the first matching rho
 		if (rho[i] > rho_in) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
 			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (rho[i] - rho[i-1]) * (rho_in - rho[i-1]);
+		}
+	}
+	return 0.;
+}
+
+// obtain dP/drho from a rho input
+double EoStable::dP_drho(const double rho_in, const double epsilon) {
+	// search the table for the correct value:
+	unsigned table_len = rho.size();
+
+    assert(rho_in < rho[table_len-2]);
+    assert(rho_in > rho[2]);
+	for (unsigned i = 1; i<table_len; i++) {
+		// scan for the first matching rho
+		if (rho[i] > rho_in) {
+            // estimate derivative at point i-1 and i
+            double dP1 = (Pres[i]-Pres[i-1])/(rho[i]-rho[i-1])/2. + (Pres[i-1] - Pres[i-2])/(rho[i-1]-rho[i-2])/2.;
+            double dP2 = (Pres[i+1]-Pres[i])/(rho[i+1]-rho[i])/2. + (Pres[i] - Pres[i-1])/(rho[i]-rho[i-1])/2.;
+            return dP1 + (dP2-dP1)/(rho[i]- rho[i-1]) * (rho_in - rho[i-1]);
 		}
 	}
 	return 0.;
