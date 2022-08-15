@@ -55,6 +55,9 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
                 return false;
             }
 
+            if(options.verbose > 2){
+                std::cout << "step not precise enough and stepsize decreased creased: dr = " << dr << std::endl;
+            }
 			continue;
 		}
 		else {
@@ -65,6 +68,9 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
             dr *= 2.0;
 			if (dr > options.max_stepsize) dr = options.max_stepsize;   // enforce maximal stepsize
 
+            if(options.verbose > 2){
+                std::cout << "step accepted and stepsize increased: dr = " << dr << std::endl;
+            }
 			return true;
 		}
 
@@ -97,7 +103,7 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
     while(true) {
 
         bool step_success = RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params, options);
-        if(options.verbose > 2)
+        if(options.verbose > 1)
             std::cout  << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
         dy = dy_dt(current_step.first, current_step.second, params);
 
@@ -108,7 +114,7 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
         // (the std::vector "events" holds an Event object in every component)
         for(auto it = events.begin(); it != events.end(); ++it) {
             if(it->condition(current_step.first, step_size, current_step.second, dy, params)) {
-                if(!it->active) {
+                if(!it->active) {   // these events only trigger when the condition wasn't previously active
                     it->active = true;
                     it->steps.push_back(current_step);  // add the current values of the ODE vars to the event object
                     if(it->stopping_condition)      // if the event is defined as a stopping condition, we stop the iteration (see below)
