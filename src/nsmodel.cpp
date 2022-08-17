@@ -442,12 +442,11 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
     const double dPdrho = myEOS.dP_drho(rho, epsilon);
 
     // additional TLN equations
-    const double ddalpha_dr2 = 4.*M_PI*omega*omega* (2.*Phi*Phi*a*da_dr + 2.*a*a*Phi*Psi*+Phi*Phi*a*a)/alpha
-                                + (4.*M_PI*r *(-omega*omega*Phi*Phi*a*a/alpha/alpha + P*a*a - V*Phi*Phi*a*a + Psi*Psi)
-                                            + a*a/2./r - 1./2./r) * dalpha_dr
-                                + (8.*M_PI*r *(P*a*da_dr - V*Phi*Phi*a*da_dr - Phi*a*a*Psi*dV_deps + a*a*dP_dr/2. + Psi*dPsi_dr)
-                                    + 4.*M_PI *(P*a*a - V * Phi*Phi*a*a + Psi*Psi)
-                                    + a*da_dr/r - a*a/2./r/r + 1./2/r/r) * alpha;
+    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*Phi*Phi*a*da_dr + 2.*r*Phi*a*a*Psi + Phi*Phi*a*a)/alpha
+                                + ( 4.*M_PI*r*(-omega*omega*Phi*Phi*a*a/alpha/alpha + P*a*a - V*a*a + Psi*Psi)
+                                    + a*a/2./r - 1./2./r) * dalpha_dr
+                                + ( 4.*M_PI*r*(2.*P*a*da_dr - 2.*V*a*da_dr - 2.*Phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
+                                    + 4.*M_PI*a*a*(P- V) + 4.*M_PI*Psi*Psi + a*da_dr/r - a*a/2./r/r + 1./2/r/r)*alpha;
 
     const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
                             + (8.*omega*omega*M_PI*Phi*Phi*a*a/alpha/alpha*(-1.+ 1./dPdrho) + 8.*M_PI *dPhi_dr*dPhi_dr*(3. + 1./dPdrho)
@@ -477,39 +476,43 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
 
     FermionBosonStar::evaluate_model(results, "");
 
-    if(!filename.empty()) {
-        plotting::save_integration_data(results, {0,1,2,3,4,5,6,7,8}, {"a", "alpha", "Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"}, filename);
-
-        std::vector<integrator::Event> events;
-        #ifdef DEBUG_PLOTTING
-        plotting::plot_evolution(results, events, {0,1,2,3,4,5,6,7,8}, {"a", "alpha", "Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"}, filename.replace(filename.size()-3, 3, "png"));
-        matplotlibcpp::legend(); matplotlibcpp::yscale("log");
-        matplotlibcpp::save(filename); matplotlibcpp::close();
-        #endif
-    }
 
     // add TLN calculation
-    // find maximum of y = r H'(r) / H  going from the back to the front
+    // The quantity to compute is y = r H' / H
+    // if the fermionic radius larger than the bosonic one, take y = y(R_F_0)
+    // if the bosonic radius is larger, find the maxiumum going from the back to the front
 
-    int max_index_y = results.size()-1;
-    // last value of the total mass y:
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
-    double curr_y_last = y_func(results.size()-1);
+    double y = 0.;
 
-    for (int i=results.size()-2; i > 0; i--) {
-        double curr_y = y_func(i);
-
-        if (curr_y > curr_y_last) {
-            curr_y_last = curr_y; // update current maximum
-            max_index_y = i;  // update max_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
-        }
+    if(this->R_F_0 > this->R_B) {
+        int index_R_F = 0;
+        while ( results[index_R_F].first < this->R_F_0 ) index_R_F++;
+        // approximate y at R_F_0
+        y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
+        std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
     }
-    double y = y_func(max_index_y);
-    std::cout << "found y = " << y << " at " << max_index_y << ", r=" << results[max_index_y].first << std::endl;
+    else {
+        int max_index_y = results.size()-1;
+        // last value of the total mass y:
+        double curr_y_last = y_func(results.size()-1);
 
+        for (int i=results.size()-2; i > 0; i--) {
+            double curr_y = y_func(i);
+
+            if (curr_y > curr_y_last) {
+                curr_y_last = curr_y; // update current maximum
+                max_index_y = i;  // update max_index
+            }
+            else {
+                break; // the component is increasing again. that means we have found out minimum
+            }
+        }
+        y = y_func(max_index_y);
+        std::cout << "R_B> R_F_0: found max y = " << y << " at " << max_index_y << ", r=" << results[max_index_y].first << std::endl;
+    }
+
+    // now that we found y, calculate k2
     double C = this->M_T / this->R_F_0; // the compactness
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
@@ -538,10 +541,14 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     double phi_1_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
     int i = 0;
+    const int index_phi_1 = 7;
+
+    // evaluate model without TLN and calculate values such that we can check consistency at the end
+    FermionBosonStar::evaluate_model();
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    //intOpts.verbose = 2;
+    intOpts.verbose = 1;
     // define events to check for during integration and put them inside of a std::vector:
     // stop integration if solution diverges:
     std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};     // put the events into the event array
@@ -593,21 +600,21 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     // intOpts.save_intermediate=true;
     this->set_initial_conditions(phi_1_0, this->H_0);
     res = this->integrate(results_0, events, intOpts);
-    n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
+    n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
 
     this->set_initial_conditions(phi_1_1, this->H_0);
     res = this->integrate(results_1, events, intOpts);
-    n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
+    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
     std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
 
     intOpts.save_intermediate=false;
     while(phi_1_1 - phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
         phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "phi_1_mid = " << phi_1_mid << " ->";
+        std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
         this->set_initial_conditions(phi_1_mid, this->H_0);
         res = this->integrate(results_mid, events, intOpts);
-        n_inft_mid = results_mid[results_mid.size()-1].second[2] > 0.;  // save if sign(Phi(inf)) is positive or negative
-        //std::cout << " with n_inft= " << n_inft_mid << std::endl;
+        n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
+        std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
         // compare the signs of Phi at infinity of the phi_1-upper, -middle and -lower solution
@@ -625,5 +632,10 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
         }
     }
     std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+
+    // check for consistency with main equations
+    double last_r = results_mid[results_mid.size()-1].first;
+    assert(last_r > this->R_F_0  && last_r > this->R_B);
+
     this->set_initial_conditions(phi_1_1, this->H_0);
 }
