@@ -452,11 +452,11 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
                             + (8.*omega*omega*M_PI*Phi*Phi*a*a/alpha/alpha*(-1.+ 1./dPdrho) + 8.*M_PI *dPhi_dr*dPhi_dr*(3. + 1./dPdrho)
                                     - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ 1./dPdrho) - dalpha_dr/r/alpha*(7. + 1./dPdrho)
                                     + 6*a*a/r/r) * H
-                            + (16.*omega*omega*M_PI*Phi*a*a/r/alpha/alpha*(1.-1./dPdrho) + 16.*M_PI*Phi*a*a*dV_deps/r*(1. + 1./dPdrho) - 16.*M_PI* dPsi_dr/r*(3. + 1./dPdrho)
-                                    +16.*M_PI*dPhi_dr*da_dr/r/a *(3. + 1./dPdrho) + 16.*M_PI*dalpha_dr*dPhi_dr/r/alpha*(1. - 1./dPdrho) - 32.*M_PI*dPhi_dr/r/r*(3. + 1./dPdrho)) * phi_1;
+                            + (16.*omega*omega*M_PI*Phi*a*a/r/alpha/alpha*(-1.+1./dPdrho) - 16.*M_PI*Phi*a*a*dV_deps/r*(1. + 1./dPdrho) + 16.*M_PI* dPsi_dr/r*(3. + 1./dPdrho)
+                                    - 16.*M_PI*dPhi_dr*da_dr/r/a *(3. + 1./dPdrho) + 16.*M_PI*dalpha_dr*dPhi_dr/r/alpha*(-1. + 1./dPdrho) + 32.*M_PI*dPhi_dr/r/r*(3. + 1./dPdrho)) * phi_1;
 
     const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
-                                + (omega*omega*r*Phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dPhi_dr )* H
+                                + (-omega*omega*r*Phi*a*a/alpha/alpha + r*dPsi_dr - (r*da_dr/a + r*dalpha_dr/alpha -2.)*dPhi_dr )* H
                                 + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*dPhi_dr*dPhi_dr + 2.*Phi*Phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
 
     /*std::cout << "r = " << r
@@ -568,20 +568,30 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     res = this->integrate(results_1, events, intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
+    #ifdef DEBUG_PLOTTING
+    plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/initial_0.png"); matplotlibcpp::close();
+    plotting::plot_evolution(results_1, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/initial_1.png");
+    #endif
+
     std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
     assert(n_roots_0 != n_roots_1);
     assert(n_roots_1 <= n_mode && n_mode <= n_roots_0);
+    intOpts.save_intermediate = false;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
     // iterate until the upper and lower phi_1 produce results with one root difference
-    while(n_roots_0 - n_roots_1 > 1) {
+    while(n_roots_0 - n_roots_1 > 1 && i < max_steps) {
         phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "phi_1_mid = " << phi_1_mid << " ->";
+        std::cout << "i=" << i << ": phi_1_mid = " << phi_1_mid << " ->";
         this->set_initial_conditions(phi_1_mid, this->H_0);
         res = this->integrate(results_mid, events, intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
-        //std::cout << " with n_roots = " << n_roots_mid << std::endl;
-
+        std::cout << " with n_roots = " << n_roots_mid << std::endl;
+        i++;
         if(n_roots_mid == n_roots_1 || n_roots_mid <= n_mode) {
             n_roots_1 = n_roots_mid;
             phi_1_1 = phi_1_mid;
@@ -593,7 +603,8 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
             continue;
         }
     }
-    std::cout << "found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    //assert(abs(n_roots_1 - n_roots_0) == 1);
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
@@ -608,6 +619,7 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
 
     intOpts.save_intermediate=false;
+    i =0;
     while(phi_1_1 - phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
         phi_1_mid = (phi_1_0 + phi_1_1)/2.;
         std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
@@ -637,5 +649,5 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     double last_r = results_mid[results_mid.size()-1].first;
     assert(last_r > this->R_F_0  && last_r > this->R_B);
 
-    this->set_initial_conditions(phi_1_1, this->H_0);
+    this->set_initial_conditions(phi_1_0, this->H_0);
 }
