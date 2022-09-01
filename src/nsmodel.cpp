@@ -1,5 +1,8 @@
 #include "nsmodel.hpp"
 
+using std::exp;
+using std::abs;
+
 vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params) {
     NSmodel* m = (NSmodel*)params;
     return m->dy_dt(r, y);
@@ -9,7 +12,7 @@ vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params
 vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 
     // rename input & class variables for simpler use:
-    const double a = vars[0]; const double alpha = vars[1]; const double Phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
+    const double v = vars[0]; const double u = vars[1]; const double phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
     EquationOfState& myEOS = *(this->EOS);
     const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
 
@@ -17,6 +20,10 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
     double rho = 1.;      // restmass density, must be set using EOS
     double epsilon = 1.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
     // epsilon is related to the total energy density "e" by: e = rho*(1+epsilon)
+
+    const double V = mu*mu*phi*phi + lambda/2.*pow(phi, 4);
+    const double dV_deps = mu*mu + lambda*phi*phi;
+    const double ddV_deps2 = lambda;
 
     if(P < 0.) P = 1e-20;  // need this to prevent NaN errors...
 
@@ -28,19 +35,19 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
         assert(false);}
 
     // compute the ODEs:
-    double da_dr = 0.5* a * ( (1.-a*a) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha + mu*mu + lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) );
-    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*P ) );
-    double dPhi_dr = Psi;
-    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( 2.*mu*mu*Phi*Phi + 2.*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha/alpha - mu*mu - 2.*lambda*Phi*Phi )*a*a*Phi;
-    double dP_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha;
+    const double dv_dr = (exp(u) - 1.)/r + 8.*M_PI*r*( omega*omega*exp(u-v)*phi*phi - V*exp(u) + Psi*Psi + P*exp(u));
+    const double du_dr = -(exp(u) - 1.)/r + 8.*M_PI*r*( omega*omega*exp(u-v)*phi*phi + V*exp(u) + Psi*Psi + rho*(1.+epsilon)*exp(u));
+    const double dphi_dr = Psi;
+    const double dPsi_dr = (dV_deps*exp(u) - omega*omega*exp(u-v))*phi + (du_dr/2. - dv_dr/2. - 2./r)*Psi;
+    const double dP_dr = - (P + rho*(1.+epsilon)) * dv_dr/2.;
 
     // write the ODE values into output vector:
-    return vector({da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dP_dr});
+    return vector({dv_dr, du_dr, dphi_dr, dPsi_dr, dP_dr});
 }
 
 
 const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
+                                                                                                        const double dM_dr = (1.-exp(-y[1]))/2. + r/2. *exp(-y[1])*dy[1];
                                                                                                         return  dM_dr < 1e-18 ; },true);
 
 const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
@@ -51,7 +58,7 @@ const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](co
 void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
     this->rho_0 = rho_0;
     this->phi_0 = phi_0;
-    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0, 0.)});
+    this->initial_conditions =  vector( {0., 0., phi_0, 0., this->EOS->get_P_from_rho(rho_0, 0.)});
 }
 
 
@@ -258,10 +265,10 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     int res = this->integrate(results, events, intOpts);
 
     if(!filename.empty()) {
-        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename);
+        plotting::save_integration_data(results, {0,1,2,3,4}, {"v", "u", "Phi", "Psi", "P"}, filename);
 
         #ifdef DEBUG_PLOTTING
-        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
+        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"v", "u", "Phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
         matplotlibcpp::legend(); matplotlibcpp::yscale("log");
         matplotlibcpp::save(filename); matplotlibcpp::close();
         #endif
@@ -270,14 +277,15 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // obtain estimate for the total mass:
     // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
     // start iterating through the solution array backwards:
-    int min_index_a = results.size()-1;
-    double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+    int min_index_u = results.size()-1;
+    auto u_func = [&results](int index) {return results[index].second[1]; };
+    double curr_u_min = u_func(results.size()-1);  // last value for the metric component a at r=0
 
     // find the index of the minimum of the g_rr metric component:
     for (int i=results.size()-2; i >= 0; i--) {
-        if (results[i].second[0] < curr_a_min) {
-            curr_a_min = results[i].second[0]; // update current minimum
-            min_index_a = i;  // update min_index
+        if (abs(u_func(i)) < curr_u_min) {
+            curr_u_min = abs(u_func(i)); // update current minimum
+            min_index_u = i;  // update min_index
         }
         else {
             break; // the component is increasing again. that means we have found out minimum
@@ -292,11 +300,9 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
 
     int min_index_dMdr = results.size()-1;
     // last value of the total mass M_T:
-    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
+    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - exp(-results[index].second[1])); };
     double curr_M_last = M_func(results.size()-1),
             curr_M_last_minus1 = M_func(results.size()-2);
-    //double curr_M_last = results[results.size()-1].first / 2. * (1. - 1./results[results.size()-1].second[0]/results[results.size()-1].second[0]);
-    //double curr_M_last_minus1 = results[results.size()-2].first / 2. * (1. - 1./results[results.size()-2].second[0]/results[results.size()-2].second[0]);
     double curr_dMdr_min = (curr_M_last - curr_M_last_minus1) / (results[results.size()-1].first - results[results.size()-2].first);
 
     for (int i=results.size()-2; i > 0; i--) {
@@ -317,15 +323,16 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // calculate M_T in where the last local minimum of M_T is:
     double M_T = M_func(min_index_dMdr);
 
-    // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
+    // std::cout << "min_index_nu: " << min_index_nu << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
     // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
     // Note: this method will maybe not work well if we consider higher modes of phi!
     int min_index_phi = results.size()-1;
-    double curr_phi_min = std::abs(results[results.size()-1].second[2]);  // last value for the phi field a at r=0
+    auto phi_func = [&results](int index) { return results[index].second[2]; };
+    double curr_phi_min = abs(phi_func(results.size()-1));  // last value for the phi field a at r=0
     for (int i=results.size()-2; i >= 0; i--) {
-        if (std::abs(results[i].second[2]) < curr_phi_min) {
-            curr_phi_min = std::abs(results[i].second[2]); // update current minimum
+        if (abs(phi_func(i)) < curr_phi_min) {
+            curr_phi_min = abs(phi_func(i)); // update current minimum
             min_index_phi = i;  // update min_index
         }
         else {
@@ -341,9 +348,9 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     for(int i = 0; i < results.size(); i++) {
         r[i] = results[i].first;
         v = results[i].second;
-        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
+        N_B_integrand[i] = exp(v[1]/2.) * this->omega *  v[2] * v[2] * r[i] * r[i] * exp(-v[0]/2.);  // get bosonic mass (paricle number) for each r
         this->EOS->callEOS(rho, eps, std::max(0., v[4]));
-        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
+        N_F_integrand[i] = exp(v[1]/2.) * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
     }
 
     // Integrate
@@ -354,7 +361,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // Find where 99% of N_B,N_F are reached to get the radii
     // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
     // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
-    double N_F = 4.*M_PI* N_F_integrated[min_index_a],
+    double N_F = 4.*M_PI* N_F_integrated[min_index_u],
            N_B = 8.*M_PI* N_B_integrated[min_index_phi];
 
     // first find the index in array where 99% is contained
@@ -387,6 +394,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
             break;
         }
     }
+    N_F = 4.*M_PI* N_F_integrated[i_F_0];
     R_F_0 = r[i_F_0];
 
     //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;

@@ -108,7 +108,7 @@ cdef class PyFermionBosonStar:
         self.evaluate_model()
 
     def plot(self, ax, components=[0,1,2,3,4], label=""):
-        component_labels=["a", r"\alpha", r"\Phi", r"\Psi", "P"]
+        component_labels=["v", "u", r"\Phi", r"\Psi", "P"]
         for c in components:
             ax.plot(self.results[:,0], self.results[:,1+c], label=(label + f"${component_labels[c]}$"))
 

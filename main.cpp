@@ -62,7 +62,7 @@ int main() {
     //matplotlibcpp::backend("TkAgg");
     */
 
-    return test_FBSTLN();
+    //return test_FBSTLN();
 
     // ----------------------------------------------------------------
     // generate MR curves:
@@ -103,7 +103,7 @@ int main() {
     std::vector<FermionBosonStar> MRphi_curve;
     calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
 
-    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test2_mu2.txt");
+    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test2_mu2.econv.txt");
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
