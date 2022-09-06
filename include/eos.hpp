@@ -22,6 +22,9 @@ public:
 
 	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
 
+    virtual double min_P() = 0;
+    virtual double min_rho() = 0;
+
 };
 
 /* a class modeling a Polytropic equation of state */
@@ -36,6 +39,9 @@ public:
     double get_P_from_rho(const double rho_in, const double epsilon);
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
+
+    double min_P();
+    double min_rho();
 
 };
 
@@ -53,6 +59,8 @@ public:
     double dP_drho(const double rho, double epsilon);
 	void callEOS(double& myrho, double& epsilon, const double P);
 
+    double min_P();
+    double min_rho();
 };
 
 /* a class modeling a tabulated equation of state */
@@ -64,6 +72,9 @@ public:
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
     double get_P_from_rho(const double rho_in, const double epsilon);
+
+    double min_P();
+    double min_rho();
 
 private:
 	// vectors to hold the tabulated EOS values:
