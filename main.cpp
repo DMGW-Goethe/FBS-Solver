@@ -25,7 +25,7 @@ int test_FBSTLN() {
     auto Polytrope = std::make_shared<PolytropicEoS>();
 
     double rho_0 = 1e-20;
-    double phi_0 = 0.02;
+    double phi_0 = 0.06;
     std::vector<integrator::step> steps;
 
     FermionBosonStar fbs(Polytrope, mu, lambda, 0.);
@@ -39,7 +39,7 @@ int test_FBSTLN() {
     FermionBosonStarTLN fbstln(fbs);
     fbstln.set_initial_conditions(0., H_0);
 
-    double phi_1_0 = 1e-20, phi_1_1 = 1e3;
+    double phi_1_0 = 1e-15, phi_1_1 = 1e3;
     fbstln.bisection_phi_1(phi_1_0, phi_1_1);
 
     fbstln.evaluate_model(steps, "test/fbstln.txt");

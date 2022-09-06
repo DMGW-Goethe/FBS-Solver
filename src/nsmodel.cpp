@@ -522,6 +522,23 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
 
     this->k2 = k2;
+
+    // add y to results list for easy plotting
+    for(int i = 0; i < results.size(); i++) {
+        auto s = results[i].second;
+        results[i].second = vector({s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], y_func(i)});
+    }
+
+    if(!filename.empty()) {
+        plotting::save_integration_data(results, {0,1,2,3,4,5,6,7,8,9}, {"a", "alpha", "Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename);
+
+        std::vector<integrator::Event> events;
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {2,3,4,5,6,7,8,9}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
 }
 
 std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
@@ -529,7 +546,7 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
                 << fbs.k2;  // tidal love number
 }
 
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e4); }, true);
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true);
 
 const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
 const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
@@ -557,6 +574,10 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
 
     // find initial values for phi_1 min and phi_1 max
     assert(phi_1_0 < phi_1_1);  // if the lower phi_1 is larger than the upper phi_1
+
+    #ifdef DEBUG_PLOTTING
+    intOpts.save_intermediate = true;
+    #endif
 
     // set the lower phi_1 and integrate the ODEs:
     this->set_initial_conditions(phi_1_0, this->H_0);
@@ -608,7 +629,10 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
-    // intOpts.save_intermediate=true;
+
+    #ifdef DEBUG_PLOTTING
+    intOpts.save_intermediate=true;
+    #endif
     this->set_initial_conditions(phi_1_0, this->H_0);
     res = this->integrate(results_0, events, intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
@@ -617,6 +641,15 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     res = this->integrate(results_1, events, intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
     std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+
+    #ifdef DEBUG_PLOTTING
+    plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/intermediate_0.png"); matplotlibcpp::close();
+    plotting::plot_evolution(results_1, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/intermediate_1.png");
+    #endif
 
     intOpts.save_intermediate=false;
     i =0;
