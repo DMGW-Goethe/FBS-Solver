@@ -18,6 +18,13 @@ void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 		return;
 }
 
+double PolytropicEoS::min_P() {
+    return 0.;
+}
+double PolytropicEoS::min_rho() {
+    return 0.;
+}
+
 
 /* CausalEoS */
 double CausalEoS::get_P_from_rho(const double rho_in, const double epsilon) {
@@ -36,6 +43,12 @@ void CausalEoS::callEOS(double& myrho, double& epsilon, const double P) {
         epsilon = 0.;
 }
 
+double CausalEoS::min_P() {
+    return 0.;
+}
+double CausalEoS::min_rho() {
+    return 0.;
+}
 
 /* EoStable */
 EoStable::EoStable(const std::string filename) {
@@ -155,6 +168,12 @@ double EoStable::dP_drho(const double rho_in, const double epsilon) {
 	return 0.;
 }
 
+double EoStable::min_P() {
+    return this->Pres.at(0);
+}
+double EoStable::min_rho() {
+    return this->rho.at(0);
+}
 
 /*
 #units

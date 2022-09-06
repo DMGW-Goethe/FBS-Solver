@@ -6,8 +6,9 @@
 #include "integrator.hpp"
 #include "plotting.hpp"
 
-#define R_INIT 1e-10
-#define R_MAX 500.
+#define R_INIT 1e-10    // the initial integration radius
+#define R_MAX 500.      // the maximum integration radius
+#define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
 
 /* this is an abstract class that is supposed to be the backbone for
  * a physical model of a neutron star
