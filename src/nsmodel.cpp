@@ -9,7 +9,7 @@ vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params
 vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 
     // rename input & class variables for simpler use:
-    const double a = vars[0]; const double alpha = vars[1]; const double Phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
+    const double a = vars[0]; const double alpha = vars[1]; const double phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
     EquationOfState& myEOS = *(this->EOS);
     const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
 
@@ -17,6 +17,9 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
     double rho = 1.;      // restmass density, must be set using EOS
     double epsilon = 1.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
     // epsilon is related to the total energy density "e" by: e = rho*(1+epsilon)
+    const double V = mu*mu*phi*phi + lambda/2.*pow(phi, 4);
+    const double dV_deps = mu*mu + lambda*phi*phi;
+    //const double ddV_deps2 = lambda;
 
     // apply the EOS:
     if(P <= 0. || P < myEOS.min_P())  {
@@ -26,10 +29,10 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
     }
 
     // compute the ODEs:
-    double da_dr = 0.5* a * ( (1.-a*a) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha + mu*mu + lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*rho*(1.+epsilon) ) );
-    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*( (omega*omega/ alpha/alpha - mu*mu - lambda*Phi*Phi )*a*a*Phi*Phi + 2.*Psi*Psi + 2.*a*a*P ) );
+    double da_dr = 0.5* a *     ( (1.-a*a) / r + 8.*M_PI*r*a*a*( omega*omega*phi*phi/alpha/alpha + V + Psi*Psi/a/a + rho*(1.+epsilon)  ));
+    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*a*a*( omega*omega*phi*phi/alpha/alpha - V  + Psi*Psi/a/a + P ) );
     double dPhi_dr = Psi;
-    double dPsi_dr = -( 1. + a*a - 4.*M_PI*r*r*a*a*( 2.*mu*mu*Phi*Phi + 2.*lambda*Phi*Phi*Phi*Phi + rho*(1.+epsilon) - P ))*Psi/r - (omega*omega/ alpha/alpha - mu*mu - 2.*lambda*Phi*Phi )*a*a*Phi;
+    double dPsi_dr = (-omega*omega*a*a/alpha/alpha + a*a*dV_deps) * phi + (da_dr/a - dalpha_dr/alpha - 2./r) * Psi;
     double dP_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha;
 
     // write the ODE values into output vector:
@@ -358,7 +361,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // first find the index in array where 99% is contained
     // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
     int i_B = 0, i_F = 0;
-    int max_index = std::max(min_index_phi, min_index_a);
+    unsigned int max_index = std::max(min_index_phi, min_index_a);
     for(unsigned int i = 1; i < max_index; i++) {
         if(N_B_integrated[i] < 0.99*N_B)
             i_B++;
