@@ -7,7 +7,7 @@
 #include "plotting.hpp"
 
 #define R_INIT 1e-10
-#define R_MAX 40.
+#define R_MAX 500.
 
 /* this is an abstract class that is supposed to be the backbone for
  * a physical model of a neutron star
@@ -67,7 +67,7 @@ public:
     void set_initial_conditions(const double phi_1_0=1., const double H_0=1., const double r_init=R_INIT);
     using FermionBosonStar::evaluate_model;
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
-    void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=500, double delta_phi_1=1e-100);
+    void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-18);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStarTLN&);
 
