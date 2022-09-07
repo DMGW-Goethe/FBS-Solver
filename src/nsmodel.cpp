@@ -522,6 +522,12 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
 
+    std::cout << "C = " << C << ", y = " << y << ", k2 = " << k2
+                << ", a= " << (2. + 2.*C*(y-1.) - y)
+
+            << std::endl;
+
+
     this->k2 = k2;
 
     // add y to results list for easy plotting
