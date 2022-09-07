@@ -79,6 +79,24 @@ cdef extern from "nsmodel.hpp":
         const Event phi_negative
         const Event phi_positive
 
+    cdef cppclass FermionBosonStarTLN(FermionBosonStar):
+        #FermionBosonStarTLN( shared_ptr[EoStable], double, double, double) except +
+        FermionBosonStarTLN(const FermionBosonStar& fbs)
+
+        double H_0
+        double phi_1_0
+        double k2
+
+
+        void set_initial_conditions(const double phi_1_0, const double H_0, const double r_init)
+        void evaluate_model(stdvector[step]& results, string filename)
+        void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_step, double delta_phi_1)
+
+        const Event dphi_1_diverging
+        const Event phi_1_negative
+        const Event phi_1_positive
+
+
 cdef extern from "mr_curves.hpp":
     void write_MRphi_curve(const stdvector[FermionBosonStar]& MRphi_curve, string filename);
 
