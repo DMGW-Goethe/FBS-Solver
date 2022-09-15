@@ -284,7 +284,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
     int min_index_dMdr;
     if(dM_minima.size() > 0) {
-        min_index_dMdr = dM_minima[dM_minima.size()-1];
+        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
         min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
     }
     else
