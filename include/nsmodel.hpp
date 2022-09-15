@@ -22,6 +22,7 @@ public:
     static vector dy_dt_static(const double r, const vector& y, const void* params); // this is a static function that receive the class pointer in params and calls dy_dt
 
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);
+    static std::vector<std::string> labels();
 };
 
 
@@ -31,6 +32,7 @@ public:
 class FermionBosonStar : public NSmodel {
 protected:
     vector initial_conditions;
+    void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
 public:
     double mu, lambda, omega;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda, frequency omega
@@ -42,13 +44,14 @@ public:
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
-    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX);
+    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
     void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
+    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
     void evaluate_model();
-    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStar&);
+    static std::vector<std::string> labels();
 
     static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive;
 
@@ -56,10 +59,12 @@ public:
 
 class FermionBosonStarTLN : public FermionBosonStar {
 protected:
-    double H_0, phi_1_0;
+    void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
+
 public:
 
-    double k2;
+    double H_0, phi_1_0;
+    double lambda_tidal, k2, y_max;
 
     FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : FermionBosonStar(EOS, mu, lambda, omega) {}
     FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs) { this->set_initial_conditions(); }
@@ -68,9 +73,11 @@ public:
     void set_initial_conditions(const double phi_1_0=1., const double H_0=1., const double r_init=R_INIT);
     using FermionBosonStar::evaluate_model;
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
-    void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=400, double delta_phi_1=1e-18);
+    void evaluate_model();
+    void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStarTLN&);
+    static std::vector<std::string> labels();
 
     static const integrator::Event dphi_1_diverging, phi_1_negative, phi_1_positive;
 };

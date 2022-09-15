@@ -99,11 +99,6 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 	int table_len = Pres.size();
 	double e_tot_tmp = 0.0;
 
-	//std::cout << "Pres: " << P << " table: " << Pres[table_len-1] << std::endl;
-
-	// those asserts will also trigger e.g. when th solution diverges in the end
-    //assert(P >= 0.);
-    //assert(P < Pres[table_len-1]);
 
 	if (P < Pres[0]) { // we are close to vacuum and don't need to search the table. Interpolate with zero
 		myrho = 0.0 + (rho[0] / Pres[0]) * P;
@@ -114,7 +109,6 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 
 	// search the table from the smaller values on first
 	for (unsigned i = 1; i<table_len; i++) {
-		// scan for the first matching P
 		if (Pres[i] > P) {
 			// the correct value is between the i-1th index and the ith index:
 			// interpolate linearily between them:
@@ -124,29 +118,31 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 			return;
 		}
 	}
-	// failsafe if no case of the above was found:
-	// set ensure non-zero-value for rho or epsilon:
-	myrho = rho[0];
-	e_tot_tmp = e_tot[0];
+	// extrapolate linearly
+	myrho = rho[table_len-2] + (rho[table_len-1] - rho[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P - Pres[table_len-2]);
+	e_tot_tmp = e_tot[table_len-2] + (e_tot[table_len-1] - e_tot[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P - Pres[table_len-2]);
 	epsilon = e_tot_tmp/myrho - 1.0;
 }
 
 // obtain P from a rho input
 double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
-	// search the table for the correct value:
 	unsigned table_len = rho.size();
 
-    assert(rho_in < rho[table_len-1]);
-    assert(rho_in > rho[1]);
+    // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
+    if (rho_in <= rho[0]) {
+        return 0. + (Pres[0]-0.) / (rho[0]-0.) * (rho_in-0.);
+    }
+
+	// search the table for the correct value
 	for (unsigned i = 1; i<table_len; i++) {
-		// scan for the first matching rho
 		if (rho[i] > rho_in) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
 			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (rho[i] - rho[i-1]) * (rho_in - rho[i-1]);
 		}
 	}
-	return 0.;
+    // if no value was found extrapolate linearly
+	return Pres[table_len-2] + (Pres[table_len-1] - Pres[table_len-2]) / (rho[table_len-1] - rho[table_len-2]) * (rho_in - rho[table_len-2]);
 }
 
 // obtain dP/drho from a rho input
@@ -155,8 +151,12 @@ double EoStable::dP_drho(const double rho_in, const double epsilon) {
 	unsigned table_len = rho.size();
 
     assert(rho_in < rho[table_len-2]);
-    assert(rho_in > rho[2]);
-	for (unsigned i = 1; i<table_len; i++) {
+    if(rho_in < rho[1]) {
+        double dP1 = (Pres[2]-Pres[1])/(rho[2]-rho[1])/2. + (Pres[1] - Pres[0])/(rho[1]-rho[0])/2.;
+        return 0. + dP1 / (rho[1] - 0.) * (rho_in - 0.);
+    }
+
+	for (unsigned i = 2; i<table_len; i++) {
 		// scan for the first matching rho
 		if (rho[i] > rho_in) {
             // estimate derivative at point i-1 and i

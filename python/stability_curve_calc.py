@@ -150,7 +150,7 @@ def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
 # calculate the stability curve using the definition in arXiv:2006.08583v2
 # by computing partial derivatives of Nb and Nf
 # data must be parametrized in terms of rho_c and phi_c!
-def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order):
+def calc_stability_curve(sol_array, indices, num_rho_stars, num_phi_stars, stencil_order):
 
 	# create a 2D array to hold the values of the partial derivatives which are used to find the stability curve:
 	deriv_array_2D = create_3D_array(num_rho_stars, num_phi_stars, 1) # 3D array with the last index having length=1 is just a 2D array
@@ -168,8 +168,8 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 			grad_Nf = [0.0,0.0]
 			
 			# (last function argument: 0=totalmass, 5=fermion number, 7=boson number)
-			grad_M[0], grad_M[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 0) #calc derivative of M in rho and phi dir
-			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, 5) #calc deriv. of Nf in rho and phi dir
+			grad_M[0], grad_M[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, indices['M_T']) #calc derivative of M in rho and phi dir
+			grad_Nf[0], grad_Nf[1] = central_stencil(data_array_2D_w_ghost_cells, irho, jphi, stencil_order, indices['N_F']) #calc deriv. of Nf in rho and phi dir
 
 			# define a vector perpendicular to the derivative (gradiant) of M and normalize it:
 			perp = np.array([grad_M[1], -grad_M[0]])
@@ -187,9 +187,9 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 	phigrid = []
 	# create a grid in rho_c and phi_c using the available data:
 	for i in range(num_rho_stars):
-		rhogrid.append(data_array_2D_w_ghost_cells[i+stencil_order][0][1])
+		rhogrid.append(data_array_2D_w_ghost_cells[i+stencil_order][0][indices['rho_0']])
 	for j in range(num_phi_stars):
-		phigrid.append(data_array_2D_w_ghost_cells[0][j+stencil_order][2])
+		phigrid.append(data_array_2D_w_ghost_cells[0][j+stencil_order][indices['phi_0']])
 	# now call the function:
 	Y, X = np.meshgrid(rhogrid, phigrid)
 	contours = plt.contour(Y, X, deriv_array_2D, colors='black', levels=[0.00], antialiased = True)
@@ -220,7 +220,7 @@ def calc_stability_curve(sol_array, num_rho_stars, num_phi_stars, stencil_order)
 
 # use the stability curve to filter out which FBS solutions are inside the stability region and which are not:
 # return the stable configurations only:
-def filter_stab_curve_data(sol_array, stab_curve):
+def filter_stab_curve_data(sol_array, indices, stab_curve):
 
 	# extend the stability curve to make it a closed polygon
 	# Then, use it to search for all star configurations inside of the stability curve polygon:
@@ -236,7 +236,7 @@ def filter_stab_curve_data(sol_array, stab_curve):
 
 	# iterate through the array to see which point is inside the stab curve:
 	for i in range(0,len(sol_array)):
-		point = [sol_array[i][1], sol_array[i][2]]  # point with [rho_c, Phi_c]
+		point = [sol_array[i][indices['rho_0']], sol_array[i][indices['phi_0']]]  # point with [rho_c, Phi_c]
 		accuracy = 1e-10
 		# check if point is inside:
 		if (bbPath.contains_point(point,radius=accuracy) or bbPath.contains_point(point,radius=-accuracy)):
@@ -250,13 +250,13 @@ def filter_stab_curve_data(sol_array, stab_curve):
 
 
 # converts a stability curve in rho_c-phi_c space into MR space, so that a polygon can be constructed from it
-def stab_curve_to_MR(sol_array, old_stabcurve, num_rho_stars, num_phi_stars):
+def stab_curve_to_MR(sol_array, indices, old_stabcurve, num_rho_stars, num_phi_stars):
 
 	MR_stabcurve = [] # list which holds arrays with 2 entries
 
 	# iterate through the stability curve in the rhoc-phi_c diagram and find the nearest point to each stab curve segment respectively:
 	for i in range(len(old_stabcurve)):
-		MRpoint = findnearest_to_stabcurve(sol_array, old_stabcurve[i], 1, 2)  # [M, R] point
+		MRpoint = findnearest_to_stabcurve(sol_array, old_stabcurve[i], indices['rho_0'], indices['phi_0'])  # [M, R] point
 		MR_stabcurve.append(MRpoint) # append the nearest point
 
 	# now the lines of rho_c=0 and phi_c=0 need to be added to the curve:
@@ -264,9 +264,9 @@ def stab_curve_to_MR(sol_array, old_stabcurve, num_rho_stars, num_phi_stars):
 	MR_stabcurve_rho0 = []
 	for j in range(num_phi_stars):
 		index = j*num_rho_stars
-		MRpoint = [sol_array[index][0], sol_array[index][4]] # [M, R] point
+		MRpoint = [sol_array[index][indices['M_T']], sol_array[index][indices['R_F_0']]] # [M, R] point
 		# iterate until the point is not on the stability curve anymore
-		if (sol_array[index][2] > old_stabcurve[len(old_stabcurve)-1][1]):   #check for phi_c < phi_c stabcurve
+		if (sol_array[index][indices['phi_0']] > old_stabcurve[len(old_stabcurve)-1][1]):   #check for phi_c < phi_c stabcurve
 			break
 
 		MR_stabcurve_rho0.append(MRpoint)
@@ -275,8 +275,8 @@ def stab_curve_to_MR(sol_array, old_stabcurve, num_rho_stars, num_phi_stars):
 	MR_stabcurve_phi0 = []
 	for j in range(num_rho_stars):
 		index = j
-		MRpoint = [sol_array[index][0], sol_array[index][4]] # [M, R] point
-		if (sol_array[index][1] > old_stabcurve[0][0]):   #check for rho_c < rho_c stabcurve
+		MRpoint = [sol_array[index][indices['M_T']], sol_array[index][indices['R_F_0']]] # [M, R] point
+		if (sol_array[index][indices['rho_0']] > old_stabcurve[0][0]):   #check for rho_c < rho_c stabcurve
 			break
 
 		MR_stabcurve_phi0.append(MRpoint)

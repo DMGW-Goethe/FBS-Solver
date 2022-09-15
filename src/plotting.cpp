@@ -48,7 +48,7 @@ void plotting::save_integration_data(const std::vector<integrator::step>& result
         for(auto it = results.begin(); it != results.end(); ++it) {
 			img << std::fixed << std::setprecision(10) << it->first;    // radius
             for(int i = 0; i < plot_components.size(); i++)
-                img << " " << it->second[plot_components[i]]; // the other variables
+                img << std::scientific << std::setprecision(10) <<  " " << it->second[plot_components[i]]; // the other variables
             img << std::endl;
 		}
 	}

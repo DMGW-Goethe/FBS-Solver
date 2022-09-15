@@ -152,3 +152,7 @@ void integrator::cumtrapz(const std::vector<double>& x, const std::vector<double
         res[i] += res[i-1];
     }
 }
+
+std::ostream& integrator::operator <<(std::ostream& o, const integrator::step& s) {
+    return o << "r = " << s.first << ", y = " << s.second;
+}

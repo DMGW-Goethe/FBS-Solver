@@ -153,7 +153,7 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
         deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
         self.evaluated=False
 
-    def bisection_phi_1(self, phi_1_0, phi_1_1, n_mode = 1, max_step = 200, delta_phi_1=1e-18):
+    def bisection_phi_1(self, phi_1_0, phi_1_1, n_mode = 0, max_step = 200, delta_phi_1=1e-10):
         deref(self.fbstln).bisection_phi_1(phi_1_0, phi_1_1, n_mode, max_step, delta_phi_1)
         self.evaluated=False
 
@@ -177,6 +177,10 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
     def get(self):
         d = PyFermionBosonStar.get(self)
         d['k2'] = deref(self.fbstln).k2
+        d['lambda_tidal'] = deref(self.fbstln).lambda_tidal
+        d['phi_1_0'] = deref(self.fbstln).phi_1_0
+        d['H_0'] = deref(self.fbstln).H_0
+        d['y_max'] = deref(self.fbstln).y_max
         return d
 
 
@@ -219,4 +223,21 @@ cdef class PyMRcurve:
 
         if(not f.empty()):
             write_MRphi_curve(MRphi_curve, f)
+
+    '''
+    @staticmethod
+    def calc_TLN_curve( PyFermionBosonStar[:]  pMRphi_curve, str filename=""):
+        cdef stdvector[FermionBosonStar] MRphi_curve
+        cdef stdvector[FermionBosonStarTLN] tln_curve
+
+        for i in range(len(pMRphi_curve)):
+            MRphi_curve.push_back(deref( pMRphi_curve[i].fbs))
+
+        write_MRphik2_curve(MRphi_curve, tln_curve, filename)
+
+        pTLN_curve = []
+        for i in range(tln_curve.size()):
+                pTLN_curve.append(PyFermionBosonStarTLN.FromObject(tln_curve[i]))
+        return pTLN_curve
+    '''
 
