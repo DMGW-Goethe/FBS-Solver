@@ -124,6 +124,66 @@ cdef class PyFermionBosonStar:
                 "omega":deref(self.fbs).omega,
                 }
 
+
+cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
+    cdef shared_ptr[FermionBosonStarTLN] fbstln
+
+    @staticmethod
+    def FromFBS(PyFermionBosonStar pfbs_notln):
+        cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
+        pfbs.fbstln = make_shared[FermionBosonStarTLN](deref(pfbs_notln.fbs))
+        pfbs.fbs = pfbs.fbstln
+        return pfbs
+
+    @staticmethod
+    cdef PyFermionBosonStarTLN FromPointer(shared_ptr[FermionBosonStarTLN] fbstln):
+        cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
+        pfbs.fbstln = fbstln
+        pfbs.fbs = pfbs.fbstln
+        return pfbs
+
+    @staticmethod
+    cdef PyFermionBosonStarTLN FromObject(FermionBosonStarTLN fbstln):
+        cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
+        pfbs.fbstln = make_shared[FermionBosonStarTLN](fbstln)
+        pfbs.fbs = pfbs.fbstln
+        return pfbs
+
+    def set_initial_conditions(self, phi_1_0, H_0):
+        deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
+        self.evaluated=False
+
+    def bisection_phi_1(self, phi_1_0, phi_1_1, n_mode = 0, max_step = 200, delta_phi_1=1e-10):
+        deref(self.fbstln).bisection_phi_1(phi_1_0, phi_1_1, n_mode, max_step, delta_phi_1)
+        self.evaluated=False
+
+    def evaluate_model(self):
+        cdef stdvector[step] res
+        deref(self.fbstln).evaluate_model(res)
+        self.evaluated=True
+        cdef unsigned int i,j
+        self.results = np.zeros([res.size(), res[0].second.size()+1])
+        for i in range(res.size()):
+            self.results[i, 0] = res[i].first
+            for j in range(res[i].second.size()):
+                self.results[i,1+j] = res[i].second[j]
+        return self.results
+
+    def plot(self, ax, components=[0,1,2,3,4,5,6,7,8], label=""):
+        component_labels=["a", r"\alpha", r"\phi", r"\Psi", "P", "H", "dH", r"\phi_1", r"d\phi_1"]
+        for c in components:
+            ax.plot(self.results[:,0], self.results[:,1+c], label=(label + f"${component_labels[c]}$"))
+
+    def get(self):
+        d = PyFermionBosonStar.get(self)
+        d['k2'] = deref(self.fbstln).k2
+        d['lambda_tidal'] = deref(self.fbstln).lambda_tidal
+        d['phi_1_0'] = deref(self.fbstln).phi_1_0
+        d['H_0'] = deref(self.fbstln).H_0
+        d['y_max'] = deref(self.fbstln).y_max
+        return d
+
+
 cdef class PyMRcurve:
 
     @staticmethod
@@ -163,4 +223,21 @@ cdef class PyMRcurve:
 
         if(not f.empty()):
             write_MRphi_curve(MRphi_curve, f)
+
+    '''
+    @staticmethod
+    def calc_TLN_curve( PyFermionBosonStar[:]  pMRphi_curve, str filename=""):
+        cdef stdvector[FermionBosonStar] MRphi_curve
+        cdef stdvector[FermionBosonStarTLN] tln_curve
+
+        for i in range(len(pMRphi_curve)):
+            MRphi_curve.push_back(deref( pMRphi_curve[i].fbs))
+
+        write_MRphik2_curve(MRphi_curve, tln_curve, filename)
+
+        pTLN_curve = []
+        for i in range(tln_curve.size()):
+                pTLN_curve.append(PyFermionBosonStarTLN.FromObject(tln_curve[i]))
+        return pTLN_curve
+    '''
 

@@ -8,10 +8,10 @@ import stability_curve_calc as scc # import custom python file which computes th
 
 # plot a number of points in a scatter plot
 # !unfinished!
-def scatter_plotter(sol_array):
+def scatter_plotter(sol_array, indices):
 	# extract wanted solution from the array:
-	allRadii = sol_array[:,4]
-	allMasses = sol_array[:,0]
+	allRadii = sol_array[:,indices['R_F_0']]
+	allMasses = sol_array[:,indices['M_T']]
 
 	#print("\n")
 	#print(allRadii)
@@ -33,11 +33,11 @@ def apply_mask(triang, x, y, triang_cutoff=0.5):
 
 # plot the stability region in an MR-diagram (!) by interpolaring between all stable points:
 # input an array with filtered stars (only the ones that are stable)
-def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_cutoff, BOOLplotpoints, myfigtitle, myfilename):
+def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM, triang_cutoff, BOOLplotpoints, myfigtitle, myfilename):
 
 	# data coordinates and values
-	allRadii = sol_filtered[:,4]
-	allMasses = sol_filtered[:,0]
+	allRadii = sol_filtered[:,indices['R_F_0']]
+	allMasses = sol_filtered[:,indices['M_T']]
 	allZvalues = sol_filtered[:,z_index]
 
 	# target grid to interpolate to
@@ -77,7 +77,7 @@ def plot_interpolate_stability_region(sol_filtered, z_index, maxR, maxM, triang_
 
 
 # plot the stability curve and contour lines of constanf M in a rho_c phi_c diagram:
-def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_stars, num_phi_stars, cont_colour, cont_levels, rhoplotmax, phiplotmax, myplottitle, myfilename):
+def plot_rho_phi_stability_curve_diagram(sol_array, indices, mystability_curve, num_rho_stars, num_phi_stars, cont_colour, cont_levels, rhoplotmax, phiplotmax, myplottitle, myfilename):
 
 	# ------------------------------------------------------------
 	# data pre-processing:
@@ -96,16 +96,16 @@ def plot_rho_phi_stability_curve_diagram(sol_array, mystability_curve, num_rho_s
 	M_array = scc.create_3D_array(num_rho_stars, num_phi_stars, 1) # is actually a 2D array
 	for i in range(num_rho_stars):
 		for j in range(num_phi_stars):
-			M_array[j][i] = ordered_sol[i][j][0]
+			M_array[j][i] = ordered_sol[i][j][indices['M_T']]
 
 	# init the grid on which the 2D plot is oriented on
 	rhogrid = []
 	phigrid = []
 	# create a grid in rho_c and phi_c using the available data:
 	for i in range(num_rho_stars):
-		rhogrid.append(ordered_sol[i][0][1])
+		rhogrid.append(ordered_sol[i][0][indices['rho_0']])
 	for j in range(num_phi_stars):
-		phigrid.append(ordered_sol[0][j][2])
+		phigrid.append(ordered_sol[0][j][indices['phi_0']])
 
 	# ------------------------------------------------------------
 	# start with the plotting:

@@ -52,11 +52,11 @@ const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](co
 void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
     this->rho_0 = rho_0;
     this->phi_0 = phi_0;
-    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., this->EOS->get_P_from_rho(rho_0, 0.)});
+    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho_0, 0.) : 0.});
 }
 
 
-int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) {
+int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
     return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
 }
 
@@ -241,32 +241,8 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
 }
 
-void FermionBosonStar::evaluate_model() {
-    std::vector<integrator::step> results;
-    this->evaluate_model(results);
-}
 
-void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
-
-    integrator::IntegrationOptions intOpts;
-    intOpts.save_intermediate = true;
-
-
-    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
-    //std::vector<integrator::step> results;
-    results.clear();
-
-    int res = this->integrate(results, events, intOpts);
-
-    if(!filename.empty()) {
-        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename);
-
-        #ifdef DEBUG_PLOTTING
-        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "Phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
-        matplotlibcpp::legend(); matplotlibcpp::yscale("log");
-        matplotlibcpp::save(filename); matplotlibcpp::close();
-        #endif
-    }
+void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
     // obtain estimate for the total mass:
     // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
@@ -382,7 +358,34 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
 
     //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
+}
 
+void FermionBosonStar::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
+
+void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+
+    integrator::IntegrationOptions intOpts;
+    intOpts.save_intermediate = true;
+
+    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
+    results.clear();
+
+    int res = this->integrate(results, events, intOpts);
+
+    if(!filename.empty()) {
+        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename);
+
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::xscale("log"); matplotlibcpp::yscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
+
+    this->calculate_star_parameters(results, events);
 }
 
 std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
@@ -395,10 +398,12 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
                 << fbs.N_B                   << " "   // number of bosons
                 << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
-                << fbs.M_T / fbs.R_F_0           << " "   // compactness
                 << fbs.omega                 << " "   // omega
                 << fbs.mu                    << " "   // mass mu
                 << fbs.lambda;      // self-interaction parameter lambda
+}
+std::vector<std::string> FermionBosonStar::labels() {
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
 }
 
 
@@ -409,49 +414,55 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
 void FermionBosonStarTLN::set_initial_conditions(const double phi_1_0, const double H_0, const double r_init) {
     this->H_0 = H_0;
     this->phi_1_0 = phi_1_0;
-    this->initial_conditions =  vector( {1.0, 1.0, this->phi_0, 0., this->EOS->get_P_from_rho(this->rho_0, 0.), H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
+    this->initial_conditions =  vector( {1.0, 1.0, this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho_0, 0.) : 0.,
+                                                             H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
 }
 
 vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
-    const double a = vars[0], alpha = vars[1], Phi = vars[2], Psi = vars[3];
+    const double a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
     double P = vars[4];
     const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
 
     EquationOfState& myEOS = *(this->EOS);
     const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
 
-    double rho, epsilon;
-    if(P < 0.) P = 1e-20;  // need this to prevent NaN errors...
-    myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by pointer using EOS member function
+    double rho, epsilon, drho_dP, dP_drho;
+    if(P <= 0. || P < myEOS.min_P())  {
+        P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
+    } else {
+        myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by reference using EOS member function
+        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
+        drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
+    }
 
     vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
-    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dPhi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
+    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
 
-    const double V = mu*mu*Phi*Phi + lambda/2.*Phi*Phi*Phi*Phi;
-    const double dV_deps = mu*mu + lambda*Phi*Phi;
+    const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
+    const double dV_deps = mu*mu + lambda*phi*phi;
     const double ddV_deps2 = lambda;
-    const double dPdrho = myEOS.dP_drho(rho, epsilon);
 
     // additional TLN equations
-    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*Phi*Phi*a*da_dr + 2.*r*Phi*a*a*Psi + Phi*Phi*a*a)/alpha
-                                + ( 4.*M_PI*r*(-omega*omega*Phi*Phi*a*a/alpha/alpha + P*a*a - V*a*a + Psi*Psi)
-                                    + a*a/2./r - 1./2./r) * dalpha_dr
-                                + ( 4.*M_PI*r*(2.*P*a*da_dr - 2.*V*a*da_dr - 2.*Phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
-                                    + 4.*M_PI*a*a*(P- V) + 4.*M_PI*Psi*Psi + a*da_dr/r - a*a/2./r/r + 1./2/r/r)*alpha;
+    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*phi*phi*a*da_dr + 2.*r*phi*a*a*Psi + phi*phi*a*a)/alpha
+                                + ( 4.*M_PI*r*a*a*(-omega*omega*phi*phi/alpha/alpha + P - V + Psi*Psi/a/a)
+                                    + (a*a - 1.)/2./r ) * dalpha_dr
+                                + ( 4.*M_PI*r* ( 2.*P*a*da_dr - 2.*V*a*da_dr - 2.*phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
+                                    + 4.*M_PI*a*a*(P - V) + 4.*M_PI*Psi*Psi + a*da_dr/r + (1. - a*a)/2./r/r )*alpha;
 
     const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
-                            + (8.*omega*omega*M_PI*Phi*Phi*a*a/alpha/alpha*(-1.+ 1./dPdrho) + 8.*M_PI *dPhi_dr*dPhi_dr*(3. + 1./dPdrho)
-                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ 1./dPdrho) - dalpha_dr/r/alpha*(7. + 1./dPdrho)
+                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ drho_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + drho_dP)
+                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ drho_dP) - dalpha_dr/r/alpha*(7. + drho_dP)
                                     + 6*a*a/r/r) * H
-                            + (16.*omega*omega*M_PI*Phi*a*a/r/alpha/alpha*(-1.+1./dPdrho) - 16.*M_PI*Phi*a*a*dV_deps/r*(1. + 1./dPdrho) + 16.*M_PI* dPsi_dr/r*(3. + 1./dPdrho)
-                                    - 16.*M_PI*dPhi_dr*da_dr/r/a *(3. + 1./dPdrho) + 16.*M_PI*dalpha_dr*dPhi_dr/r/alpha*(-1. + 1./dPdrho) + 32.*M_PI*dPhi_dr/r/r*(3. + 1./dPdrho)) * phi_1;
+                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - drho_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +drho_dP) - 16.*M_PI* dPsi_dr/r*(3. + drho_dP)
+                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + drho_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - drho_dP) - 32.*M_PI*dphi_dr/r/r*(3. + drho_dP)) * phi_1;
 
     const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
-                                + (-omega*omega*r*Phi*a*a/alpha/alpha + r*dPsi_dr - (r*da_dr/a + r*dalpha_dr/alpha -2.)*dPhi_dr )* H
-                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*dPhi_dr*dPhi_dr + 2.*Phi*Phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
+                                + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
+                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*Psi*Psi + 2.*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
 
     /*std::cout << "r = " << r
-                << ", dP/drho = " << dPdrho
+                << ", ddalpha_dr2 = " << ddalpha_dr2
+                << ", drho/dP = " << drho_dP
                 << ", ddH_dr2 = " << ddH_dr2
                 << ", dH_dr = " << dH_dr
                 << ", H = " << H
@@ -462,65 +473,138 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
     return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
 }
 
+void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
-void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
-
-    FermionBosonStar::evaluate_model(results, "");
-
+    // calculate parameters for unperturbed star
+    FermionBosonStar::calculate_star_parameters(results, events);
 
     // add TLN calculation
     // The quantity to compute is y = r H' / H
     // if the fermionic radius larger than the bosonic one, take y = y(R_F_0)
     // if the bosonic radius is larger, find the maxiumum going from the back to the front
-
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
-    double y = 0.;
+    auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
+    double y = 0., R = 0.;
 
-    if(this->R_F_0 > this->R_B) {
+    if(this->R_F_0 > 100.*this->R_B) {
         int index_R_F = 0;
         while ( results[index_R_F].first < this->R_F_0 ) index_R_F++;
         // approximate y at R_F_0
         y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
+        R = R_F_0;
+        //std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
     }
     else {
-        int max_index_y = results.size()-1;
-        // last value of the total mass y:
-        double curr_y_last = y_func(results.size()-1);
+        // to find the starting point see where y actually has a minimum
+        int index_bs_radius = 1;
+        while(results[index_bs_radius].first < this->R_B/1e3  && (unsigned int)index_bs_radius < results.size()-1)
+            index_bs_radius++;
+        int index_y_min = index_bs_radius;
+        while(y_func(index_y_min) < y_func(index_y_min-1) && (unsigned int)index_y_min < results.size()-1)
+            index_y_min++;
 
-        for (int i=results.size()-2; i > 0; i--) {
-            double curr_y = y_func(i);
-
-            if (curr_y > curr_y_last) {
-                curr_y_last = curr_y; // update current maximum
-                max_index_y = i;  // update max_index
+        // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
+        std::vector<int> indices_maxima;
+        int i = index_y_min + 1;
+        for( unsigned int i = index_y_min + 1; i < results.size()-2; i++) {
+            //std::cout << "i=" << i << ", r= " << results[i].first << ", y = " << y_func(i) << ", dy = " << dy_func(i) << std::endl;
+            if(   (y_func(i) > y_func(i -1) && y_func(i) > y_func(i+1) )
+                    ||  ( y_func(i) > y_func(i-1) && dy_func(i) < dy_func(i-1) && dy_func(i) < dy_func(i+1)) ) {
+                indices_maxima.push_back(i); /*std::cout << "max/saddle found^ " << std::endl;*/
             }
-            else {
-                break; // the component is increasing again. that means we have found out minimum
-            }
+            if(y_func(i) < 0.) // here something funky is happening so stop
+                break;
         }
-        y = y_func(max_index_y);
-        std::cout << "R_B> R_F_0: found max y = " << y << " at " << max_index_y << ", r=" << results[max_index_y].first << std::endl;
+        int index_y;
+        if(indices_maxima.size() == 0) // if nothing was found just take the last point
+            index_y = results.size() - 1;
+        else
+            index_y = indices_maxima.at(indices_maxima.size()-1);
+        y = y_func(index_y);
+        R = results[index_y].first;
+        //std::cout << "R_B> R_F_0: found max y = " << y << " at " << index_y << ", r=" << R << std::endl;
+
     }
 
     // now that we found y, calculate k2
-    double C = this->M_T / this->R_F_0; // the compactness
+    // double R = std::max(this->R_F_0, this->R_B);
+    double C = this->M_T / R; // the compactness
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
-    double k2 = 8.*pow(C,5)/5. * (2. + 2.*C*(y-1.) - y)
+    double lambda_tidal = 16./15.*pow(this->M_T, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
+    double k2 = 3./2. * lambda_tidal / pow(R, 5);
 
+    /*std::cout << "C = " << C << ", y = " << y  << ", k2 = " << k2
+                << ", a= " << (2. + 2.*C*(y-1.) - y)
+            << std::endl;*/
+
+    this->lambda_tidal = lambda_tidal;
     this->k2 = k2;
+    this->y_max = y;
+
+}
+
+void FermionBosonStarTLN::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
+
+void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+
+    integrator::IntegrationOptions intOpts;
+    intOpts.save_intermediate = true;
+
+    integrator::Event M_converged(FermionBosonStar::M_converged);
+    M_converged.stopping_condition = false;   // TODO: check why M_converged triggers on first point
+    std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, FermionBosonStarTLN::dphi_1_diverging};
+    results.clear();
+
+    int res = this->integrate(results, events, intOpts);
+    /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
+    for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
+        using namespace integrator;
+        std::cout << (integrator::step)*it;
+    }*/
+
+    auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
+    if(!filename.empty()) {
+        // add y to results list for easy plotting
+        for(int i = 0; i < results.size(); i++) {
+            auto s = results[i].second;
+            results[i].second = vector({s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], y_func(i)});
+        }
+        plotting::save_integration_data(results, {0,1,2,3,4,5,6,7,8,9}, {"a", "alpha", "phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename);
+
+        std::vector<integrator::Event> events;
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {2,3,4,5,6,7,8,9}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
+
+    this->calculate_star_parameters(results, events);
 }
 
 std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
     return os   << (FermionBosonStar)fbs   << " "   // parent class parameters
-                << fbs.k2;  // tidal love number
+                << fbs.k2                  << " "   // tidal love number
+                << fbs.lambda_tidal        << " "   // dimensionfull tidal love number
+                << fbs.phi_1_0             << " "   // phi_1 initial value
+                << fbs.H_0                          // H initial value
+                ;
 }
 
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e4); }, true);
+std::vector<std::string> FermionBosonStarTLN::labels() {
+    auto l = FermionBosonStar::labels();
+    l.push_back("k2"); l.push_back("lambda_tidal"); l.push_back("phi_1_0"); l.push_back("H_0");
+    return l;
+}
+
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true);
 
 const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
 const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
@@ -535,11 +619,11 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     const int index_phi_1 = 7;
 
     // evaluate model without TLN and calculate values such that we can check consistency at the end
-    FermionBosonStar::evaluate_model();
+    // FermionBosonStar::evaluate_model();
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    intOpts.verbose = 1;
+    intOpts.verbose = 0;
     // define events to check for during integration and put them inside of a std::vector:
     // stop integration if solution diverges:
     std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};     // put the events into the event array
@@ -548,6 +632,10 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
 
     // find initial values for phi_1 min and phi_1 max
     assert(phi_1_0 < phi_1_1);  // if the lower phi_1 is larger than the upper phi_1
+
+    #ifdef DEBUG_PLOTTING
+    intOpts.save_intermediate = true;
+    #endif
 
     // set the lower phi_1 and integrate the ODEs:
     this->set_initial_conditions(phi_1_0, this->H_0);
@@ -568,7 +656,7 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     matplotlibcpp::save("test/initial_1.png");
     #endif
 
-    std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
     assert(n_roots_0 != n_roots_1);
     assert(n_roots_1 <= n_mode && n_mode <= n_roots_0);
     intOpts.save_intermediate = false;
@@ -577,11 +665,11 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     // iterate until the upper and lower phi_1 produce results with one root difference
     while(n_roots_0 - n_roots_1 > 1 && i < max_steps) {
         phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        std::cout << "i=" << i << ": phi_1_mid = " << phi_1_mid << " ->";
+        //std::cout << "i=" << i << ": phi_1_mid = " << phi_1_mid << " ->";
         this->set_initial_conditions(phi_1_mid, this->H_0);
         res = this->integrate(results_mid, events, intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
-        std::cout << " with n_roots = " << n_roots_mid << std::endl;
+        //std::cout << " with n_roots = " << n_roots_mid << std::endl;
         i++;
         if(n_roots_mid == n_roots_1 || n_roots_mid <= n_mode) {
             n_roots_1 = n_roots_mid;
@@ -594,12 +682,15 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
             continue;
         }
     }
-    std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
-    //assert(abs(n_roots_1 - n_roots_0) == 1);
+    //std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    assert(abs(n_roots_1 - n_roots_0) == 1);
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
-    // intOpts.save_intermediate=true;
+
+    #ifdef DEBUG_PLOTTING
+    intOpts.save_intermediate=true;
+    #endif
     this->set_initial_conditions(phi_1_0, this->H_0);
     res = this->integrate(results_0, events, intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
@@ -607,17 +698,26 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     this->set_initial_conditions(phi_1_1, this->H_0);
     res = this->integrate(results_1, events, intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
-    std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+
+    #ifdef DEBUG_PLOTTING
+    plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/intermediate_0.png"); matplotlibcpp::close();
+    plotting::plot_evolution(results_1, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/intermediate_1.png");matplotlibcpp::close();
+    #endif
 
     intOpts.save_intermediate=false;
     i =0;
-    while(phi_1_1 - phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
+    while( (phi_1_1 - phi_1_0)/phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
         phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
+        //std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
         this->set_initial_conditions(phi_1_mid, this->H_0);
         res = this->integrate(results_mid, events, intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
-        std::cout << " with n_inft= " << n_inft_mid << std::endl;
+        //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
         // compare the signs of Phi at infinity of the phi_1-upper, -middle and -lower solution
@@ -634,11 +734,25 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
             continue;
         }
     }
-    std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
 
-    // check for consistency with main equations
+    #ifdef DEBUG_PLOTTING
+    intOpts.save_intermediate=true;
+    this->set_initial_conditions(phi_1_0, this->H_0);
+    res = this->integrate(results_0, events, intOpts);
+
+    plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
+    matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+    matplotlibcpp::save("test/final.png"); matplotlibcpp::close();
+    #endif
+
+    // check for consistency with main equations  // TODO: first improve R_B calculations
+    /*
     double last_r = results_mid[results_mid.size()-1].first;
-    assert(last_r > this->R_F_0  && last_r > this->R_B);
+    std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1
+                    << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl;*/
+    //assert(last_r > this->R_F_0  && last_r > this->R_B);
+
 
     this->set_initial_conditions(phi_1_0, this->H_0);
 }
+

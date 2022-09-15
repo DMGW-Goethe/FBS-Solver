@@ -26,6 +26,8 @@ namespace integrator
         void reset() { steps.clear(); active=false; }
     };
 
+    std::ostream& operator <<(std::ostream& o, const step& s);
+
     // holds parameters/options relevant to the integrator
     struct IntegrationOptions {
         int max_step;
