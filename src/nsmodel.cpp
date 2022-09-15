@@ -288,7 +288,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     int min_index_dMdr;
     if(dM_minima.size() > 0) {
         min_index_dMdr = dM_minima[dM_minima.size()-1];
-        //min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum: min_index_dMdr;
+        min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
     }
     else
         min_index_dMdr = index_dM_global_minimum;
