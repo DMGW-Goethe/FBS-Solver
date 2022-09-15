@@ -252,7 +252,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     intOpts.save_intermediate = true;
 
 
-    std::vector<integrator::Event> events = {FermionBosonStar::M_converged, FermionBosonStar::Psi_diverging};
+    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
     //std::vector<integrator::step> results;
     results.clear();
 
@@ -291,31 +291,27 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, st
     // Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
     // the optimum can be found at the point where the derivative of M_t with respect to r is minimal:
 
-    int min_index_dMdr = results.size()-1;
     // last value of the total mass M_T:
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
-    double curr_M_last = M_func(results.size()-1),
-            curr_M_last_minus1 = M_func(results.size()-2);
-    //double curr_M_last = results[results.size()-1].first / 2. * (1. - 1./results[results.size()-1].second[0]/results[results.size()-1].second[0]);
-    //double curr_M_last_minus1 = results[results.size()-2].first / 2. * (1. - 1./results[results.size()-2].second[0]/results[results.size()-2].second[0]);
-    double curr_dMdr_min = (curr_M_last - curr_M_last_minus1) / (results[results.size()-1].first - results[results.size()-2].first);
+    auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
+                                                        + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
 
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        curr_M_last = M_func(i);
-        curr_M_last_minus1 = M_func(i-1);
-        double curr_dMdr_value_i = (curr_M_last - curr_M_last_minus1) / (results[i].first - results[i-1].first);
-
-        if (curr_dMdr_value_i < curr_dMdr_min) {
-            curr_dMdr_min = curr_dMdr_value_i; // update current minimum
-            min_index_dMdr = i;  // update min_index
-            //std::cout << min_index_dMdr << std::endl;
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
-        }
+    std::vector<int> dM_minima;
+    int index_dM_global_minimum = results.size()-3;
+    for (unsigned int i=results.size()-3; i > 2; i--) {
+        // std::cout << "i=" << i << ", r= " << results[i].first << ", M = " << M_func(i) << ", dM = " << dM_func(i) << std::endl;
+        if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
+            dM_minima.push_back(i);
+        if(dM_func(i) < dM_func(index_dM_global_minimum)) // and finde the global one
+            index_dM_global_minimum = i;
     }
+    // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
+    int min_index_dMdr;
+    if(dM_minima.size() > 0)
+        min_index_dMdr = dM_minima[dM_minima.size()-1];
+    else
+        min_index_dMdr = index_dM_global_minimum;
 
-    // calculate M_T in where the last local minimum of M_T is:
     double M_T = M_func(min_index_dMdr);
 
     // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
