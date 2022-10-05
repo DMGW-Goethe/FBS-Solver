@@ -61,7 +61,8 @@ EoStable::EoStable(const std::string filename) {
     std::ifstream infile;	// declare input file stream
     infile.open(eos_table_name);
 
-    assert(infile.is_open());
+    if(!infile.is_open())
+        throw std::runtime_error("File not open");
     std::string line;
 
     while (std::getline(infile, line)) {
@@ -96,7 +97,7 @@ EoStable::EoStable(const std::string filename) {
 void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 
 	// use P to scan the EOS table (iterate from the top first because we start at high pressures):
-	int table_len = Pres.size();
+	unsigned int table_len = Pres.size();
 	double e_tot_tmp = 0.0;
 
 
@@ -108,7 +109,7 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 	}
 
 	// search the table from the smaller values on first
-	for (unsigned i = 1; i<table_len; i++) {
+	for (unsigned int i = 1; i<table_len; i++) {
 		if (Pres[i] > P) {
 			// the correct value is between the i-1th index and the ith index:
 			// interpolate linearily between them:
@@ -126,7 +127,7 @@ void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
 
 // obtain P from a rho input
 double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
-	unsigned table_len = rho.size();
+	unsigned int table_len = rho.size();
 
     // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
     if (rho_in <= rho[0]) {
@@ -134,7 +135,7 @@ double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
     }
 
 	// search the table for the correct value
-	for (unsigned i = 1; i<table_len; i++) {
+	for (unsigned int i = 1; i<table_len; i++) {
 		if (rho[i] > rho_in) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
@@ -148,15 +149,15 @@ double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
 // obtain dP/drho from a rho input
 double EoStable::dP_drho(const double rho_in, const double epsilon) {
 	// search the table for the correct value:
-	unsigned table_len = rho.size();
+	unsigned int table_len = rho.size();
 
-    assert(rho_in < rho[table_len-2]);
+    //assert(rho_in < rho[table_len-2]); // out of range will return 0.
     if(rho_in < rho[1]) {
         double dP1 = (Pres[2]-Pres[1])/(rho[2]-rho[1])/2. + (Pres[1] - Pres[0])/(rho[1]-rho[0])/2.;
         return 0. + dP1 / (rho[1] - 0.) * (rho_in - 0.);
     }
 
-	for (unsigned i = 2; i<table_len; i++) {
+	for (unsigned int i = 2; i<table_len; i++) {
 		// scan for the first matching rho
 		if (rho[i] > rho_in) {
             // estimate derivative at point i-1 and i
