@@ -1,6 +1,8 @@
 #ifndef NSMODEL_HPP
 #define NSMODEL_HPP
 
+#include <utility>  // for std::swap
+
 #include "vector.hpp"
 #include "eos.hpp"
 #include "integrator.hpp"
@@ -40,12 +42,13 @@ public:
     // total mass M_T; number of bosons N_B; number of fermions N_F; bosonic radius R_B; fermionic radius R_F; fermionic radius where pressure is zero R_F_0
     double M_T, N_B, N_F, R_B, R_F, R_F_0;
 
-    FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega) {}
+    FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0.)
+            : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega), rho_0(0.), phi_0(0.), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_F(0.), R_F_0(0.) {}
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
-    void bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
+    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
     void evaluate_model();
@@ -66,7 +69,8 @@ public:
     double H_0, phi_1_0;
     double lambda_tidal, k2, y_max;
 
-    FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega) : FermionBosonStar(EOS, mu, lambda, omega) {}
+    FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega)
+        : FermionBosonStar(EOS, mu, lambda, omega), H_0(0.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.) {}
     FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs) { this->set_initial_conditions(); }
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star + TLN
@@ -74,7 +78,7 @@ public:
     using FermionBosonStar::evaluate_model;
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
     void evaluate_model();
-    void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12);
+    int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStarTLN&);
     static std::vector<std::string> labels();
