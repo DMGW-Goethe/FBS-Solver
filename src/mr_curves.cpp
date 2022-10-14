@@ -86,7 +86,9 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
     time_point start3{clock_type::now()};
     #pragma omp parallel for
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+		if (bisection_success == -1)
+            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
         MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
     }
     time_point end3{clock_type::now()};

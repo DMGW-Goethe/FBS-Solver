@@ -92,8 +92,38 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     res = this->integrate(results_1, events, intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
-    if(n_roots_0 == n_roots_1 || n_roots_0 > n_mode || n_mode > n_roots_1)
-        return -1;
+    if(n_roots_0 == n_roots_1 || n_roots_0 > n_mode || n_mode > n_roots_1) {
+        const int max_tries = 20;
+        int tries = 0;
+        std::cout << "omega range insufficient. adjusting range..." << "\n"
+                        << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+        // adjust omega_0 if it is too large:
+        while (n_roots_0 > n_mode) {
+            // set the new lower omega and integrate the ODEs:
+            omega_0 *= 0.333;
+            this->omega = omega_0;
+            std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
+            int res = this->integrate(results_0, events, intOpts);
+            n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
+            if(tries > max_tries)
+                return -1;
+            tries++;
+        }
+        // adjust omega_1 if it is too small:
+        while (n_mode >= n_roots_1) {
+            // set the new upper omega and integrate the ODEs:
+            omega_1 *= 3.0;
+            this->omega = omega_1;
+            std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
+            res = this->integrate(results_1, events, intOpts);
+            n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
+            if(tries > max_tries)
+                return -1;
+            tries++;
+        }
+        std::cout << "adjusted omega range successfully with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+    }
+
     //std::cout << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
