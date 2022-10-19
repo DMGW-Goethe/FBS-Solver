@@ -77,7 +77,7 @@ def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM
 
 
 # plot the stability curve and contour lines of constanf M in a rho_c phi_c diagram:
-def plot_rho_phi_stability_curve_diagram(sol_array, indices, mystability_curve, num_rho_stars, num_phi_stars, cont_colour, cont_levels, rhoplotmax, phiplotmax, myplottitle, myfilename):
+def plot_rho_phi_stability_curve_diagram(sol_array, indices, plot_index, mystability_curve, num_rho_stars, num_phi_stars, cont_colour, cont_levels, rhoplotmax, phiplotmax, myplottitle, myfilename, mycolorbarlabel):
 
 	# ------------------------------------------------------------
 	# data pre-processing:
@@ -85,7 +85,7 @@ def plot_rho_phi_stability_curve_diagram(sol_array, indices, mystability_curve, 
 	# re-arrange the solution array:
 	# create empty 3D solution array:
 	ordered_sol = scc.create_3D_array(num_rho_stars, num_phi_stars, len(sol_array[0]))
-	# fill the "ordered" (in a sense that it is nw a 2D array and not a simple list) solution array:
+	# fill the "ordered" (in a sense that it is now a 2D array and not a simple list) solution array:
 	for i in range(num_rho_stars):
 		for j in range(num_phi_stars):
 			for k in range(len(sol_array[0]) ):
@@ -93,10 +93,11 @@ def plot_rho_phi_stability_curve_diagram(sol_array, indices, mystability_curve, 
 				ordered_sol[i][j][k] = tmp
 
 
+	# M_array holds the quantity to be plotted in the 2D plot (values appear on the colorbar):
 	M_array = scc.create_3D_array(num_rho_stars, num_phi_stars, 1) # is actually a 2D array
 	for i in range(num_rho_stars):
 		for j in range(num_phi_stars):
-			M_array[j][i] = ordered_sol[i][j][indices['M_T']]
+			M_array[j][i] = ordered_sol[i][j][indices[plot_index]]
 
 	# init the grid on which the 2D plot is oriented on
 	rhogrid = []
@@ -129,7 +130,7 @@ def plot_rho_phi_stability_curve_diagram(sol_array, indices, mystability_curve, 
 
 	# add color bar on the side of the plot
 	cbar = plt.colorbar()
-	cbar.set_label(r"Total Gravitational Mass [M$_\odot$]", rotation=270, fontsize=15)
+	cbar.set_label(mycolorbarlabel, rotation=270, fontsize=15)
 	cbar.ax.get_yaxis().labelpad = 15
 
 	#plt.show()
