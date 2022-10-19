@@ -83,7 +83,7 @@ int main() {
     double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
     double phi_cmin = 1e-10;    // central value of scalar field of first star
     double rho_cmax = 0.004;
-    double phi_cmax = 0.14;
+    double phi_cmax = 0.10;
 
     double drho = (rho_cmax - rho_cmin) / (Nstars -1.);
     double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
@@ -100,10 +100,18 @@ int main() {
             std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
-    std::vector<FermionBosonStar> MRphi_curve;
-    calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
+    
+	// setup to compute a full NS configuration, including tidal deformability:
+	std::vector<FermionBosonStar> MRphi_curve;
+	std::vector<FermionBosonStarTLN> MRphi_tln_curve;
 
-    write_MRphi_curve(MRphi_curve, "plots/DD2_stab_curve_test2_mu2.txt");
+	// calc the unperturbed equilibrium solutions:
+    calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
+	// calc the perturbed solutions to get the tidal love number:
+	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
+	// save the results in a txt file:
+	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_test2dd2.txt");
+
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
