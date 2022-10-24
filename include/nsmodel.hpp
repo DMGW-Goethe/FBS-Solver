@@ -50,7 +50,7 @@ public:
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
     int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
-    void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
+    void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
     void evaluate_model();
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStar&);

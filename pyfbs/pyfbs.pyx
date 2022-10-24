@@ -86,9 +86,10 @@ cdef class PyFermionBosonStar:
         self.evaluated=False
 
 
-    def evaluate_model(self):
+    def evaluate_model(self, PyIntegrationOptions intOpts=PyIntegrationOptions()):
         cdef stdvector[step] res
-        deref(self.fbs).evaluate_model(res)
+        cdef string empty
+        deref(self.fbs).evaluate_model(res, deref(intOpts.io), empty)
         self.evaluated=True
         cdef unsigned int i,j
         self.results = np.zeros([res.size(), res[0].second.size()+1])
@@ -159,7 +160,8 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
 
     def evaluate_model(self):
         cdef stdvector[step] res
-        deref(self.fbstln).evaluate_model(res)
+        cdef string empty
+        deref(self.fbstln).evaluate_model(res, empty)
         self.evaluated=True
         cdef unsigned int i,j
         self.results = np.zeros([res.size(), res[0].second.size()+1])

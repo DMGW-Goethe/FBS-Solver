@@ -399,9 +399,9 @@ void FermionBosonStar::evaluate_model() {
     this->evaluate_model(results);
 }
 
-void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
-    integrator::IntegrationOptions intOpts;
+    // integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
     std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};

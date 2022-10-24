@@ -33,7 +33,7 @@ int test_FBSTLN() {
 
     double omega_0 = 1., omega_1 = 10.;
     fbs.bisection(omega_0, omega_1);
-    fbs.evaluate_model(steps, "test/fbs.txt");
+    fbs.evaluate_model(steps, integrator::IntegrationOptions(), "test/fbs.txt");
 
     double H_0 = 1.;
     FermionBosonStarTLN fbstln(fbs);
@@ -100,7 +100,6 @@ int main() {
             std::cout << NbNf_grid[k] << std::endl; }
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
-    
 	// setup to compute a full NS configuration, including tidal deformability:
 	std::vector<FermionBosonStar> MRphi_curve;
 	std::vector<FermionBosonStarTLN> MRphi_tln_curve;

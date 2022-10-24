@@ -64,7 +64,7 @@ cdef extern from "nsmodel.hpp":
         int bisection(double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
         int integrate(stdvector[step]& result, stdvector[Event]& events, IntegrationOptions intOpts, double r_init, double r_end)
         void evaluate_model()
-        void evaluate_model(stdvector[step]& results)
+        void evaluate_model(stdvector[step]& results, IntegrationOptions intOpts, string filename)
         void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
 
         double M_T
