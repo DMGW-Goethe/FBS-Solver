@@ -20,14 +20,32 @@ using second_type = std::chrono::duration<double, std::ratio<1> >;
 typedef std::chrono::time_point<clock_type> time_point;
 
 
+// function to write the FBS results into a txt file. Template functions must be defined in header file:
+template <typename T>
+void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename) {
 
-void write_MRphi_curve(const std::vector<FermionBosonStar>& MRphi_curve, std::string filename);
+    std::ofstream img;
+	img.open(filename);
+    std::vector<std::string> labels = MRphi_curve.at(0).labels();
 
-void write_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, std::string filename="");
+	if(img.is_open()) {
+        // print the labels in line 1:
+        img << "# "; // hashtag so that python recognizes it as a commented line
+        for(unsigned i = 0; i < labels.size(); i++)
+            img << labels[i] << "\t ";
+		img << std::endl;
+
+        // print all the data:
+        for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it)
+            img << std::scientific << std::setprecision(10) << *it << std::endl;
+	}
+	img.close();
+}
 
 void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve);
 
 void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve);
 
+void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve);
 
 #endif

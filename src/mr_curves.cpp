@@ -1,70 +1,15 @@
 
 #include "mr_curves.hpp"
 
+/*
+Function to write the FBS data into a txt file.
+Templated functions must be defined in the hpp file, therefore the following lines are just a placeholder for the sake of readability.
+If you want to see the function definition, refer to mr_curves.hpp.
+template <typename T>
+void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename);
+*/
 
-void write_MRphi_curve(const std::vector<FermionBosonStar>& MRphi_curve, std::string filename) {
-
-    std::ofstream img;
-	img.open(filename);
-    std::vector<std::string> labels = MRphi_curve.at(0).labels();
-
-	if(img.is_open()) {
-        // print the labels in line 1:
-        img << "# "; // hashtag so that python recognizes it as a commented line
-        for(unsigned i = 0; i < labels.size(); i++)
-            img << labels[i] << "\t ";
-		img << std::endl;
-
-        // print all the data:
-        for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it)
-            img << std::scientific << std::setprecision(10) << *it << std::endl;
-	}
-	img.close();
-}
-
-void write_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, std::string filename) {
-
-    MRphik2_curve.clear();  MRphik2_curve.reserve(MRphi_curve.size());
-
-    double phi_1_0, phi_1_1;
-
-    time_point start3{clock_type::now()};
-    for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
-        FermionBosonStarTLN fbstln(*it);
-        phi_1_0 = 1e-3 * it->phi_0;
-        phi_1_1 = 1e6 * it->phi_0;
-        fbstln.bisection_phi_1(phi_1_0, phi_1_1);
-        fbstln.evaluate_model();
-        MRphik2_curve.push_back(fbstln);
-    }
-    time_point end3{clock_type::now()};
-    std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
-    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
-
-    if(filename.empty())
-        return;
-
-    std::ofstream img;
-	img.open(filename);
-    std::vector<std::string> labels = MRphik2_curve.at(0).labels();
-
-	if(img.is_open()) {
-        // print the labels in line 1:
-        img << "# "; // hashtag so that python recognizes it as a commented line
-        for(unsigned i = 0; i < labels.size(); i++)
-            img << labels[i] << "\t ";
-		img << std::endl;
-
-        // print all the data:
-        for(auto it = MRphik2_curve.begin(); it != MRphik2_curve.end(); ++it)
-            img << std::scientific << std::setprecision(10) << *it << std::endl;
-	}
-	img.close();
-
-}
-
-
-// compute curves of constant rho_c and pyh_c:
+// compute curves of constant rho_c and phi_c:
 void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
@@ -86,7 +31,9 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
     time_point start3{clock_type::now()};
     #pragma omp parallel for
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+		if (bisection_success == -1)
+            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
         MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
     }
     time_point end3{clock_type::now()};
@@ -126,3 +73,33 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
     std::cout << "end loop" << std::endl;
 }
 
+
+// compute the tidal love number for curves of constant rho_c and phi_c:
+// the calculation of the unperturbed solution must be performed before, and only then this function can be called because it uses the equilibrium results from calc_rhophi_curves()
+void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve) {
+
+	MRphik2_curve.clear();  MRphik2_curve.reserve(MRphi_curve.size());
+
+    // set initial conditions for every star in the list:
+    for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
+        FermionBosonStarTLN fbs(*it);	// set the initial conditions for the FBS with tidal love number
+        MRphik2_curve.push_back(fbs);
+    }
+
+    double phi_1_0, phi_1_1; // upper and lower bound for the bisection of the perturbed Phi-field
+
+    time_point start3{clock_type::now()};
+	#pragma omp parallel for
+    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
+        //FermionBosonStarTLN fbstln(*it);
+        phi_1_0 = 1e-3 * MRphi_curve[i].phi_0;
+        phi_1_1 = 1e6 * MRphi_curve[i].phi_0;
+        MRphik2_curve[i].bisection_phi_1(phi_1_0, phi_1_1);
+        MRphik2_curve[i].evaluate_model();
+        //MRphik2_curve[i].push_back(fbstln);
+    }
+
+    time_point end3{clock_type::now()};
+    std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
+    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
+}

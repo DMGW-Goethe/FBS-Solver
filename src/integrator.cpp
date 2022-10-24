@@ -27,7 +27,7 @@ bool integrator::RKF45_step(ODE_system dy_dt, double &r, double &dr, vector& y, 
         if( vector::is_nan(dV_05) || vector::is_nan(dV_04)) {
             if(options.verbose > 0)
                 std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
-            assert(false);
+            throw std::runtime_error("NaN detected");
         }
 
         // approximating the truncation error:
@@ -144,10 +144,11 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
 
 // integrate function using trapezoid rule
 void integrator::cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
-    assert(x.size() == y.size() && x.size() > 0);
+    if( x.size() != y.size() || x.size() == 0)
+        return;
     res = std::vector<double>(x.size(), 0.);
 
-    for(int i = 1; i < x.size(); i++) {
+    for(unsigned int i = 1; i < x.size(); i++) {
         res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2.;
         res[i] += res[i-1];
     }

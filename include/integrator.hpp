@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>   // for std::vector
 #include <utility>  // for std::pair
+#include <stdexcept> // for std::runtime_error
 
 #include "vector.hpp"
 

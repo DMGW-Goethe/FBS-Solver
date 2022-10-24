@@ -61,10 +61,10 @@ cdef extern from "nsmodel.hpp":
         double phi_0
 
         void set_initial_conditions(const double rho_0, const double phi_0)
-        void bisection(double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
+        int bisection(double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
         int integrate(stdvector[step]& result, stdvector[Event]& events, IntegrationOptions intOpts, double r_init, double r_end)
         void evaluate_model()
-        void evaluate_model(stdvector[step]& results)
+        void evaluate_model(stdvector[step]& results, IntegrationOptions intOpts, string filename)
         void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode, int max_step, double delta_omega)
 
         double M_T
@@ -93,7 +93,7 @@ cdef extern from "nsmodel.hpp":
         void set_initial_conditions(const double phi_1_0, const double H_0, const double r_init)
         void evaluate_model(stdvector[step]& results, string filename)
         void evaluate_model()
-        void bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_step, double delta_phi_1)
+        int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_step, double delta_phi_1)
 
         const Event dphi_1_diverging
         const Event phi_1_negative

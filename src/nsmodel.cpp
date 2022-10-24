@@ -65,7 +65,7 @@ int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vect
 
 // find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
 // args: FermionBosonStar, vector, min omega, max omega
-void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega) {
+int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega) {
 
     // values/parameters for bisection
     double omega_mid;
@@ -82,7 +82,8 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     std::vector<integrator::step> results_0, results_1, results_mid;
 
     // find initial values for omega min and omega max
-    assert(omega_0 < omega_1);  // if the lower omega (omega_0) is larger than the upper omega (omega_1), we stop the code execution
+    if( omega_1 < omega_0)
+        std::swap(omega_0, omega_1);
 
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
@@ -94,8 +95,38 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
     res = this->integrate(results_1, events, intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
-    assert(n_roots_0 != n_roots_1);
-    assert(n_roots_0 <= n_mode && n_mode <= n_roots_1);
+    if(n_roots_0 == n_roots_1 || n_roots_0 > n_mode || n_mode > n_roots_1) {
+        const int max_tries = 20;
+        int tries = 0;
+        std::cout << "omega range insufficient. adjusting range..." << "\n"
+                        << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+        // adjust omega_0 if it is too large:
+        while (n_roots_0 > n_mode) {
+            // set the new lower omega and integrate the ODEs:
+            omega_0 *= 0.333;
+            this->omega = omega_0;
+            std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
+            int res = this->integrate(results_0, events, intOpts);
+            n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
+            if(tries > max_tries)
+                return -1;
+            tries++;
+        }
+        // adjust omega_1 if it is too small:
+        while (n_mode >= n_roots_1) {
+            // set the new upper omega and integrate the ODEs:
+            omega_1 *= 3.0;
+            this->omega = omega_1;
+            std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
+            res = this->integrate(results_1, events, intOpts);
+            n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
+            if(tries > max_tries)
+                return -1;
+            tries++;
+        }
+        std::cout << "adjusted omega range successfully with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+    }
+
     //std::cout << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
@@ -159,6 +190,7 @@ void FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int
 
     //std::cout << "found omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
     this->omega = omega_0;
+    return 0;
 }
 
 
@@ -287,7 +319,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
     int min_index_dMdr;
     if(dM_minima.size() > 0) {
-        min_index_dMdr = dM_minima[dM_minima.size()-1];
+        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
         min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
     }
     else
@@ -371,9 +403,9 @@ void FermionBosonStar::evaluate_model() {
     this->evaluate_model(results);
 }
 
-void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
-    integrator::IntegrationOptions intOpts;
+    // integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
     std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
@@ -570,7 +602,7 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     if(!filename.empty()) {
         // add y to results list for easy plotting
-        for(int i = 0; i < results.size(); i++) {
+        for(unsigned int i = 0; i < results.size(); i++) {
             auto s = results[i].second;
             results[i].second = vector({s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], y_func(i)});
         }
@@ -609,7 +641,7 @@ const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event(
 
 
 // find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
-void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
+int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
     // values/parameters for bisection
     double phi_1_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
@@ -629,7 +661,8 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     std::vector<integrator::step> results_0, results_1, results_mid;
 
     // find initial values for phi_1 min and phi_1 max
-    assert(phi_1_0 < phi_1_1);  // if the lower phi_1 is larger than the upper phi_1
+    if(phi_1_1 < phi_1_1)
+        std::swap(phi_1_0, phi_1_1);
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate = true;
@@ -654,9 +687,10 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
     matplotlibcpp::save("test/initial_1.png");
     #endif
 
+    if(n_roots_0 == n_roots_1 || n_roots_1 > n_mode || n_mode > n_roots_0)
+        return -1;
+
     //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
-    assert(n_roots_0 != n_roots_1);
-    assert(n_roots_1 <= n_mode && n_mode <= n_roots_0);
     intOpts.save_intermediate = false;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
@@ -681,7 +715,8 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
         }
     }
     //std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
-    assert(abs(n_roots_1 - n_roots_0) == 1);
+    if(abs(n_roots_1 - n_roots_0) != 1)
+        return -1;
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
@@ -761,5 +796,6 @@ void FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_
 
 
     this->set_initial_conditions(phi_1_0, this->H_0);
+    return 0;
 }
 
