@@ -805,3 +805,106 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     return 0;
 }
 
+
+
+/***********************
+ * FermionBosonStarTLNInterp *
+ ***********************/
+
+void FermionBosonStarTLNInterp::interpolate(const double r, vector& y_and_dy) const {
+
+    unsigned int index = 1;
+    const std::vector<integrator::step>& fbs_integration = this->fbs_integration;
+    unsigned int fbs_integration_size = fbs_integration.size();
+
+    while( index < fbs_integration_size - 2 && r > fbs_integration[index].first) index++;
+
+    const double r_left = fbs_integration[index-1].first,
+           r_right = fbs_integration[index].first;
+    const vector y_left = fbs_integration[index-1].second,
+           y_right = fbs_integration[index].second;
+
+    const vector y = y_left + (y_right - y_left) / (r_right-r_left) * (r - r_left);
+
+    const vector dy = FermionBosonStar::dy_dt(r, y);
+    //std::cout << "r = " << r << ", index=" << index << ", fbs_integration.size()=" << fbs_integration.size() <<  ", r_left=" <<r_left << ", r_right=" << r_right
+    //                    <<  ", y_left=" << y_left << ", y_right=" << y_right << ", y=" << y << ", dy=" <<dy << std::endl;
+
+    y_and_dy = vector({y[0], y[1], y[2], y[3], y[4], dy[0], dy[1], dy[2], dy[3], dy[4]});
+}
+
+vector FermionBosonStarTLNInterp::dy_dt(const double r, const vector& vars) const {
+    // vars has the structure (H, dH, phi_1, dphi_1)
+
+    vector y_and_dy;
+    this->interpolate(r, y_and_dy); // this returns the vector (a, alpha, phi, Psi, P, da_dr, dalpha_dr, dphi_dr, dPsi_dr, dP_dr) with 10 elements
+
+    vector y(9);
+    vector dy_dr(9);
+    for(int i = 0; i < 9; i++) {
+        y[i] =  i < 5 ? y_and_dy[i]  : vars[i-5];
+        dy_dr[i] = i < 5 ?  y_and_dy[5+i] : 0.;
+    }
+
+    this->TLNeq(r, y, dy_dr); // this needs the structure vars=(a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1)
+                                    //                  and    dvars=(da_dr, dalpha_dr, dphi_dr, dPsi_dr, dP_dr, 0., 0., 0., 0.) with 9 elements each
+
+    // this needs to return (dH, ddH, dphi_1, ddphi_1)
+    vector dvars_dr({dy_dr[5], dy_dr[6], dy_dr[7], dy_dr[8]});
+    /*std::cout << "r=" << r << ", "
+                << "vars = " << vars << ", "
+                << "y_and_dy = " << y_and_dy << ", "
+                << "y = " << y << ", "
+                << "dy = " << dy_dr << ", "
+                << "vars_dr = " << dvars_dr << std::endl;*/
+    return dvars_dr;
+}
+
+void FermionBosonStarTLNInterp::set_initial_conditions(const double phi_1_0, const double H_0, const double r_init) {
+    this->H_0 = H_0;
+    this->phi_1_0 = phi_1_0;
+    this->initial_conditions =  vector( {H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
+}
+
+int FermionBosonStarTLNInterp::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+    r_end = std::min(r_end, this->fbs_integration[this->fbs_integration.size()-1].first);
+    std::cout << "r_end = " << r_end << std::endl;
+    return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+}
+
+void FermionBosonStarTLNInterp::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
+
+    intOpts.save_intermediate = true;
+
+    integrator::Event dphi_1_diverging([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[((FermionBosonStarTLNInterp*)params)->dphi_1_index]) > 1e6); }, true);
+    std::vector<integrator::Event> events = { dphi_1_diverging};
+    results.clear();
+
+    int res = this->integrate(results, events, intOpts);
+    /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
+    for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
+        using namespace integrator;
+        std::cout << (integrator::step)*it;
+    }*/
+    this->calculate_star_parameters(results, events);
+
+    auto y_func = [&results, this](int index) { return results[index].first * results[index].second[dH_index]/ results[index].second[H_index]; };
+    if(!filename.empty()) {
+        // interpolate old values and add y to results list for easy plotting
+        vector vars;
+        for(unsigned int i = 0; i < results.size(); i++) {
+            auto s = results[i].second;
+            this->interpolate(results[i].first, vars);
+            results[i].second = vector({vars[0], vars[1], vars[2], vars[3], vars[4], s[0], s[1], s[2], s[3], y_func(i)});
+        }
+        plotting::save_integration_data(results, {0,1,2,3,4,5,6,7,8,9}, {"a", "alpha", "phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename);
+
+        std::vector<integrator::Event> events;
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {2,3,4,5,6,7,8,9}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1", "y"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
+
+}

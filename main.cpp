@@ -35,18 +35,27 @@ int test_FBSTLN() {
     fbs.bisection(omega_0, omega_1);
     fbs.evaluate_model(steps, integrator::IntegrationOptions(), "test/fbs.txt");
 
+    std::cout << fbs << std::endl;
+
     double H_0 = 1.;
     FermionBosonStarTLN fbstln(fbs);
     fbstln.set_initial_conditions(0., H_0);
 
-    double phi_1_0 = 1e-20, phi_1_1 = 1e3;
+    double phi_1_0 = 1e-3*phi_0, phi_1_1 = 1e6*phi_0;
     fbstln.bisection_phi_1(phi_1_0, phi_1_1);
 
-    fbstln.evaluate_model(steps, "test/fbstln.txt");
+    fbstln.evaluate_model(steps, integrator::IntegrationOptions(), "test/fbstln.txt");
 
-    std::cout << fbs << "\n"
-              << fbstln << std::endl;
+    std::cout << fbstln << std::endl;
 
+    FermionBosonStarTLNInterp fbstlnint(fbs);
+    fbstlnint.set_initial_conditions(0., H_0);
+
+    fbstlnint.bisection_phi_1(phi_1_0, phi_1_1);
+
+    fbstlnint.evaluate_model(steps, integrator::IntegrationOptions(), "test/fbstlnint.txt");
+
+    std::cout << fbstlnint << std::endl;
 
     #ifdef DEBUG_PLOTTING
     //[> see https://github.com/lava/matplotlib-cpp/issues/268 <]
@@ -62,7 +71,7 @@ int main() {
     //matplotlibcpp::backend("TkAgg");
     */
 
-    //return test_FBSTLN();
+    return test_FBSTLN();
 
     // ----------------------------------------------------------------
     // generate MR curves:
