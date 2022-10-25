@@ -6,7 +6,7 @@ vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params
 }
 
 // define the system of coupled ODEs for a Fermion-Boson Star:
-vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
+vector FermionBosonStar::dy_dt(const double r, const vector& vars) const {
 
     // rename input & class variables for simpler use:
     const double a = vars[0]; const double alpha = vars[1]; const double phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
@@ -452,10 +452,13 @@ void FermionBosonStarTLN::set_initial_conditions(const double phi_1_0, const dou
                                                              H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
 }
 
-vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
+void FermionBosonStarTLN::TLNeq(const double r, const vector& vars, vector& dvars_dr) const {
+
     const double a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
     double P = vars[4];
     const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
+
+    const double da_dr = dvars_dr[0],  dalpha_dr = dvars_dr[1], dphi_dr = dvars_dr[2], dPsi_dr = dvars_dr[3], dP_dr = dvars_dr[4];
 
     EquationOfState& myEOS = *(this->EOS);
     const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
@@ -468,10 +471,6 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
         dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
         drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
     }
-
-    vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
-    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
-
     const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
     const double dV_deps = mu*mu + lambda*phi*phi;
     const double ddV_deps2 = lambda;
@@ -494,6 +493,19 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
                                 + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
                                 + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*Psi*Psi + 2.*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
 
+    dvars_dr[5] = dH_dr;  dvars_dr[6] = ddH_dr2;  dvars_dr[7] = dphi_1_dr;  dvars_dr[8] = ddphi_1_dr2;
+}
+
+vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) const {
+
+    vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
+
+    vector dvars_dr(9);
+    for(unsigned int i = 0; i < 5; i++)
+        dvars_dr[i] = dy_dr[i];
+
+    this->TLNeq(r, vars, dvars_dr);
+
     /*std::cout << "r = " << r
                 << ", ddalpha_dr2 = " << ddalpha_dr2
                 << ", drho/dP = " << drho_dP
@@ -504,19 +516,19 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
                 << ", dphi_1_dr = " << dphi_1_dr
                 << ", phi_1 = " << phi_1
                 << std::endl;*/
-    return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
+    return dvars_dr;
 }
 
 void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
     // calculate parameters for unperturbed star
-    FermionBosonStar::calculate_star_parameters(results, events);
+    //FermionBosonStar::calculate_star_parameters(results, events);
 
     // add TLN calculation
     // The quantity to compute is y = r H' / H
     // if the fermionic radius larger than the bosonic one, take y = y(R_F_0)
     // if the bosonic radius is larger, find the maxiumum going from the back to the front
-    auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
+    auto y_func = [&results, this](int index) { return results[index].first * results[index].second[dH_index]/ results[index].second[H_index]; };
     auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
     double y = 0., R = 0.;
 
@@ -586,14 +598,14 @@ void FermionBosonStarTLN::evaluate_model() {
     this->evaluate_model(results);
 }
 
-void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
-    integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
+    integrator::Event dphi_1_diverging([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[((FermionBosonStarTLN*)params)->dphi_1_index]) > 1e6); }, true);
     integrator::Event M_converged(FermionBosonStar::M_converged);
     M_converged.stopping_condition = false;   // TODO: check why M_converged triggers on first point
-    std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, FermionBosonStarTLN::dphi_1_diverging};
+    std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, dphi_1_diverging};
     results.clear();
 
     int res = this->integrate(results, events, intOpts);
@@ -603,7 +615,7 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
         std::cout << (integrator::step)*it;
     }*/
 
-    auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
+    auto y_func = [&results, this](int index) { return results[index].first * results[index].second[dH_index]/ results[index].second[H_index]; };
     if(!filename.empty()) {
         // add y to results list for easy plotting
         for(unsigned int i = 0; i < results.size(); i++) {
@@ -638,10 +650,6 @@ std::vector<std::string> FermionBosonStarTLN::labels() {
     return l;
 }
 
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true);
-
-const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
-const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
 
 
 // find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
@@ -650,7 +658,6 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     double phi_1_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
     int i = 0;
-    const int index_phi_1 = 7;
 
     // evaluate model without TLN and calculate values such that we can check consistency at the end
     // FermionBosonStar::evaluate_model();
@@ -660,6 +667,10 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     intOpts.verbose = 0;
     // define events to check for during integration and put them inside of a std::vector:
     // stop integration if solution diverges:
+    integrator::Event phi_1_negative([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[((FermionBosonStarTLN*)params)->phi_1_index] < 0.; });
+    integrator::Event phi_1_positive([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[((FermionBosonStarTLN*)params)->phi_1_index] > 0.; });
+    integrator::Event dphi_1_diverging([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[((FermionBosonStarTLN*)params)->dphi_1_index]) > 1e6); }, true);
+
     std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};     // put the events into the event array
     // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) phi_1
     std::vector<integrator::step> results_0, results_1, results_mid;
@@ -730,11 +741,11 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     #endif
     this->set_initial_conditions(phi_1_0, this->H_0);
     res = this->integrate(results_0, events, intOpts);
-    n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
+    n_inft_0 = results_0[results_0.size()-1].second[phi_1_index] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
 
     this->set_initial_conditions(phi_1_1, this->H_0);
     res = this->integrate(results_1, events, intOpts);
-    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
+    n_inft_1 = results_1[results_1.size()-1].second[phi_1_index] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
     //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
 
     #ifdef DEBUG_PLOTTING
@@ -753,7 +764,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
         //std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
         this->set_initial_conditions(phi_1_mid, this->H_0);
         res = this->integrate(results_mid, events, intOpts);
-        n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
+        n_inft_mid = results_mid[results_mid.size()-1].second[phi_1_index] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
         //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;

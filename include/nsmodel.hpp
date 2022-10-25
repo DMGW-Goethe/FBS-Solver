@@ -20,7 +20,7 @@ public:
     std::shared_ptr<EquationOfState> EOS;   // shared pointer so that multiple NS models can use the same table (saves memory)
 
     NSmodel(std::shared_ptr<EquationOfState> EOS) : EOS(EOS) {}
-    virtual vector dy_dt(const double r, const vector& vars) =0;
+    virtual vector dy_dt(const double r, const vector& vars)const  =0;
     static vector dy_dt_static(const double r, const vector& y, const void* params); // this is a static function that receive the class pointer in params and calls dy_dt
 
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);
@@ -45,9 +45,9 @@ public:
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0.)
             : NSmodel(EOS), mu(mu),lambda(lambda), omega(omega), rho_0(0.), phi_0(0.), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_F(0.), R_F_0(0.) {}
 
-    vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
+    vector dy_dt(const double r, const vector& vars) const;  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho_0, const double phi_0); // holds the FBS init conditions
-    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
+    virtual int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
     int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
@@ -63,27 +63,33 @@ public:
 class FermionBosonStarTLN : public FermionBosonStar {
 protected:
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
+    void TLNeq(const double r, const vector& vars, vector& dvars_dr) const;
+
+    FermionBosonStarTLN(const FermionBosonStar& fbs, int H_index, int dH_index, int phi_1_index, int dphi_1_index) :
+        FermionBosonStar(fbs), H_index(H_index), dH_index(dH_index), phi_1_index(phi_1_index), dphi_1_index(dphi_1_index), H_0(0.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.)
+        {
+            this->set_initial_conditions();
+        }
+
+    const int H_index, dH_index, phi_1_index, dphi_1_index;
 
 public:
 
     double H_0, phi_1_0;
     double lambda_tidal, k2, y_max;
 
-    FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega)
-        : FermionBosonStar(EOS, mu, lambda, omega), H_0(0.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.) {}
-    FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs) { this->set_initial_conditions(); }
+    FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStarTLN(fbs, 5, 6, 7, 8) {}
 
-    vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star + TLN
-    void set_initial_conditions(const double phi_1_0=1., const double H_0=1., const double r_init=R_INIT);
+    vector dy_dt(const double r, const vector& vars) const;  // holds the system of ODEs for the Fermion Boson Star + TLN
+    virtual void set_initial_conditions(const double phi_1_0=1., const double H_0=1., const double r_init=R_INIT);
     using FermionBosonStar::evaluate_model;
-    void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
+    void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
     void evaluate_model();
     int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12);
 
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStarTLN&);
     static std::vector<std::string> labels();
 
-    static const integrator::Event dphi_1_diverging, phi_1_negative, phi_1_positive;
 };
 
 #endif
