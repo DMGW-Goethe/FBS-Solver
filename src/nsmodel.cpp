@@ -807,62 +807,63 @@ void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double rho2_
 }
 
 vector TwoFluidFBS::dy_dt(const double r, const vector& vars) {
-    const double a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
-    double P = vars[4];
-    const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
+    const double nu = vars[0], m1 = vars[1], m2 = vars[2];
+    double P1 = vars[3], P2 = vars[4];
+    const double Y = vars[5];
 
-    EquationOfState& myEOS = *(this->EOS);
-    const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
+	// load the Eos from both fluids:
+    EquationOfState& myEOS1 = *(this->EOS);
+	EquationOfState& myEOS2 = *(this->EOS_fluid2);
 
-    double rho, epsilon, drho_dP, dP_drho;
-    if(P <= 0. || P < myEOS.min_P())  {
-        P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
+	// call both EoS and compute the wanted values
+    double rho1, epsilon1, dP1_drho, drho_dP1;
+	double rho2, epsilon2, dP2_drho, drho_dP2;
+	// first EoS
+    if(P1 <= 0. || P1 < myEOS1.min_P())  {
+        P1 = 0.; rho1 = 0.; epsilon1 = 0.;
     } else {
-        myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by reference using EOS member function
-        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
-        drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
+        myEOS1.callEOS(rho1, epsilon1, P1); // change rho and epsilon by reference using EOS member function
+        dP1_drho = rho1 > myEOS1.min_rho() ? myEOS1.dP_drho(rho1, epsilon1) : 0.;
+		drho_dP1 = dP1_drho > 0. ? 1./dP1_drho : 0.;
+    }
+	// second EoS
+    if(P2 <= 0. || P2 < myEOS2.min_P())  {
+        P2 = 0.; rho2 = 0.; epsilon2 = 0.;
+    } else {
+        myEOS2.callEOS(rho2, epsilon2, P2); // change rho and epsilon by reference using EOS member function
+        dP2_drho = rho2 > myEOS2.min_rho() ? myEOS2.dP_drho(rho2, epsilon2) : 0.;
+		drho_dP2 = dP2_drho > 0. ? 1./dP2_drho : 0.;
     }
 
-    //vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
-    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
+	// compute 'total'-values and helper variables:
+	double mtot = m1 + m2;
+	double Ptot = P1 + P2;
+	double rhotot = rho1 + rho2;
+	double e_lambda = 1./ ( 1. - 2.*mtot/r ); // metric component: e^{-lambda(r)} = 1 - 2mtot(r)/r
+	double rhoP_param = (rho1 + P1)*drho_dP1 + (rho2 + P2)*drho_dP2; // special parameter used to compute Q
 
-    const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
-    const double dV_deps = mu*mu + lambda*phi*phi;
-    const double ddV_deps2 = lambda;
+	// compute the ODE:
+	double dnu_dr = 2.* (mtot + 4*M_PI*r*r*r*Ptot) * e_lambda / (r*r);
+	double dm1_dr = 4.*M_PI*r*r*rho1;
+	double dm2_dr = 4.*M_PI*r*r*rho2;
+	double dP1_dr = -0.5* dnu_dr * (rho1 + P1);
+	double dP2_dr = -0.5* dnu_dr * (rho2 + P2);
+	// compute tidal function:
+	double Q = 4.*M_PI*e_lambda* (5.*(rho1+rho2) + 9.*(P1+P2) + rhoP_param ) - 6.*e_lambda/r/r - dnu_dr*dnu_dr; // helper variable Q
+	double dY_dr = -Y*Y/r - Y*e_lambda*( 1. + 4.*M_PI*r*r*(Ptot-rhotot) )/r - r*Q; // tidal perturbation function y(r)
 
-    // additional TLN equations
-    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*phi*phi*a*da_dr + 2.*r*phi*a*a*Psi + phi*phi*a*a)/alpha
-                                + ( 4.*M_PI*r*a*a*(-omega*omega*phi*phi/alpha/alpha + P - V + Psi*Psi/a/a)
-                                    + (a*a - 1.)/2./r ) * dalpha_dr
-                                + ( 4.*M_PI*r* ( 2.*P*a*da_dr - 2.*V*a*da_dr - 2.*phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
-                                    + 4.*M_PI*a*a*(P - V) + 4.*M_PI*Psi*Psi + a*da_dr/r + (1. - a*a)/2./r/r )*alpha;
-
-    const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
-                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ drho_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + drho_dP)
-                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ drho_dP) - dalpha_dr/r/alpha*(7. + drho_dP)
-                                    + 6*a*a/r/r) * H
-                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - drho_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +drho_dP) - 16.*M_PI* dPsi_dr/r*(3. + drho_dP)
-                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + drho_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - drho_dP) - 32.*M_PI*dphi_dr/r/r*(3. + drho_dP)) * phi_1;
-
-    const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
-                                + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
-                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*Psi*Psi + 2.*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
-
-    /*std::cout << "r = " << r
-                << ", ddalpha_dr2 = " << ddalpha_dr2
-                << ", drho/dP = " << drho_dP
-                << ", ddH_dr2 = " << ddH_dr2
-                << ", dH_dr = " << dH_dr
-                << ", H = " << H
-                << ". ddphi_1_dr2 = " << ddphi_1_dr2
-                << ", dphi_1_dr = " << dphi_1_dr
-                << ", phi_1 = " << phi_1
-                << std::endl;*/
-    return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
+    return vector({dnu_dr, dm1_dr, dm2_dr, dP1_dr, dP2_dr, dY_dr});
 }
 
 int TwoFluidFBS::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
     return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+}
+
+int TwoFluidFBS::compute_star() {
+
+	// TBD
+	// just compute one star configuration
+    return 0;
 }
 
 void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
@@ -995,7 +996,7 @@ void TwoFluidFBS::evaluate_model(std::vector<integrator::step>& results, std::st
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
-    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
+    std::vector<integrator::Event> events = {TwoFluidFBS::all_Pressure_zero};
     results.clear();
 
     int res = this->integrate(results, events, intOpts);
@@ -1015,19 +1016,17 @@ void TwoFluidFBS::evaluate_model(std::vector<integrator::step>& results, std::st
 
 std::ostream& operator<<(std::ostream& os, const TwoFluidFBS& fbs) {
     return os   << fbs.M_T                   << " "   // total gravitational mass
-                << fbs.rho_0                 << " "   // central density
-                << fbs.phi_0                 << " "   // central scalar field
-                << fbs.R_F*1.476625061       << " "   // fermionic radius
-                << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
-                << fbs.N_F                   << " "   // number of fermions
-                << fbs.R_B*1.476625061       << " "   // bosonic radius
-                << fbs.N_B                   << " "   // number of bosons
-                << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
-                << fbs.omega                 << " "   // omega
-                << fbs.mu                    << " "   // mass mu
-                << fbs.lambda;      // self-interaction parameter lambda
+                << fbs.rho1_0                << " "   // central density of 1st fluid
+                << fbs.rho2_0                << " "   // central density of 2nd fluid
+                << fbs.R_1*1.476625061       << " "   // radius (99% matter included) of 1st fluid
+                << fbs.R_1_0*1.476625061     << " "   // radius where P(r)=0 of 1st fluid
+                << fbs.M_1                   << " "   // total mass of 1st fluid
+                << fbs.R_2*1.476625061       << " "   // radius (99% matter included) of 2nd fluid
+				<< fbs.R_2_0*1.476625061     << " "   // radius where P(r)=0 of 2nd fluid
+                << fbs.M_2                   << " "   // total mass of 2nd fluid
+                << fbs.M_2 / fbs.M_1;   	// mass ratio M_2 / M_1
 }
 
 std::vector<std::string> TwoFluidFBS::labels() {
-    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
+    return std::vector<std::string> ({"M_T", "rho1_0","rho2_0", "M_1", "M_2", "R_1", "R_1_0", "R_2", "R_2_0", "M_2/M_1"});
 }

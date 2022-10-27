@@ -111,7 +111,7 @@ public:
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
     void set_initial_conditions(const double rho1_0, const double rho2_0); // holds the FBS init conditions
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
-    int calc_star(int max_step=500);
+    int compute_star();
     // void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
     void evaluate_model();
@@ -119,7 +119,7 @@ public:
     friend std::ostream& operator<<(std::ostream&, const TwoFluidFBS&);
     static std::vector<std::string> labels();
 
-    static const integrator::Event M_converged;
+    static const integrator::Event all_Pressure_zero;
 
 };
 
