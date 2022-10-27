@@ -50,6 +50,33 @@ double CausalEoS::min_rho() {
     return 0.;
 }
 
+
+/* EffectiveBosonicEoS */
+double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
+
+	return ( (4./9.)*this->rho0*std::pow( std::sqrt(1.+ (3./4.)*(rho_in/this->rho0) )-1.0, 2) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
+}
+
+double EffectiveBosonicEoS::dP_drho(const double rho_in, const double epsilon) {
+
+	return ( 1./3. - std::pow(1.+ (3./4.)*(rho_in/this->rho0) , -0.5) / 3.0 );
+}
+
+void EffectiveBosonicEoS::callEOS(double& myrho, double& epsilon, const double P) {
+	// update restmass density (rho) and specific energy (epsilon) according to effective bosonic EOS
+    	myrho = 3.*P + 4.* std::sqrt( P * this->rho0);	// positive root taken pron rho= 3*P +/- 4* sqrt(P*rho0)
+    	epsilon = 0.0;
+		return;
+}
+
+double EffectiveBosonicEoS::min_P() {
+    return 0.;
+}
+double EffectiveBosonicEoS::min_rho() {
+    return 0.;
+}
+
+
 /* EoStable */
 EoStable::EoStable(const std::string filename) {
     // load in the tabulated EOS data and convert it to code units directly

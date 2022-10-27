@@ -643,7 +643,6 @@ const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Even
 const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
 const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
 
-
 // find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
 int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
     // values/parameters for bisection
@@ -794,3 +793,241 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     return 0;
 }
 
+
+/***********************
+ * TwoFluidFBS *
+ ***********************/
+
+void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double rho2_0) {
+    this->rho1_0 = rho1_0;
+    this->rho2_0 = rho2_0;
+	// d/dr (nu, m1, m2, p1, p2, y(r))
+    this->initial_conditions =  vector( {0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0., 
+										rho2_0 > this->EOS_fluid2->min_rho() ? this->EOS_fluid2->get_P_from_rho(rho2_0, 0.) : 0., 2.0});
+}
+
+vector TwoFluidFBS::dy_dt(const double r, const vector& vars) {
+    const double a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
+    double P = vars[4];
+    const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
+
+    EquationOfState& myEOS = *(this->EOS);
+    const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
+
+    double rho, epsilon, drho_dP, dP_drho;
+    if(P <= 0. || P < myEOS.min_P())  {
+        P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
+    } else {
+        myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by reference using EOS member function
+        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
+        drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
+    }
+
+    //vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
+    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
+
+    const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
+    const double dV_deps = mu*mu + lambda*phi*phi;
+    const double ddV_deps2 = lambda;
+
+    // additional TLN equations
+    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*phi*phi*a*da_dr + 2.*r*phi*a*a*Psi + phi*phi*a*a)/alpha
+                                + ( 4.*M_PI*r*a*a*(-omega*omega*phi*phi/alpha/alpha + P - V + Psi*Psi/a/a)
+                                    + (a*a - 1.)/2./r ) * dalpha_dr
+                                + ( 4.*M_PI*r* ( 2.*P*a*da_dr - 2.*V*a*da_dr - 2.*phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
+                                    + 4.*M_PI*a*a*(P - V) + 4.*M_PI*Psi*Psi + a*da_dr/r + (1. - a*a)/2./r/r )*alpha;
+
+    const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
+                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ drho_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + drho_dP)
+                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ drho_dP) - dalpha_dr/r/alpha*(7. + drho_dP)
+                                    + 6*a*a/r/r) * H
+                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - drho_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +drho_dP) - 16.*M_PI* dPsi_dr/r*(3. + drho_dP)
+                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + drho_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - drho_dP) - 32.*M_PI*dphi_dr/r/r*(3. + drho_dP)) * phi_1;
+
+    const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
+                                + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
+                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*Psi*Psi + 2.*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
+
+    /*std::cout << "r = " << r
+                << ", ddalpha_dr2 = " << ddalpha_dr2
+                << ", drho/dP = " << drho_dP
+                << ", ddH_dr2 = " << ddH_dr2
+                << ", dH_dr = " << dH_dr
+                << ", H = " << H
+                << ". ddphi_1_dr2 = " << ddphi_1_dr2
+                << ", dphi_1_dr = " << dphi_1_dr
+                << ", phi_1 = " << phi_1
+                << std::endl;*/
+    return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
+}
+
+int TwoFluidFBS::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+    return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+}
+
+void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
+
+    // obtain estimate for the total mass:
+    // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
+    // start iterating through the solution array backwards:
+    int min_index_a = results.size()-1;
+    double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+
+    // find the index of the minimum of the g_rr metric component:
+    for (unsigned int i=results.size()-2; i > 0; i--) {
+        if (results[i].second[0] < curr_a_min) {
+            curr_a_min = results[i].second[0]; // update current minimum
+            min_index_a = i;  // update min_index
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
+
+    // find the index of the optimum of the total mass M_T (before it diverges).
+    // M_T := r/2 * ( 1 - 1/(a^2) )
+    // M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
+    // Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
+    // the optimum can be found at the point where the derivative of M_t with respect to r is minimal:
+
+    // last value of the total mass M_T:
+    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
+    auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
+                                                        + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
+
+    std::vector<int> dM_minima;
+    int index_dM_global_minimum = results.size()-3;
+    for (unsigned int i=results.size()-3; i > 2; i--) {
+        // std::cout << "i=" << i << ", r= " << results[i].first << ", M = " << M_func(i) << ", dM = " << dM_func(i) << std::endl;
+        if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
+            dM_minima.push_back(i);
+        if(dM_func(i) < dM_func(index_dM_global_minimum)) // and finde the global one
+            index_dM_global_minimum = i;
+    }
+    // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
+    int min_index_dMdr;
+    if(dM_minima.size() > 0) {
+        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
+        min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
+    }
+    else
+        min_index_dMdr = index_dM_global_minimum;
+
+    double M_T = M_func(min_index_dMdr);
+
+    // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
+
+    // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
+    // Note: this method will maybe not work well if we consider higher modes of phi!
+    int min_index_phi = results.size()-1;
+    double curr_phi_min = std::abs(results[results.size()-1].second[2]);  // last value for the phi field a at r=0
+    for (unsigned int i=results.size()-2; i > 0; i--) {
+        if (std::abs(results[i].second[2]) < curr_phi_min) {
+            curr_phi_min = std::abs(results[i].second[2]); // update current minimum
+            min_index_phi = i;  // update min_index
+        }
+        else {
+            break; // the component is increasing again. that means we have found out minimum
+        }
+    }
+
+    // Extract the results and put them into a usable form to calculate N_B, N_F
+    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
+    vector v;
+    double rho, eps;
+
+    for(unsigned int i = 0; i < results.size(); i++) {
+        r[i] = results[i].first;
+        v = results[i].second;
+        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
+        this->EOS->callEOS(rho, eps, std::max(0., v[4]));
+        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
+    }
+
+    // Integrate
+    std::vector<double> N_F_integrated, N_B_integrated;
+    integrator::cumtrapz(r, N_F_integrand, N_F_integrated);
+    integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
+
+    // Find where 99% of N_B,N_F are reached to get the radii
+    // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
+    // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
+    double N_F = 4.*M_PI* N_F_integrated[min_index_a],
+           N_B = 8.*M_PI* N_B_integrated[min_index_phi];
+
+    // first find the index in array where 99% is contained
+    // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
+    int i_B = 0, i_F = 0;
+    unsigned int max_index = std::max(min_index_phi, min_index_a);
+    for(unsigned int i = 1; i < max_index; i++) {
+        if(N_B_integrated[i] < 0.99*N_B)
+            i_B++;
+        if(N_F_integrated[i] < 0.99*N_F)
+            i_F++;
+    }
+    // obtain radius from corresponding index
+    double R_B = r[i_B], R_F = r[i_F];
+
+    // compute the fermionic radius R_f using the definition where P(R_f)==0:
+    // iterate the Pressure-array until we find the first point where the pressure is zero:
+    double R_F_0 = 0.0; // fermionic radius where pressure is zero
+
+    // find the first point where the pressure is (approx) zero and take this as the fermionic radius
+    for (unsigned i = 1; i < results.size(); i++) {
+        if (results[i].second[4] < P_ns_min) {
+            R_F_0 = r[i];
+            N_F = 4.*M_PI* N_F_integrated[i];
+            break;
+        }
+    }
+
+    //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
+    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
+}
+
+void TwoFluidFBS::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
+
+void TwoFluidFBS::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
+
+    integrator::IntegrationOptions intOpts;
+    intOpts.save_intermediate = true;
+
+    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
+    results.clear();
+
+    int res = this->integrate(results, events, intOpts);
+
+    if(!filename.empty()) {
+        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename);
+
+        #ifdef DEBUG_PLOTTING
+        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
+        matplotlibcpp::legend(); matplotlibcpp::xscale("log"); matplotlibcpp::yscale("log");
+        matplotlibcpp::save(filename); matplotlibcpp::close();
+        #endif
+    }
+
+    this->calculate_star_parameters(results, events);
+}
+
+std::ostream& operator<<(std::ostream& os, const TwoFluidFBS& fbs) {
+    return os   << fbs.M_T                   << " "   // total gravitational mass
+                << fbs.rho_0                 << " "   // central density
+                << fbs.phi_0                 << " "   // central scalar field
+                << fbs.R_F*1.476625061       << " "   // fermionic radius
+                << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
+                << fbs.N_F                   << " "   // number of fermions
+                << fbs.R_B*1.476625061       << " "   // bosonic radius
+                << fbs.N_B                   << " "   // number of bosons
+                << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
+                << fbs.omega                 << " "   // omega
+                << fbs.mu                    << " "   // mass mu
+                << fbs.lambda;      // self-interaction parameter lambda
+}
+
+std::vector<std::string> TwoFluidFBS::labels() {
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
+}

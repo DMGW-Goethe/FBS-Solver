@@ -46,7 +46,7 @@ public:
 };
 
 
-/* a class modeling a Polytropic equation of state */
+/* a class modeling a Causal equation of state */
 class CausalEoS : public EquationOfState
 {
 protected:
@@ -62,6 +62,27 @@ public:
     double min_P();
     double min_rho();
 };
+
+
+/* a class modeling the effective equation of state for a bosonic condensate of self-interacting bosons */
+class EffectiveBosonicEoS : public EquationOfState
+{
+protected:
+    double rho0;	// parameter computed from boson mass and self-interaction-parameter
+					// rho0 = mu^4 / ( 4 * lambda )
+
+public:
+    EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (4.* lambda)) {}
+
+    double get_P_from_rho(const double rho_in, const double epsilon);
+	void callEOS(double& myrho, double& epsilon, const double P);
+    double dP_drho(const double rho, double epsilon);
+
+    double min_P();
+    double min_rho();
+
+};
+
 
 /* a class modeling a tabulated equation of state */
 class EoStable : public EquationOfState

@@ -86,4 +86,41 @@ public:
     static const integrator::Event dphi_1_diverging, phi_1_negative, phi_1_positive;
 };
 
+
+// this is a class modeling a fermion boson star in the two-fluid ansatz, akin to
+// PHYSICAL REVIEW D 105, 123010 (2022)
+// generally, this "two fluid FBS" can describe any neutron star made out of two non-coupling fluids (only interact gravitationally) with each their EoS.
+// it must not necessarily be neuron-matter + dark matter, but can be a combination of two arbitrary fluids with EoS.
+// constructor: EOS (ptr), EOS2 (ptr), mu (double), lambda (double)
+class TwoFluidFBS : public NSmodel {
+protected:
+    vector initial_conditions;
+    void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
+
+public:
+    double mu, lambda;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda
+    double rho1_0, rho2_0;	// initial conditions, central density of fluid 1 and 2 respectively
+    // total mass M_T; total mass of fluid 1 (2): M_1  (M_2); radius R_1 , R_2 (99% of matter included); radius where pressure is zero R_1_0 , R_2_0;
+    double M_T, M_1, M_2, R_1, R_1_0, R_2, R_2_0;
+
+	std::shared_ptr<EquationOfState> EOS_fluid2;	// EOS of the second fluid
+
+    TwoFluidFBS(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2)
+            : NSmodel(EOS1), EOS_fluid2(EOS2), mu(mu),lambda(lambda), rho1_0(0.), rho2_0(0.), M_T(0.), M_1(0.), M_2(0.), R_1(0.), R_1_0(0.), R_2(0.), R_2_0(0.) {}
+
+    vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
+    void set_initial_conditions(const double rho1_0, const double rho2_0); // holds the FBS init conditions
+    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
+    int calc_star(int max_step=500);
+    // void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
+    void evaluate_model(std::vector<integrator::step>& results, std::string filename="");
+    void evaluate_model();
+
+    friend std::ostream& operator<<(std::ostream&, const TwoFluidFBS&);
+    static std::vector<std::string> labels();
+
+    static const integrator::Event M_converged;
+
+};
+
 #endif
