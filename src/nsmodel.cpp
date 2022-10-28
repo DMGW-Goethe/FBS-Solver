@@ -859,131 +859,89 @@ int TwoFluidFBS::integrate(std::vector<integrator::step>& result, std::vector<in
     return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
 }
 
-int TwoFluidFBS::compute_star() {
-
-	// TBD
-	// just compute one star configuration
-    return 0;
-}
 
 void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
+	// compute all values of the star, including the tidal deformability:
+
     // obtain estimate for the total mass:
-    // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
-    // start iterating through the solution array backwards:
-    int min_index_a = results.size()-1;
-    double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+	// the total mass M_T is defined at the point M(R) where R ist the largest radius between fluid 1 and fluid 2:
+	// M_T can be obtained from the metric component nu:
+	// e^nu = 1 - 2M/R  ==>> M(r) = r/2 * (1 - exp(nu(r)))
 
-    // find the index of the minimum of the g_rr metric component:
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        if (results[i].second[0] < curr_a_min) {
-            curr_a_min = results[i].second[0]; // update current minimum
-            min_index_a = i;  // update min_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
-        }
-    }
+	int last_index = results.size()-1; // last index in the integration
+	double M_T = 0.5*results[last_index].first * ( 1. - std::exp(results[last_index].second[0]) );
 
-    // find the index of the optimum of the total mass M_T (before it diverges).
-    // M_T := r/2 * ( 1 - 1/(a^2) )
-    // M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
-    // Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
-    // the optimum can be found at the point where the derivative of M_t with respect to r is minimal:
+	// next compute the masses of only 1st fluid and 2nd fluid respectively:
+	// it is fine to take the last indices of the whole integration because once one fluid has reached zero pressure, the change in mass dm/dr will be zero
+	double M_1 = results[last_index].second[1];
+	double M_2 = results[last_index].second[2];
 
-    // last value of the total mass M_T:
-    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
-    auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
-                                                        + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
-
-    std::vector<int> dM_minima;
-    int index_dM_global_minimum = results.size()-3;
-    for (unsigned int i=results.size()-3; i > 2; i--) {
-        // std::cout << "i=" << i << ", r= " << results[i].first << ", M = " << M_func(i) << ", dM = " << dM_func(i) << std::endl;
-        if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
-            dM_minima.push_back(i);
-        if(dM_func(i) < dM_func(index_dM_global_minimum)) // and finde the global one
-            index_dM_global_minimum = i;
-    }
-    // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
-    int min_index_dMdr;
-    if(dM_minima.size() > 0) {
-        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
-        min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
-    }
-    else
-        min_index_dMdr = index_dM_global_minimum;
-
-    double M_T = M_func(min_index_dMdr);
-
-    // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
-
-    // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
-    // Note: this method will maybe not work well if we consider higher modes of phi!
-    int min_index_phi = results.size()-1;
-    double curr_phi_min = std::abs(results[results.size()-1].second[2]);  // last value for the phi field a at r=0
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        if (std::abs(results[i].second[2]) < curr_phi_min) {
-            curr_phi_min = std::abs(results[i].second[2]); // update current minimum
-            min_index_phi = i;  // update min_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
+	// compute the radii of 1st and 2nd fluid:
+	// radius where pressure is approximately zero:
+	int i_R1_0, i_R2_0;
+	for (unsigned i = 1; i < results.size(); i++) {
+        if (results[i].second[3] < P_ns_min) {
+            R_1_0 = results[i].first;	// 1st fluid
+			i_R1_0 = i;
+            break;
         }
     }
-
-    // Extract the results and put them into a usable form to calculate N_B, N_F
-    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
-    vector v;
-    double rho, eps;
-
-    for(unsigned int i = 0; i < results.size(); i++) {
-        r[i] = results[i].first;
-        v = results[i].second;
-        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
-        this->EOS->callEOS(rho, eps, std::max(0., v[4]));
-        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
-    }
-
-    // Integrate
-    std::vector<double> N_F_integrated, N_B_integrated;
-    integrator::cumtrapz(r, N_F_integrand, N_F_integrated);
-    integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
-
-    // Find where 99% of N_B,N_F are reached to get the radii
-    // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
-    // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
-    double N_F = 4.*M_PI* N_F_integrated[min_index_a],
-           N_B = 8.*M_PI* N_B_integrated[min_index_phi];
-
-    // first find the index in array where 99% is contained
-    // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
-    int i_B = 0, i_F = 0;
-    unsigned int max_index = std::max(min_index_phi, min_index_a);
-    for(unsigned int i = 1; i < max_index; i++) {
-        if(N_B_integrated[i] < 0.99*N_B)
-            i_B++;
-        if(N_F_integrated[i] < 0.99*N_F)
-            i_F++;
-    }
-    // obtain radius from corresponding index
-    double R_B = r[i_B], R_F = r[i_F];
-
-    // compute the fermionic radius R_f using the definition where P(R_f)==0:
-    // iterate the Pressure-array until we find the first point where the pressure is zero:
-    double R_F_0 = 0.0; // fermionic radius where pressure is zero
-
-    // find the first point where the pressure is (approx) zero and take this as the fermionic radius
-    for (unsigned i = 1; i < results.size(); i++) {
+	for (unsigned i = 1; i < results.size(); i++) {
         if (results[i].second[4] < P_ns_min) {
-            R_F_0 = r[i];
-            N_F = 4.*M_PI* N_F_integrated[i];
+            R_2_0 = results[i].first;	// 2nd fluid
+			i_R2_0 = i;
             break;
         }
     }
 
-    //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
-    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
+	// radius where 99% of the fluid (1st/2nd respectively) is contained:
+
+	std::vector<double> r(results.size()), M_1_integrand(results.size()), M_2_integrand(results.size());
+	// fill the integrand functions:
+	for (unsigned i = 0; i < results.size(); ++i) {
+		r[i] = results[i].first;
+		M_1_integrand[i] = results[i].second[1];	// mass of 1st fluid
+		M_2_integrand[i] = results[i].second[2];	// mass of 2nd fluid
+	}
+
+	// Integrate both fluid masses:
+    std::vector<double> M_1_integrated, M_2_integrated;
+    integrator::cumtrapz(r, M_1_integrand, M_1_integrated);
+    integrator::cumtrapz(r, M_2_integrand, M_2_integrated);
+
+	// now find the radius:
+	int i_B = 0, i_F = 0;
+    for(unsigned int i = 0; i < results.size(); i++) {
+        if(M_1_integrated[i] < 0.99*M_1)
+            i_B++;
+        if(M_2_integrated[i] < 0.99*M_2)
+            i_F++;
+    }
+    // obtain radius from corresponding index
+    double R_1 = r[i_B], R_2 = r[i_F];
+
+	// compute the tidal deformability:
+	// it is defined at the point where both fluids reach zero density (i.e. the surface of the combined star)
+	double maxR = std::max(R_1_0, R_2_0);
+	double C = M_T/maxR;	// compactness of conbined configuration
+	// otain the value of y(r) at maxR:
+	int maxRindex = std::max(i_R1_0, i_R2_0);
+	double y_R = results[maxRindex].second[5];
+
+	// compute tidal love number k2:
+	// equation taken from: PHYSICAL REVIEW D 105, 123010 (2022)
+	double k2 = (8./5.)* std::pow(C,5)* std::pow(1.-2.*C, 2)* (2. - y_R + 2.*C*(y_R-1.)) / 
+				( 2.*C*( 6. - 3.*y_R + 3.*C*(5.*y_R - 8.) ) 
+				+ 4.*std::pow(C,3)*( 13. - 11.*y_R + C*(3.*y_R - 2.) + 2.*C*C*(1. + y_R) ) 
+				+ 3.*std::pow(1.-2.*C, 2)* ( 2. - y_R + 2.*C*(y_R-1.)* std::log( 1.-2.*C) ) );
+
+	double lambda_tidal = (2./3.) * k2 * std::pow(maxR,5);
+
+
+	// update all the global star values:
+    this->M_T = M_T; this->M_1 = M_1; this->M_2 = M_2; this->R_1 = R_1; this->R_1_0 = R_1_0; this->R_2 = R_2; this->R_2_0 = R_2_0;
+	this->k2 = k2; this->lambda_tidal = lambda_tidal;
 }
 
 void TwoFluidFBS::evaluate_model() {
@@ -993,19 +951,21 @@ void TwoFluidFBS::evaluate_model() {
 
 void TwoFluidFBS::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
 
+	// define variables used in the integrator and events during integration:
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
-
+	// stop integration if pressure is zero for both fluids:
     std::vector<integrator::Event> events = {TwoFluidFBS::all_Pressure_zero};
     results.clear();
 
-    int res = this->integrate(results, events, intOpts);
+    int res = this->integrate(results, events, intOpts);	// integrate the star
 
+	// option to save all the radial profiles into a txt file:
     if(!filename.empty()) {
-        plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename);
+        plotting::save_integration_data(results, {0,1,2,3,4,5}, {"nu", "m1", "m2", "P1", "P2", "y(r)"}, filename);
 
         #ifdef DEBUG_PLOTTING
-        plotting::plot_evolution(results, events, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename.replace(filename.size()-3, 3, "png"));
+        plotting::plot_evolution(results, events, {0,1,2,3,4,5}, {"nu", "m1", "m2", "P1", "P2", "y(r)"}, filename.replace(filename.size()-3, 3, "png"));
         matplotlibcpp::legend(); matplotlibcpp::xscale("log"); matplotlibcpp::yscale("log");
         matplotlibcpp::save(filename); matplotlibcpp::close();
         #endif
@@ -1024,9 +984,13 @@ std::ostream& operator<<(std::ostream& os, const TwoFluidFBS& fbs) {
                 << fbs.R_2*1.476625061       << " "   // radius (99% matter included) of 2nd fluid
 				<< fbs.R_2_0*1.476625061     << " "   // radius where P(r)=0 of 2nd fluid
                 << fbs.M_2                   << " "   // total mass of 2nd fluid
-                << fbs.M_2 / fbs.M_1;   	// mass ratio M_2 / M_1
+                << fbs.M_2 / fbs.M_1    	 << " "   // mass ratio M_2 / M_1
+				<< fbs.k2					 << " "	
+				<< fbs.lambda_tidal;
 }
 
 std::vector<std::string> TwoFluidFBS::labels() {
-    return std::vector<std::string> ({"M_T", "rho1_0","rho2_0", "M_1", "M_2", "R_1", "R_1_0", "R_2", "R_2_0", "M_2/M_1"});
+    return std::vector<std::string> ({"M_T", "rho1_0","rho2_0", "M_1", "M_2", "R_1", "R_1_0", "R_2", "R_2_0", "M_2/M_1", "k2", "lambda_tidal"});
 }
+
+const integrator::Event TwoFluidFBS::all_Pressure_zero = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return ( (y[3] <= 1e-20 ) && (y[4] <= 1e-20) ); }, true);
