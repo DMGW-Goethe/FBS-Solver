@@ -71,7 +71,7 @@ int main() {
     //matplotlibcpp::backend("TkAgg");
     */
 
-    return test_FBSTLN();
+    //return test_FBSTLN();
 
     // ----------------------------------------------------------------
     // generate MR curves:
@@ -118,7 +118,7 @@ int main() {
 	// calc the perturbed solutions to get the tidal love number:
 	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_test3dd2.txt");
+	write_MRphi_curve(MRphi_tln_curve, "plots/tlncurve_test3dd2.interp.txt");
 
     // space for more EOS
 

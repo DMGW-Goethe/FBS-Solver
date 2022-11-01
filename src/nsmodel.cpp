@@ -872,6 +872,11 @@ int FermionBosonStarTLNInterp::integrate(std::vector<integrator::step>& result, 
     return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
 }
 
+void FermionBosonStarTLNInterp::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
+
 void FermionBosonStarTLNInterp::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
     intOpts.save_intermediate = true;

@@ -108,6 +108,7 @@ public:
 
     vector dy_dt(const double r, const vector& vars) const;
     void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
+    void evaluate_model();
     void set_initial_conditions(const double phi_1_0=1., const double H_0=1., const double r_init=R_INIT);
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
 

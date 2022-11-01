@@ -79,26 +79,20 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve) {
 
 	MRphik2_curve.clear();  MRphik2_curve.reserve(MRphi_curve.size());
-
-    // set initial conditions for every star in the list:
-    for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
-        FermionBosonStarTLN fbs(*it);	// set the initial conditions for the FBS with tidal love number
-        MRphik2_curve.push_back(fbs);
-    }
-
     double phi_1_0, phi_1_1; // upper and lower bound for the bisection of the perturbed Phi-field
+    int i = 0;
 
     time_point start3{clock_type::now()};
-	#pragma omp parallel for
-    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        //FermionBosonStarTLN fbstln(*it);
+    // set initial conditions for every star in the list:
+    for(auto it = MRphi_curve.begin(); it != MRphi_curve.end(); ++it) {
+        FermionBosonStarTLNInterp fbs(*it);	// set the initial conditions for the FBS with tidal love number
         phi_1_0 = 1e-3 * MRphi_curve[i].phi_0;
         phi_1_1 = 1e6 * MRphi_curve[i].phi_0;
-        MRphik2_curve[i].bisection_phi_1(phi_1_0, phi_1_1);
-        MRphik2_curve[i].evaluate_model();
-        //MRphik2_curve[i].push_back(fbstln);
+        fbs.bisection_phi_1(phi_1_0, phi_1_1);
+        fbs.evaluate_model();
+        MRphik2_curve.push_back(fbs);
+        i++;
     }
-
     time_point end3{clock_type::now()};
     std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
     std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
