@@ -510,7 +510,7 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
 void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
     // calculate parameters for unperturbed star
-    FermionBosonStar::calculate_star_parameters(results, events);
+    //FermionBosonStar::calculate_star_parameters(results, events);
 
     // add TLN calculation
     // The quantity to compute is y = r H' / H
