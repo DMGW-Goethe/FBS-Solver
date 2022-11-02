@@ -226,20 +226,20 @@ cdef class PyMRcurve:
         if(not f.empty()):
             write_MRphi_curve(MRphi_curve, f)
 
-    '''
     @staticmethod
-    def calc_TLN_curve( PyFermionBosonStar[:]  pMRphi_curve, str filename=""):
+    def calc_TLN_curve(pMRphi_curve):
         cdef stdvector[FermionBosonStar] MRphi_curve
         cdef stdvector[FermionBosonStarTLN] tln_curve
+        cdef PyFermionBosonStar fbs
 
-        for i in range(len(pMRphi_curve)):
-            MRphi_curve.push_back(deref( pMRphi_curve[i].fbs))
+        for fbs in pMRphi_curve:
+            MRphi_curve.push_back(deref( fbs.fbs))
 
-        write_MRphik2_curve(MRphi_curve, tln_curve, filename)
+        calc_MRphik2_curve(MRphi_curve, tln_curve)
 
         pTLN_curve = []
         for i in range(tln_curve.size()):
-                pTLN_curve.append(PyFermionBosonStarTLN.FromObject(tln_curve[i]))
+            pTLN_curve.append(PyFermionBosonStarTLN.FromObject(tln_curve[i]))
+
         return pTLN_curve
-    '''
 
