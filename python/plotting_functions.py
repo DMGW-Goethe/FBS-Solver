@@ -33,12 +33,15 @@ def apply_mask(triang, x, y, triang_cutoff=0.5):
 
 # plot the stability region in an MR-diagram (!) by interpolaring between all stable points:
 # input an array with filtered stars (only the ones that are stable)
-def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM, triang_cutoff, BOOLplotpoints, myfigtitle, myfilename):
+def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM, triang_cutoff, BOOLplotpoints, myfigtitle, myfilename, mycolorbarlabel, BOOLlogscale, mycolorbarlevels):
 
 	# data coordinates and values
 	allRadii = sol_filtered[:,indices['R_F_0']]
 	allMasses = sol_filtered[:,indices['M_T']]
-	allZvalues = sol_filtered[:,z_index]
+	if (BOOLlogscale):
+		allZvalues = np.log10(sol_filtered[:,indices[z_index]])	# use logarithmic scale for the z-values
+	else:
+		allZvalues = sol_filtered[:,indices[z_index]] # not use a log scale
 
 	# target grid to interpolate to
 	xi = np.arange(0.0 , maxR, 0.01) # range for R
@@ -57,8 +60,10 @@ def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM
 	fig = plt.figure(figsize=(8,6))
 	ax = fig.add_subplot(111)
 	# interpolate
-	plt.tricontourf(mytriang, allZvalues, cmap='rainbow')
-
+	# "levels" sets the number of bins in the colorbar. Setting it to a reasonably high number will create the impression of a smooth colorbar
+	# "levels" can aso be an array. In that case every bin must be set manually
+	plt.tricontourf(mytriang, allZvalues, levels=mycolorbarlevels, cmap='rainbow') 
+	
 	plt.xlim([0.0, maxR])
 	plt.ylim([0.0, maxM])
 
@@ -69,10 +74,8 @@ def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM
 	plt.xlabel(r'$R$ [km]',fontsize=16)
 	plt.ylabel(r"Total Gravitational Mass [M$_\odot$]",fontsize=16)
 	cb1 = plt.colorbar(orientation="vertical")
-	#cb1.ax.tick_params(labelsize=10, fontsize=16)
-	cb1.set_label(label=r"$\phi_c$ [Code Units]",size=16)#, weight='bold')
+	cb1.set_label(label=mycolorbarlabel,size=16)
 
-	#plt.show()
 	plt.savefig(fname=myfilename, dpi=300)
 
 

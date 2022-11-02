@@ -87,8 +87,10 @@ def central_stencil(vals, i, j, order, val_index):
 		derivIdir += vals[i + iTemp][j][val_index] * stencil[iTemp + order//2] # derivative in rho_c dir
 		derivJdir += vals[i][j + iTemp][val_index] * stencil[iTemp + order//2] # derivative in phi_c dir
     
-	delta_rho = vals[i + 1][j][1] - vals[i][j][1]
-	delta_phi = vals[i][j + 1][2] - vals[i][j][2]
+	#delta_rho = vals[i + 1][j][1] - vals[i][j][1]
+	#delta_phi = vals[i][j + 1][2] - vals[i][j][2]
+	delta_rho = vals[order + 1][order][1] - vals[order][order][1]
+	delta_phi = vals[order][order + 1][2] - vals[order][order][2]
 
 	#print(delta_rho, delta_phi)
 	derivIdir /= delta_rho	# derivative in rho_c dir
@@ -119,8 +121,11 @@ def forward_stencil(vals, i, j, order, val_index):
         derivIdir += vals[i + iTemp][j][val_index] * stencil[iTemp]
         derivJdir += vals[i][j + iTemp][val_index] * stencil[iTemp]
 
-    derivIdir /= vals[i + 1][j][1] - vals[i][j][1]
-    derivJdir /= vals[i][j + 1][2] - vals[i][j][2]
+    delta_rho = vals[order + 1][order][1] - vals[order][order][1]
+    delta_phi = vals[order][order + 1][2] - vals[order][order][2]
+
+    derivIdir /= delta_rho
+    derivJdir /= delta_phi
     return derivIdir, derivJdir
 
 
@@ -205,7 +210,7 @@ def calc_stability_curve(sol_array, indices, num_rho_stars, num_phi_stars, stenc
 	longestindex = 0
 	maxlen = 0
 	for k in range(len(lines)):
-		print(len(lines[k]))
+		#print(len(lines[k]))
 		if len(lines[k]) > maxlen:
 			maxlen = len(lines[k])
 			longestindex = k

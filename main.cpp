@@ -71,7 +71,7 @@ int main() {
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
-    double mu = 2.0;        // DM mass
+    double mu = 1.0;        // DM mass
     double lambda = 0.0;    //self-interaction parameter
 
 
@@ -81,7 +81,7 @@ int main() {
 
     // declare initial conditions:
     double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
-    double phi_cmin = 1e-10;    // central value of scalar field of first star
+    double phi_cmin = 1e-6;    // central value of scalar field of first star
     double rho_cmax = 0.004;
     double phi_cmax = 0.10;
 
@@ -109,7 +109,7 @@ int main() {
 	// calc the perturbed solutions to get the tidal love number:
 	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_test3dd2.txt");
+	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda-0.txt");
 
     // space for more EOS
 
