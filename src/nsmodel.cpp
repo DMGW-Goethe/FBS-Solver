@@ -516,16 +516,18 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     // The quantity to compute is y = r H' / H
     // if the fermionic radius larger than the bosonic one, take y = y(R_F_0)
     // if the bosonic radius is larger, find the maxiumum going from the back to the front
+    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
-    double y = 0., R = 0.;
+    double y = 0., R_ext = 0., M_ext = 0.;
 
     if(this->R_F_0 > 100.*this->R_B) {
         int index_R_F = 0;
         while ( results[index_R_F].first < this->R_F_0 ) index_R_F++;
-        // approximate y at R_F_0
+        // approximate y, M_ext at R_F_0
         y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        R = R_F_0;
+        M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
+        R_ext = R_F_0;
         //std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
     }
     else {
@@ -555,21 +557,22 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
         else
             index_y = indices_maxima.at(indices_maxima.size()-1);
         y = y_func(index_y);
-        R = results[index_y].first;
-        //std::cout << "R_B> R_F_0: found max y = " << y << " at " << index_y << ", r=" << R << std::endl;
+        R_ext = results[index_y].first;
+        M_ext = M_func(index_y); // extract M_ext at the same radius
+        //std::cout << "R_B> R_F_0: found max y = " << y << " at " << index_y << ", R_ext=" << R_ext << std::endl;
 
     }
 
     // now that we found y, calculate k2
-    // double R = std::max(this->R_F_0, this->R_B);
-    double C = this->M_T / R; // the compactness
+    // double R_ext = std::max(this->R_F_0, this->R_B);
+    double C = M_ext / R_ext; // the compactness at the extraction point
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
     double lambda_tidal = 16./15.*pow(this->M_T, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
-    double k2 = 3./2. * lambda_tidal / pow(R, 5);
+    double k2 = 3./2. * lambda_tidal / pow(R_ext, 5);
 
     /*std::cout << "C = " << C << ", y = " << y  << ", k2 = " << k2
                 << ", a= " << (2. + 2.*C*(y-1.) - y)
