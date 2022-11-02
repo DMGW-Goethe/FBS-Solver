@@ -82,6 +82,12 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     if( omega_1 < omega_0)
         std::swap(omega_0, omega_1);
 
+    // if phi_0 = 0 then we don't need a bisection
+    if (this->phi_0 == 0.) {
+        this->omega = 0.;
+        return 0;
+    }
+
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
     int res = this->integrate(results_0, events, intOpts);
@@ -670,6 +676,12 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     // find initial values for phi_1 min and phi_1 max
     if(phi_1_1 < phi_1_1)
         std::swap(phi_1_0, phi_1_1);
+
+    // if phi_0 = 0 then we don't need a bisection
+    if (this->phi_0 == 0.) {
+        this->set_initial_conditions(0., this->H_0);
+        return 0;
+    }
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate = true;
