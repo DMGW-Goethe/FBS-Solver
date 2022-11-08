@@ -77,8 +77,10 @@ cdef class PyFermionBosonStar:
         pfbs.fbs = make_shared[FermionBosonStar](fbs)
         return pfbs
 
-    def set_initial_conditions(self, rho_0, phi_0):
-        deref(self.fbs).set_initial_conditions(rho_0, phi_0)
+    def set_initial_conditions(self, double rho_0, double phi_0):
+        deref(self.fbs).rho_0 = rho_0
+        deref(self.fbs).phi_0 = phi_0
+        #deref(self.fbs).set_initial_conditions(rho_0, phi_0)
         self.evaluated=False
 
     def bisection(self, omega_0, omega_1, n_mode=0, max_step=500, delta_omega=1e-15):
@@ -151,7 +153,9 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
         return pfbs
 
     def set_initial_conditions(self, phi_1_0, H_0):
-        deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
+        #deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
+        deref(self.fbstln).phi_1_0 = phi_1_0
+        deref(self.fbstln).H_0 = H_0
         self.evaluated=False
 
     def bisection_phi_1(self, phi_1_0, phi_1_1, n_mode = 0, max_step = 200, delta_phi_1=1e-10):

@@ -20,7 +20,7 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
     for(unsigned int j = 0; j < phi_c_grid.size(); j++) {
         for(unsigned int i = 0; i < rho_c_grid.size(); i++) {
             FermionBosonStar fbs(fbs_model);
-            fbs.set_initial_conditions(rho_c_grid[i], phi_c_grid[j]);
+            fbs.rho_0 = rho_c_grid[i]; fbs.phi_0 = phi_c_grid[j];
             MRphi_curve.push_back(fbs);
         }
     }
@@ -52,7 +52,7 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
     for (unsigned j = 0; j < NbNf_grid.size(); j++) {
         for(unsigned i = 0; i < rho_c_grid.size(); i++) {
             FermionBosonStar fbs(EOS, mu, lambda, 0.);  // create a star
-            fbs.set_initial_conditions(rho_c_grid[i], 1e-10);
+            fbs.rho_0 = rho_c_grid[i]; fbs.phi_0 = 1e-10;
             MRphi_curve.push_back(fbs);
         }
     }

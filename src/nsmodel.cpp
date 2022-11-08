@@ -49,15 +49,13 @@ const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](c
 const integrator::Event FermionBosonStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] < 0.; });
 const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] > 0.; });
 
-void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
-    this->rho_0 = rho_0;
-    this->phi_0 = phi_0;
-    this->initial_conditions =  vector( {1.0, 1.0, phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho_0, 0.) : 0.});
+vector FermionBosonStar::get_initial_conditions() const {
+    return vector( {1.0, 1.0, this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.});
 }
 
 
-int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
-    return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+    return integrator::RKF45(&(this->dy_dt_static), r_init, initial_conditions, r_end, (void*) this,  result,  events, intOpts);
 }
 
 // find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
@@ -90,12 +88,12 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
 
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
-    int res = this->integrate(results_0, events, intOpts);
+    int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper omega and integrate the ODEs:
     this->omega = omega_1;
-    res = this->integrate(results_1, events, intOpts);
+    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     if(n_roots_0 == n_roots_1 || n_roots_0 > n_mode || n_mode > n_roots_1) {
@@ -109,7 +107,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             omega_0 *= 0.333;
             this->omega = omega_0;
             std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
-            int res = this->integrate(results_0, events, intOpts);
+            int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
             n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
             if(tries > max_tries)
                 return -1;
@@ -121,7 +119,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             omega_1 *= 3.0;
             this->omega = omega_1;
             std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
-            res = this->integrate(results_1, events, intOpts);
+            res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
             n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
             if(tries > max_tries)
                 return -1;
@@ -138,7 +136,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         omega_mid = (omega_0 + omega_1)/2.;
         //std::cout << "omega_mid = " << omega_mid << " ->";
         this->omega = omega_mid;
-        res = this->integrate(results_mid, events, intOpts);
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
         //std::cout << " with n_roots = " << n_roots_mid << std::endl;
 
@@ -158,11 +156,11 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
     this->omega = omega_0; // intOpts.save_intermediate=true;
-    res = this->integrate(results_0, events, intOpts);
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
 
     this->omega = omega_1;
-    res = this->integrate(results_1, events, intOpts);
+    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
     //std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
@@ -171,7 +169,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         omega_mid = (omega_0 + omega_1)/2.;
         //std::cout << "omega_mid = " << omega_mid << " ->";
         this->omega = omega_mid;
-        res = this->integrate(results_mid, events, intOpts);
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[2] > 0.;  // save if sign(Phi(inf)) is positive or negative
         //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
@@ -203,7 +201,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
     // calc the FBS solution once using an initial Phi value
     double my_NbNf;
-    double phi_c_init = this->initial_conditions[2];
+    double phi_c_init = this->phi_0;
 
     while (true) {
 
@@ -226,7 +224,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
             phi_c_init = phi_c_init*100.;
         }
 
-        this->set_initial_conditions(this->rho_0, phi_c_init);
+        this->phi_0 = phi_c_init;
         continue;
     }
 
@@ -242,7 +240,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
     //double my_omega;
 
-    this->set_initial_conditions(this->rho_0, phi_c_0);
+    this->phi_0 = phi_c_0;
     this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
     this->evaluate_model();
     NbNf_0 = this->N_B / this->N_F;
@@ -254,7 +252,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
         phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
 
-        this->set_initial_conditions(this->rho_0, phi_c_mid);
+        this->phi_0 = phi_c_mid;
         this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
         //my_omega = this->omega;
         this->evaluate_model();
@@ -413,7 +411,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
     std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
     results.clear();
 
-    int res = this->integrate(results, events, intOpts);
+    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts);
 
     if(!filename.empty()) {
         plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename);
@@ -451,11 +449,9 @@ std::vector<std::string> FermionBosonStar::labels() {
  * FermionBosonStarTLN *
  ***********************/
 
-void FermionBosonStarTLN::set_initial_conditions(const double phi_1_0, const double H_0, const double r_init) {
-    this->H_0 = H_0;
-    this->phi_1_0 = phi_1_0;
-    this->initial_conditions =  vector( {1.0, 1.0, this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho_0, 0.) : 0.,
-                                                             H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
+vector FermionBosonStarTLN::get_initial_conditions(const double r_init) const {
+    return vector( {1.0, 1.0, this->phi_0, 0., this->rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.,
+                                                             this->H_0*r_init*r_init, 2.*this->H_0*r_init, this->phi_1_0*pow(r_init,3), 3.*this->phi_1_0*pow(r_init,2)});
 }
 
 vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
@@ -606,7 +602,7 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
     std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, FermionBosonStarTLN::dphi_1_diverging};
     results.clear();
 
-    int res = this->integrate(results, events, intOpts);
+    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts);
     /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
     for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
         using namespace integrator;
@@ -655,9 +651,9 @@ const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event(
 
 
 // find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
-int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
+int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int n_mode, int max_steps, double delta_phi_1) {
     // values/parameters for bisection
-    double phi_1_mid;
+    double phi_1_0_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
     int i = 0;
     const int index_phi_1 = 7;
@@ -675,12 +671,12 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     std::vector<integrator::step> results_0, results_1, results_mid;
 
     // find initial values for phi_1 min and phi_1 max
-    if(phi_1_1 < phi_1_1)
-        std::swap(phi_1_0, phi_1_1);
+    if(phi_1_0_r < phi_1_0_l)
+        std::swap(phi_1_0_l, phi_1_0_r);
 
     // if phi_0 = 0 then we don't need a bisection
     if (this->phi_0 == 0.) {
-        this->set_initial_conditions(0., this->H_0);
+        this->phi_1_0 = 0.;
         return 0;
     }
 
@@ -689,13 +685,13 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     #endif
 
     // set the lower phi_1 and integrate the ODEs:
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    int res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper phi_1 and integrate the ODEs:
-    this->set_initial_conditions(phi_1_1, this->H_0);
-    res = this->integrate(results_1, events, intOpts);
+    this->phi_1_0 = phi_1_0_r;
+    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     #ifdef DEBUG_PLOTTING
@@ -710,31 +706,31 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     if(n_roots_0 == n_roots_1 || n_roots_1 > n_mode || n_mode > n_roots_0)
         return -1;
 
-    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    //std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_roots=" << n_roots_0 << " and phi_1_r=" << phi_1_0_r << " with n_roots=" << n_roots_1 << std::endl;
     intOpts.save_intermediate = false;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
     // iterate until the upper and lower phi_1 produce results with one root difference
     while(n_roots_0 - n_roots_1 > 1 && i < max_steps) {
-        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "i=" << i << ": phi_1_mid = " << phi_1_mid << " ->";
-        this->set_initial_conditions(phi_1_mid, this->H_0);
-        res = this->integrate(results_mid, events, intOpts);
+        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
+        //std::cout << "i=" << i << ": phi_1_0_mid = " << phi_1_0_mid << " ->";
+        this->phi_1_0 = phi_1_0_mid;
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
         //std::cout << " with n_roots = " << n_roots_mid << std::endl;
         i++;
         if(n_roots_mid == n_roots_1 || n_roots_mid <= n_mode) {
             n_roots_1 = n_roots_mid;
-            phi_1_1 = phi_1_mid;
+            phi_1_0_r = phi_1_0_mid;
             continue;
         }
         if(n_roots_mid == n_roots_0 || n_roots_mid >= n_mode) {
             n_roots_0 = n_roots_mid;
-            phi_1_0 = phi_1_mid;
+            phi_1_0_l = phi_1_0_mid;
             continue;
         }
     }
-    //std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    //std::cout << "after i=" << i << ": found phi_1_0_l =" << phi_1_0_l << " with n_roots=" << n_roots_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_roots=" << n_roots_1 << std::endl;
     if(abs(n_roots_1 - n_roots_0) != 1)
         return -1;
 
@@ -744,14 +740,14 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate=true;
     #endif
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
 
-    this->set_initial_conditions(phi_1_1, this->H_0);
-    res = this->integrate(results_1, events, intOpts);
+    this->phi_1_0 = phi_1_0_r;
+    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
-    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+    //std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_inft=" << n_inft_1 << std::endl;
 
     #ifdef DEBUG_PLOTTING
     plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
@@ -764,34 +760,34 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
 
     intOpts.save_intermediate=false;
     i =0;
-    while( (phi_1_1 - phi_1_0)/phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
-        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
-        this->set_initial_conditions(phi_1_mid, this->H_0);
-        res = this->integrate(results_mid, events, intOpts);
+    while( (phi_1_0_r - phi_1_0_l)/phi_1_0_l > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
+        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
+        //std::cout << "i=" << i << ", phi_1_0_mid = " << phi_1_0_mid << " ->";
+        this->phi_1_0 = phi_1_0_mid;
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
         //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
         // compare the signs of Phi at infinity of the phi_1-upper, -middle and -lower solution
-        // when middle and lower sign are equal, we can move phi_1_0 to phi_1_mid
+        // when middle and lower sign are equal, we can move phi_1_0_l to phi_1_0_mid
         if(n_inft_mid == n_inft_0) {
             n_inft_0 = n_inft_mid;
-            phi_1_0 = phi_1_mid;
+            phi_1_0_l = phi_1_0_mid;
             continue;
         }
-        // when middle and upper sign are equal, we can move phi_1_1 to phi_1_mid
+        // when middle and upper sign are equal, we can move phi_1_0_r to phi_1_0_mid
         if(n_inft_mid == n_inft_1) {
             n_inft_1 = n_inft_mid;
-            phi_1_1 = phi_1_mid;
+            phi_1_0_r = phi_1_0_mid;
             continue;
         }
     }
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate=true;
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
 
     plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
     matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
@@ -801,12 +797,11 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     // check for consistency with main equations  // TODO: first improve R_B calculations
     /*
     double last_r = results_mid[results_mid.size()-1].first;
-    std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1
-                    << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl;*/
+    std::cout << "after " << i << " steps found phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r=" << phi_1_0_r << " with n_inft=" << n_inft_1
+                    << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl; */
     //assert(last_r > this->R_F_0  && last_r > this->R_B);
 
-
-    this->set_initial_conditions(phi_1_0, this->H_0);
+    this->phi_1_0 = phi_1_0_l;
     return 0;
 }
 
