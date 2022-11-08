@@ -1,4 +1,3 @@
-
 #include "mr_curves.hpp"
 
 /*
@@ -28,13 +27,20 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
     // calculate curve
     const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
 
+    unsigned int done = 0;
+
     time_point start3{clock_type::now()};
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 10)
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
         int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
 		if (bisection_success == -1)
             std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
         MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
+    
+        #pragma omp atomic
+        done++;
+
+        std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
     }
     time_point end3{clock_type::now()};
     std::cout << "evaluation of "<< MRphi_curve.size() <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
@@ -60,13 +66,16 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
     // compute the MR-diagrams:
     double omega_0 = 1., omega_1 = 10.;
 
-    #pragma omp parallel for
+    unsigned int done = 0;
+
+    #pragma omp parallel for schedule(dynamic, 10)
     for(unsigned i = 0; i < NbNf_grid.size(); i++) {
         for(unsigned j = 0; j < rho_c_grid.size() ; j++) {
             int index = i*rho_c_grid.size() + j;
             MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4, omega_0, omega_1);  // compute star with set NbNf ratio
             //MRphi_curve[index].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
 
+            std::cout << "Progress: "<< float(done) / (NbNf_grid.size() * rho_c_grid.size()) * 100.0 << "%" << std::endl;
         }
     }
 
@@ -88,8 +97,10 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
 
     double phi_1_0, phi_1_1; // upper and lower bound for the bisection of the perturbed Phi-field
 
+    unsigned int done = 0;
+
     time_point start3{clock_type::now()};
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(dynamic, 10)
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
         //FermionBosonStarTLN fbstln(*it);
         phi_1_0 = 1e-3 * MRphi_curve[i].phi_0;
@@ -97,6 +108,11 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
         MRphik2_curve[i].bisection_phi_1(phi_1_0, phi_1_1);
         MRphik2_curve[i].evaluate_model();
         //MRphik2_curve[i].push_back(fbstln);
+
+        #pragma omp atomic
+        done++;
+
+        std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
     }
 
     time_point end3{clock_type::now()};
