@@ -67,10 +67,10 @@ protected:
 public:
 
     double H_0, phi_1_0;
-    double lambda_tidal, k2, y_max;
+    double lambda_tidal, k2, y_max, R_ext;
 
     FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega)
-        : FermionBosonStar(EOS, mu, lambda, omega), H_0(1.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.) {}
+        : FermionBosonStar(EOS, mu, lambda, omega), H_0(1.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.), R_ext(0) {}
     FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs) { this->set_initial_conditions(); }
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star + TLN

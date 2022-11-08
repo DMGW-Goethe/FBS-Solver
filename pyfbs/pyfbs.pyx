@@ -183,6 +183,7 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
         d['phi_1_0'] = deref(self.fbstln).phi_1_0
         d['H_0'] = deref(self.fbstln).H_0
         d['y_max'] = deref(self.fbstln).y_max
+        d['R_ext'] = deref(self.fbstln).R_ext
         return d
 
 

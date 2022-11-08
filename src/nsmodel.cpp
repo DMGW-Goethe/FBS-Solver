@@ -587,6 +587,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     this->lambda_tidal = lambda_tidal;
     this->k2 = k2;
     this->y_max = y;
+    this->R_ext= R_ext;
 
 }
 

@@ -88,7 +88,7 @@ cdef extern from "nsmodel.hpp":
         double k2
         double lambda_tidal
         double y_max
-
+        double R_ext
 
         void set_initial_conditions(const double phi_1_0, const double H_0, const double r_init)
         void evaluate_model(stdvector[step]& results, string filename)
