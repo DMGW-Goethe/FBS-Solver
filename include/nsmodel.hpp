@@ -38,7 +38,7 @@ protected:
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const ;
 
-int integrate_and_avoid_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
+int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
 
     public:
     double mu, lambda, omega;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda, frequency omega
@@ -50,7 +50,7 @@ int integrate_and_avoid_divergence(std::vector<integrator::step>& result, std::v
             : NSmodel(EOS), mu(mu), lambda(lambda), omega(omega), rho_0(rho_0), phi_0(phi_0), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_F(0.), R_F_0(0.) {}
 
     vector dy_dt(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
-    virtual vector get_initial_conditions() const; // holds the FBS init conditions
+    virtual vector get_initial_conditions(const double r_init=R_INIT) const; // holds the FBS init conditions
     int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
     void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
@@ -59,7 +59,7 @@ int integrate_and_avoid_divergence(std::vector<integrator::step>& result, std::v
     friend std::ostream& operator<<(std::ostream&, const FermionBosonStar&);
     static std::vector<std::string> labels();
 
-    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged;
+    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged;
 
 };
 
