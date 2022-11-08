@@ -639,12 +639,10 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
 
-    integrator::Event M_converged(FermionBosonStar::M_converged);
-    M_converged.stopping_condition = false;   // TODO: check why M_converged triggers on first point
-    std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, FermionBosonStarTLN::dphi_1_diverging};
+    std::vector<integrator::Event> events;
     results.clear();
 
-    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts);
+    int res = this->integrate_and_avoid_phi_divergence(results, events,  intOpts);
     /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
     for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
         using namespace integrator;
@@ -728,12 +726,12 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
 
     // set the lower phi_1 and integrate the ODEs:
     this->phi_1_0 = phi_1_0_l;
-    int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
+    int res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper phi_1 and integrate the ODEs:
     this->phi_1_0 = phi_1_0_r;
-    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_1, events, intOpts);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     #ifdef DEBUG_PLOTTING
@@ -757,7 +755,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
         phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
         //std::cout << "i=" << i << ": phi_1_0_mid = " << phi_1_0_mid << " ->";
         this->phi_1_0 = phi_1_0_mid;
-        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
+        res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_mid, events, intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
         //std::cout << " with n_roots = " << n_roots_mid << std::endl;
         i++;
@@ -783,11 +781,11 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
     intOpts.save_intermediate=true;
     #endif
     this->phi_1_0 = phi_1_0_l;
-    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
 
     this->phi_1_0 = phi_1_0_r;
-    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_1, events, intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
     //std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_inft=" << n_inft_1 << std::endl;
 
@@ -806,7 +804,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
         phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
         //std::cout << "i=" << i << ", phi_1_0_mid = " << phi_1_0_mid << " ->";
         this->phi_1_0 = phi_1_0_mid;
-        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
+        res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_mid, events, intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
         //std::cout << " with n_inft= " << n_inft_mid << std::endl;
 
@@ -829,7 +827,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate=true;
     this->phi_1_0 = phi_1_0_l;
-    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts);
 
     plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
     matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
@@ -847,3 +845,35 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
     return 0;
 }
 
+int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+
+    results.clear();
+
+    auto phi_converged = FermionBosonStar::phi_converged;
+    if(this->phi_0 > 0.)
+        phi_converged.stopping_condition = true;
+    events.push_back(phi_converged);
+
+    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+
+    phi_converged = events[events.size()-1]; events.pop_back();
+    //double last_P = results[results.size()-1].second[4];
+    if(res == integrator::event_stopping_condition && phi_converged.active /*&& last_P > P_ns_min*/) {
+        vector initial_conditions = results[results.size()-1].second;
+        initial_conditions[2] = 0.; initial_conditions[3] = 0.;
+        initial_conditions[7] = 0.; initial_conditions[8] = 0.;
+
+        std::vector<integrator::step> additional_results;
+        events.push_back(FermionBosonStar::integration_converged);
+        double last_r = results[results.size()-1].first;
+        intOpts.clean_events = false;  // to stop the integrator from clearing the events
+
+        res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
+
+        results.reserve(results.size() + additional_results.size());
+        for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
+            results.push_back(additional_results[i]);
+        events.pop_back();
+    }
+    return res;
+}

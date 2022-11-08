@@ -67,6 +67,7 @@ class FermionBosonStarTLN : public FermionBosonStar {
 protected:
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
+    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
 public:
     double H_0, phi_1_0;
     double lambda_tidal, k2, y_max, R_ext;
