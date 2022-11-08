@@ -15,7 +15,7 @@
 // --------------------------------------------------------------------
 
 
-
+/*
 int test_FBSTLN() {
 
     double mu = 1.;
@@ -55,6 +55,36 @@ int test_FBSTLN() {
 
     return 0;
 }
+*/
+
+void fillValuesPowerLaw(const double minValue, const double maxValue, std::vector<double>& values, const int power)
+{
+    if(power == 1)
+    {
+        const double dValue = double(maxValue - minValue) / double(values.size() - 1);
+        for(size_t i = 0; i < values.size(); i++)
+            values[i] = minValue + dValue * i;
+
+        return;
+    }
+    
+    fillValuesPowerLaw(0.0, 1.0, values, 1);
+    
+    for(size_t i = 0; i < values.size(); i++)
+    {
+        values[i] = pow(values[i], power);
+        values[i] *= maxValue - minValue;
+        values[i] += minValue;
+    }
+}
+
+void fillValuesLogarithmic(const double minValue, const double maxValue, std::vector<double>& values)
+{
+    fillValuesPowerLaw(log(minValue), log(maxValue), values, 1);
+    
+    for(size_t i = 0; i < values.size(); i++)
+        values[i] = exp(values[i]);
+}
 
 int main() {
     /*[> see https://github.com/lava/matplotlib-cpp/issues/268
@@ -66,38 +96,33 @@ int main() {
 
     // ----------------------------------------------------------------
     // generate MR curves:
-    const unsigned Nstars = 40;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 40;   // number of MR curves of constant rho_c
+    const unsigned Nstars = 10;     // number of stars in MR curve of constant Phi_c
+    const unsigned NstarsPhi = 10;   // number of MR curves of constant rho_c
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
     double mu = 1.0;        // DM mass
     double lambda = 0.0;    //self-interaction parameter
 
+    constexpr bool calcTln = false;
 
     // declare different EOS types:
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
     auto Polytrope = std::make_shared<PolytropicEoS>();
 
+
     // declare initial conditions:
-    double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
-    double phi_cmin = 1e-6;    // central value of scalar field of first star
-    double rho_cmax = 0.004;
-    double phi_cmax = 0.10;
+    double rho_cmin = 1e-8;   // central density of first star (good for DD2 is 0.0005)
+    double phi_cmin = 1e-8;    // central value of scalar field of first star
+    double rho_cmax = 5e-4;//0.0035;//0.004;
+    double phi_cmax = 6e-3;//0.09;//0.07;//0.10;//0.050420813862;
 
-    double drho = (rho_cmax - rho_cmin) / (Nstars -1.);
-    double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
+    std::vector<double> rho_c_grid(Nstars, 0.0), phi_c_grid(NstarsPhi, 0.0), NbNf_grid;
 
-    std::vector<double> rho_c_grid, phi_c_grid, NbNf_grid;
-    for (unsigned i = 0; i < Nstars; ++i) {
-            rho_c_grid.push_back(i*drho + rho_cmin);
-            std::cout << rho_c_grid[i] << std::endl;}
-    for (unsigned j = 0; j < NstarsPhi; ++j) {
-            phi_c_grid.push_back(j*dphi + phi_cmin);
-            std::cout << phi_c_grid[j] << std::endl;}
-    for (unsigned k = 0; k < NstarsNbNf; ++k) {
-            NbNf_grid.push_back(k*0.1 + 0.1);
-            std::cout << NbNf_grid[k] << std::endl; }
+    fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 1);
+    fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
+    //fillValuesLogarithmic(phi_cmin, phi_cmax, phi_c_grid);
+    //fillValuesLogarithmic(rho_cmin, rho_cmax, rho_c_grid);
 
     //test_EOS(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, "plots/DD2_MR_MRphi-plot4.txt");
 	// setup to compute a full NS configuration, including tidal deformability:
@@ -107,9 +132,14 @@ int main() {
 	// calc the unperturbed equilibrium solutions:
     calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
 	// calc the perturbed solutions to get the tidal love number:
-	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
+    if(calcTln)
+	    calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda-0.txt");
+	
+    if(calcTln)
+        write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda0_40x40_pow3spacing.txt");
+    else
+    	write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/test.txt");
 
     // space for more EOS
 
