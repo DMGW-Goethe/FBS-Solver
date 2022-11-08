@@ -89,8 +89,10 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
 
     // clear passed arguments
     results.clear();
-    for(auto it = events.begin(); it != events.end(); ++it)
-        it->reset();
+    if(options.clean_events) {
+        for(auto it = events.begin(); it != events.end(); ++it)
+            it->reset();
+    }
 
     // reserve space if necessary
     if(options.save_intermediate) {
@@ -103,9 +105,9 @@ int integrator::RKF45(ODE_system dy_dt, const double r0, const vector y0, const 
     while(true) {
 
         bool step_success = RKF45_step(dy_dt, current_step.first, step_size, current_step.second, params, options);
-        if(options.verbose > 1)
-            std::cout  << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << std::endl;
         dy = dy_dt(current_step.first, current_step.second, params);
+        if(options.verbose > 1)
+            std::cout  << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << ", dy=" << dy <<  std::endl;
 
         if(options.save_intermediate)
             results.push_back(current_step);
