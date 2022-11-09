@@ -408,7 +408,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
     // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
     double N_F = 4.*M_PI* N_F_integrated[min_index_a],
-           N_B = 8.*M_PI* N_B_integrated[min_index_phi];
+           N_B = 4.*M_PI* N_B_integrated[min_index_phi];
 
     // first find the index in array where 99% is contained
     // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
@@ -422,6 +422,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     }
     // obtain radius from corresponding index
     double R_B = r[i_B], R_F = r[i_F];
+    R_F = 0.0; // R_F gives wrong radii and should never be used. R_F_0, which is calculated below gives the correct radius
 
     // compute the fermionic radius R_f using the definition where P(R_f)==0:
     // iterate the Pressure-array until we find the first point where the pressure is zero:
