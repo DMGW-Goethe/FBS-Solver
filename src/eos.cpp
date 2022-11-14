@@ -58,16 +58,19 @@ double CausalEoS::min_rho() {
 /******************
  *  EoStable *
  ******************/
-/* This constructor expects a filename to a table. This table has to have the following structure
+
+
+/* This function expects a filename to a table.
+ * The table has to contain the rest mass density rho, pressure P, energy density e
+ * The indices of these values is given by the std::map such that
+ *       indices["rho"] corresponds to the column of rho [1/fm^3]
+ *       indices["e"] corresponds to the column of energy density [MeV/fm^3]
+ *       indices["P"] corresponds to the column of pressure [MeV/fm^3]
  *
- * | restmass density rho [1/fm^3] |  (skipped)  | energy density[MeV/fm^3]  |  pressure[MeV/fm^3] |
- *
- * Lines starting with # are ignored
- *
- * If the file cannot be found, an exception is thrown
- * TODO: Outsource file reading into function and allow different constructors (one with std::vectors right away)
+ * Columns are counted starting from 0
+ * Lines containing # are ignored
  */
-EoStable::EoStable(const std::string filename) {
+bool EoStable::load_from_file(const std::string filename, std::map<std::string, int> indices) {
 
     const double MeV_fm3_to_codeunits =	2.886376934e-6; // unit conversion from Mev/fm^3 to code units M_s*c^2/ (G*M_s/c^2)^3
     const double neutron_mass = 939.565379;	 // nuclear density in MeV
@@ -75,8 +78,13 @@ EoStable::EoStable(const std::string filename) {
     std::ifstream infile;
     infile.open(filename);
     if(!infile.is_open())
-        throw std::runtime_error("File " + filename + " not open");
+        return false;
 
+    rho_table.clear(); P_table.clear(); e_table.clear();
+    int max_index = 0.;
+    max_index = std::max( std::max(indices.at("rho"), indices.at("P")), indices.at("e"));
+
+    std::cout << "loading EoS table " << filename << std::endl; // TODO: Check error that arises when this is commented out xD
     std::string line;
     while (std::getline(infile, line)) {
         double temp;
@@ -86,17 +94,32 @@ EoStable::EoStable(const std::string filename) {
 		if (line.find('#') != std::string::npos)
     		continue;
 
-        ss >> temp; // column 1 -> restmass density
-        rho_table.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 1nd column -> restmass density and convert to code units
-
-        ss >> temp; // column 2 -> electron (lepton) fraction (we don't need it, skip this column)
-		ss >> temp; // column 3 -> energy density
-        e_table.push_back(temp*MeV_fm3_to_codeunits);	// write the 3nd column -> energy density e=rho*(1+epsilon) and convert to code units
-
-        ss >> temp; // column 4 -> pressure
-        P_table.push_back(temp*MeV_fm3_to_codeunits);	// write the 4nd column -> pressure and convert to code units
+        for(int i = 0; i < max_index+1; i++) {
+            ss >> temp;
+            if( i == indices.at("rho"))
+                rho_table.push_back(temp * MeV_fm3_to_codeunits * neutron_mass);
+            if( i ==  indices.at("P"))
+                P_table.push_back(temp * MeV_fm3_to_codeunits);
+            if( i == indices.at("e"))
+                e_table.push_back(temp * MeV_fm3_to_codeunits);
+        }
     }
     infile.close();
+    return true;
+}
+
+/* This function expects a filename to a table with the following structure
+ *
+ * | restmass density rho [1/fm^3] |  (skipped)  | energy density[MeV/fm^3]  |  pressure[MeV/fm^3] |
+ *
+ * and calls load_from_file with these indices
+ */
+bool EoStable::load_from_file(const std::string filename) {
+    std::map<std::string, int> indices;
+    indices["rho"] = 0;
+    indices["e"] = 2;
+    indices["P"] = 3;
+    return load_from_file(filename, indices);
 }
 
 /* This expects as input P and will give rho, epsilon as output through reference

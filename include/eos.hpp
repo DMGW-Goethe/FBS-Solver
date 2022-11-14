@@ -7,6 +7,7 @@
 #include <sstream>	// string stream used for reading the EOS table
 #include <iostream>
 #include <stdexcept> // for std::runtime_error
+#include <map>
 
 // a class to contain tabulated EOS
 // reads in a EOS table in the constructor.
@@ -103,8 +104,16 @@ protected:
 	std::vector<double> rho_table, P_table, e_table;
 
 public:
-    /* Constructor expects link to file TODO: add constructor with lists */
-    EoStable(const std::string filename);
+    EoStable(const std::vector<double>& rho_table, const std::vector<double>& P_table, const std::vector<double>& e_table)
+        : rho_table(rho_table), P_table(P_table), e_table(e_table) {}
+
+    /* Constructor expects link to file */
+    EoStable(const std::string filename) : rho_table({}), P_table({}), e_table({})
+        {  load_from_file(filename);  }
+
+    /* This function loads an EoS from file, the first one with rigid column indices, the second one with arbitrary indices*/
+    bool load_from_file(const std::string filename);
+    bool load_from_file(const std::string filename, std::map<std::string, int> indices);
 
     /* This gives the pressure P depending on the matter density rho and internal energy epsilon by linear interpolation of the table*/
 	void callEOS(double& myrho, double& epsilon, const double P);
