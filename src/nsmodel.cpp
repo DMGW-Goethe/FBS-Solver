@@ -182,7 +182,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         // adjust omega_0 if it is too large:
         while (n_roots_0 > n_mode) {
             // set the new lower omega and integrate the ODEs:
-            omega_0 *= 0.333;
+            omega_0 *= 0.5;
             this->omega = omega_0;
             if (verbose > 1)
                 std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
@@ -195,7 +195,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         // adjust omega_1 if it is too small:
         while (n_mode >= n_roots_1) {
             // set the new upper omega and integrate the ODEs:
-            omega_1 *= 3.0;
+            omega_1 *= 2.0;
             this->omega = omega_1;
             if (verbose > 1)
                 std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
