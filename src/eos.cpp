@@ -6,6 +6,17 @@ double PolytropicEoS::get_P_from_rho(const double rho_in, const double epsilon) 
 	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
 }
 
+double PolytropicEoS::get_P_from_etot(const double etot_in) {
+	// todo, maybe have to do root finding?
+}
+
+double PolytropicEoS::get_etot_from_P(const double P_in) {
+	// etot = rho*(1+epsilon)
+	double myrho = std::pow(P_in / this->kappa, 1./this->Gamma);
+    double epsilon = this->kappa*std::pow(myrho, this->Gamma - 1.) / (this->Gamma - 1.);
+	return ( myrho*(1. + epsilon) );
+}
+
 double PolytropicEoS::dP_drho(const double rho_in, const double epsilon) {
 
 	return this->kappa*this->Gamma*std::pow(rho_in, this->Gamma-1.);
@@ -22,6 +33,9 @@ double PolytropicEoS::min_P() {
     return 0.;
 }
 double PolytropicEoS::min_rho() {
+    return 0.;
+}
+double PolytropicEoS::min_etot() {
     return 0.;
 }
 
@@ -49,23 +63,40 @@ double CausalEoS::min_P() {
 double CausalEoS::min_rho() {
     return 0.;
 }
+double CausalEoS::min_etot() {
+    return 0.;
+}
 
 
 /* EffectiveBosonicEoS */
 double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
-
-	return ( (4./9.)*this->rho0*std::pow( std::sqrt(1.+ (3./4.)*(rho_in/this->rho0) )-1.0, 2) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
+	// for now we just use a polytrope with kappa=100, Gamma = 2
+	return ( 100.* std::pow(rho_in, 2.));
 }
 
-double EffectiveBosonicEoS::dP_drho(const double rho_in, const double epsilon) {
+double EffectiveBosonicEoS::get_P_from_etot(const double etot_in) {
+	// etot is the total energy density of the fluid
+	return ( (4./9.)*this->rho0*std::pow( std::sqrt(1.+ (3./4.)*(etot_in/this->rho0) )-1.0, 2) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
+}
 
-	return ( 1./3. - std::pow(1.+ (3./4.)*(rho_in/this->rho0) , -0.5) / 3.0 );
+double EffectiveBosonicEoS::get_etot_from_P(const double P_in) {
+	// etot is the total energy density of the fluid
+	return ( 3.*P_in + 4.* std::sqrt( P_in * this->rho0) );	// positive root taken fron rho= 3*P +/- 4* sqrt(P*rho0) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
+}
+
+double EffectiveBosonicEoS::dP_detot(const double etot_in) {
+	// etot is actually the total energy density of the fluid
+	return ( 1./3. - std::pow(1.+ (3./4.)*(etot_in/this->rho0) , -0.5) / 3.0 );
 }
 
 void EffectiveBosonicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 	// update restmass density (rho) and specific energy (epsilon) according to effective bosonic EOS
-    	myrho = 3.*P + 4.* std::sqrt( P * this->rho0);	// positive root taken pron rho= 3*P +/- 4* sqrt(P*rho0)
-    	epsilon = 0.0;
+    	double e_tot = 3.*P + 4.* std::sqrt( P * this->rho0);	// positive root taken fron etot= 3*P +/- 4* sqrt(P*rho0)
+
+		// etot = rho*(1+epsilon)
+		//e = rho*(1+epsilon)
+    	epsilon = 0.0;		// ????? probably not though...
+		myrho = e_tot / (1. + epsilon);
 		return;
 }
 
@@ -73,6 +104,9 @@ double EffectiveBosonicEoS::min_P() {
     return 0.;
 }
 double EffectiveBosonicEoS::min_rho() {
+    return 0.;
+}
+double EffectiveBosonicEoS::min_etot() {
     return 0.;
 }
 
@@ -173,6 +207,48 @@ double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
 	return Pres[table_len-2] + (Pres[table_len-1] - Pres[table_len-2]) / (rho[table_len-1] - rho[table_len-2]) * (rho_in - rho[table_len-2]);
 }
 
+// obtain P from an e_tot input
+double EoStable::get_P_from_etot(const double etot_in) {
+	unsigned int table_len = e_tot.size();
+
+    // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
+    if (etot_in <= e_tot[0]) {
+        return 0. + (Pres[0]-0.) / (e_tot[0]-0.) * (etot_in-0.);
+    }
+
+	// search the table for the correct value
+	for (unsigned int i = 1; i<table_len; i++) {
+		if (rho[i] > etot_in) {
+			// the correct value is between the ith index and the i+1th index:
+			// interpolate linearily between them:
+			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (e_tot[i] - e_tot[i-1]) * (etot_in - e_tot[i-1]);
+		}
+	}
+    // if no value was found extrapolate linearly
+	return Pres[table_len-2] + (Pres[table_len-1] - Pres[table_len-2]) / (e_tot[table_len-1] - e_tot[table_len-2]) * (etot_in - e_tot[table_len-2]);
+}
+
+// obtain P from an e-tot input
+double EoStable::get_etot_from_P(const double P_in) {
+	unsigned int table_len = Pres.size();
+
+    // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
+    if (P_in <= Pres[0]) {
+        return 0. + (e_tot[0]-0.) / (Pres[0]-0.) * (P_in-0.);
+    }
+
+	// search the table for the correct value
+	for (unsigned int i = 1; i<table_len; i++) {
+		if (Pres[i] > P_in) {
+			// the correct value is between the ith index and the i+1th index:
+			// interpolate linearily between them:
+			return e_tot[i-1] + (e_tot[i] - e_tot[i-1]) / (Pres[i] - Pres[i-1]) * (P_in - Pres[i-1]);
+		}
+	}
+    // if no value was found extrapolate linearly
+	return e_tot[table_len-2] + (e_tot[table_len-1] - e_tot[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P_in - Pres[table_len-2]);
+}
+
 // obtain dP/drho from a rho input
 double EoStable::dP_drho(const double rho_in, const double epsilon) {
 	// search the table for the correct value:
@@ -196,11 +272,36 @@ double EoStable::dP_drho(const double rho_in, const double epsilon) {
 	return 0.;
 }
 
+double EoStable::dP_detot(const double etot_in) {
+	// search the table for the correct value:
+	unsigned int table_len = e_tot.size();
+
+    //assert(rho_in < rho[table_len-2]); // out of range will return 0.
+    if(etot_in < e_tot[1]) {
+        double dP1 = (Pres[2]-Pres[1])/(e_tot[2]-e_tot[1])/2. + (Pres[1] - Pres[0])/(e_tot[1]-e_tot[0])/2.;
+        return 0. + dP1 / (e_tot[1] - 0.) * (etot_in - 0.);
+    }
+
+	for (unsigned int i = 2; i<table_len; i++) {
+		// scan for the first matching rho
+		if (e_tot[i] > etot_in) {
+            // estimate derivative at point i-1 and i
+            double dP1 = (Pres[i]-Pres[i-1])/(e_tot[i]-e_tot[i-1])/2. + (Pres[i-1] - Pres[i-2])/(e_tot[i-1]-e_tot[i-2])/2.;
+            double dP2 = (Pres[i+1]-Pres[i])/(e_tot[i+1]-e_tot[i])/2. + (Pres[i] - Pres[i-1])/(e_tot[i]-e_tot[i-1])/2.;
+            return dP1 + (dP2-dP1)/(e_tot[i]- e_tot[i-1]) * (etot_in - e_tot[i-1]);
+		}
+	}
+	return 0.;
+}
+
 double EoStable::min_P() {
     return this->Pres.at(0);
 }
 double EoStable::min_rho() {
     return this->rho.at(0);
+}
+double EoStable::min_etot() {
+    return this->e_tot.at(0);
 }
 
 /*

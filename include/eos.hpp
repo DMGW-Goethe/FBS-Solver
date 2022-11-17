@@ -18,12 +18,16 @@ class EquationOfState
 {
 public:
     virtual double get_P_from_rho(const double rho_in, const double epsilon)  = 0;
+	virtual double get_P_from_etot(const double etot_in)  = 0;
+	virtual double get_etot_from_P(const double P_in)  = 0;
     virtual double dP_drho(const double rho, double epsilon) = 0;
+	virtual double dP_detot(const double etot) = 0;
 
 	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
 
-    virtual double min_P() = 0;
-    virtual double min_rho() = 0;
+    virtual double min_P() = 0;		// minimal value of pressure
+    virtual double min_rho() = 0;	// minimal value of restmass density
+	virtual double min_etot() = 0;	// minimal value of total energy density e:=rho(1+epsilon)
 
 };
 
@@ -37,11 +41,14 @@ public:
     PolytropicEoS(const double kappa=100., const double Gamma =2.) : kappa(kappa), Gamma(Gamma) {}
 
     double get_P_from_rho(const double rho_in, const double epsilon);
+	double get_P_from_etot(const double etot_in);
+	double get_etot_from_P(const double P_in);
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
 
     double min_P();
     double min_rho();
+	double min_etot();
 
 };
 
@@ -61,6 +68,7 @@ public:
 
     double min_P();
     double min_rho();
+	double min_etot();
 };
 
 
@@ -68,18 +76,22 @@ public:
 class EffectiveBosonicEoS : public EquationOfState
 {
 protected:
-    double rho0;	// parameter computed from boson mass and self-interaction-parameter
+    double rho0;	// parameter computed from boson mass and self-interaction-parameter, corresponds to total energy density of the boson-fluid
 					// rho0 = mu^4 / ( 4 * lambda )
 
 public:
     EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (4.* lambda)) {}
 
     double get_P_from_rho(const double rho_in, const double epsilon);
+	double get_P_from_etot(const double etot_in);
+	double get_etot_from_P(const double P_in);
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
+	double dP_detot(const double etot);
 
     double min_P();
     double min_rho();
+	double min_etot();
 
 };
 
@@ -92,10 +104,14 @@ public:
 	// call EOS lookup-table (including interpolation):
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
+	double dP_detot(const double etot);
     double get_P_from_rho(const double rho_in, const double epsilon);
+	double get_P_from_etot(const double etot_in);
+	double get_etot_from_P(const double P_in);
 
     double min_P();
     double min_rho();
+	double min_etot();
 
 private:
 	// vectors to hold the tabulated EOS values:
