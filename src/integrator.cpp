@@ -55,7 +55,7 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
                 return false;
             }
 
-            if(options.verbose > 2){
+            if(options.verbose > 3){
                 std::cout << "step not precise enough and stepsize decreased creased: dr = " << dr << std::endl;
             }
 			continue;
@@ -69,7 +69,7 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
 			if (dr > options.max_stepsize)
                 dr = options.max_stepsize;   // enforce maximal stepsize
 
-            if(options.verbose > 2){
+            if(options.verbose > 3){
                 std::cout << "step accepted and stepsize increased: dr = " << dr << std::endl;
             }
 			return true;
@@ -79,8 +79,52 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
 	}
 }
 
+int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, double& step_size, const void* params,
+                                            const std::vector<Event>& events, const IntegrationOptions& options) {
 
-// integrate the whole ODE system:
+    double r;
+    double dr;
+    vector y, dy;
+    bool step_success = false;
+
+    while(!step_success ) {
+        r = current_step.first;
+        y = current_step.second;
+        step_success = RKF45_step(dy_dr, r, step_size, y, params, options);
+        if (!step_success) // if this step fails already, return
+            break;
+
+        dr = r - current_step.first;
+        dy = dy_dr(r, y, params);
+        // iterate through all defined events and check if they would turn active
+        for(auto it = events.begin(); it != events.end(); ++it) {
+            if ( it->active || it->target_accuracy <= 0.)
+                continue;
+
+            if(it->condition(r, dr, y, dy, params)) {
+                if ( dr > it->target_accuracy*1.001 ) { // do these require higher accuracy?
+                    step_success = false;
+                    if (options.verbose > 1)
+                        std::cout << "event " << it->name << " required higher accuracy at r = " << r << " where stepsize = " << dr << " but req " << it->target_accuracy << std::endl;
+                }
+            }
+        }
+        if (step_success) // none would be active or target accuracy is achieved
+            break;
+
+        if (dr <= options.min_stepsize*1.001) { // cannot achieve better accuracy
+            step_success= false;
+            break;
+        }
+        step_size = std::max(dr/4., options.min_stepsize); // otherwise try again with smaller stepsize
+    }
+    current_step.first = r;
+    current_step.second = y;
+
+    return step_success;
+}
+
+
 /* This function integrates an ODE system according to the RKF45 algorithm
  *
  * The system is described by dy_dr, the integration starts at r0 and tries to reach r_end
@@ -111,9 +155,10 @@ int integrator::RKF45(ODE_system dy_dr, const double r0, const vector y0, const 
     int i = 0, stop = 0;
     while(true) {
 
-        bool step_success = RKF45_step(dy_dr, current_step.first, step_size, current_step.second, params, options);
+        //bool step_success = RKF45_step(dy_dr, current_step.first, step_size, current_step.second, params, options);
+        bool step_success = RKF45_step_event_tester(dy_dr, current_step, step_size, params, events,  options);
         dy = dy_dr(current_step.first, current_step.second, params);
-        if(options.verbose > 1)
+        if(options.verbose > 2)
             std::cout  << "rkf45 step: r=" <<  current_step.first << ", dr= " << step_size << ", y=" << current_step.second << ", dy=" << dy <<  std::endl;
 
         if(options.save_intermediate)

@@ -35,8 +35,9 @@ namespace integrator
         std::vector<step> steps;
         bool active;
         std::string name;
-        Event(event_condition condition, bool stopping_condition=false, std::string name="") : condition(condition), stopping_condition(stopping_condition),
-                                                                        active(false), name(name) {}
+        double target_accuracy;
+        Event(event_condition condition, bool stopping_condition=false, std::string name="", double target_accuracy=0.) : condition(condition), stopping_condition(stopping_condition),
+                                                                        active(false), name(name), target_accuracy(target_accuracy) {}
         /* This resets the event before an integration - whether this is called depends on the clean_events parameter in the IntegrationOptions */
         void reset() { steps.clear(); active=false; }
     };
@@ -70,6 +71,10 @@ namespace integrator
 
     /* Runge-Kutta Fehlberg stepper that does one step at a time */
     bool RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options);
+
+    /* Checks if events require smaller stepsize and only accepts steps if they do*/
+    int RKF45_step_event_tester(ODE_system dy_dr, step& current_step, double& dr, const void* params,
+                                            const std::vector<Event>& events, const IntegrationOptions& options);
 
     /* Full Runge-Kutta Fehlberg IVP integrator, steps are output in results vector*/
     int RKF45(ODE_system dy_dr, const double r0, const vector y0, const double r_end, const void* params,
