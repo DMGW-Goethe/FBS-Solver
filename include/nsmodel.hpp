@@ -111,7 +111,7 @@ protected:
     static std::vector<std::string> labels();
 
     /* These events are used for different integration purposes */
-    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged;
+    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged, P_min_reached;
 
 };
 

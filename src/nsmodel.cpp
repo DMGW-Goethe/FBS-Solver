@@ -80,7 +80,11 @@ const integrator::Event FermionBosonStar::phi_converged = integrator::Event([](c
 
 /* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
 const integrator::Event FermionBosonStar::integration_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < PHI_converged; }, true);
+                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < PHI_converged; }, true, "integration_converged");
+
+/* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
+const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return y[4] <= P_ns_min; }, false, "P_min_reached", 1e-5);
 
 /* This function gives the initial conditions for the FBS integration
  * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, and P_0 = EOS(rho_0)
@@ -368,6 +372,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
  * M_T, N_B, N_F, R_B, R_F
  * */
 void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
+    const int step_number = results.size();
 
     /* obtain estimate for the total mass:
      * find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
@@ -500,6 +505,10 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
     intOpts.verbose = 0;
 
     std::vector<integrator::Event> events;
+
+    integrator::Event P_min_reached = FermionBosonStar::P_min_reached; // the presence of this event will increase the accuracy around R_F
+    if(this->rho_0 > 0.)
+        events.push_back(P_min_reached);
 
     int res = this->integrate_and_avoid_phi_divergence(results, events, intOpts);
 
