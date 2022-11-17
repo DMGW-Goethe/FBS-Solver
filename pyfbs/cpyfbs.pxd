@@ -15,6 +15,8 @@ cdef extern from "eos.hpp":
     cdef cppclass EquationOfState:
         void callEOS(double& myrho, double& epsilon, const double P)
         double get_P_from_rho(const double rho_in, const double epsilon)
+        double min_P()
+        double min_rho()
 
     cdef cppclass EoStable(EquationOfState):
         EoStable(const string filename) except +
@@ -52,7 +54,7 @@ cdef extern from "integrator.hpp" namespace "integrator":
 
 cdef extern from "nsmodel.hpp":
     cdef cppclass FermionBosonStar:
-        FermionBosonStar( shared_ptr[EoStable], double, double, double) except +
+        FermionBosonStar( shared_ptr[EoStable], double mu, double lam, double omega, double rho_0, double phi_0) except +
 
         double mu
         #double lambda # doesn't work due to variable name

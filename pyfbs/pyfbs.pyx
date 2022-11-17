@@ -22,6 +22,12 @@ cdef class PyEoS:
     def get_P_from_rho(self, rho_in, epsilon=0.):
         return deref(self.eos).get_P_from_rho(rho_in, epsilon)
 
+    def min_P(self):
+        return deref(self.eos).min_P()
+
+    def min_rho(self):
+        return deref(self.eos).min_rho()
+
 cdef class PyEoStable(PyEoS):
 #    cdef shared_ptr[EoStable] eos
 
@@ -46,7 +52,7 @@ cdef class PyCausalEoS(PyEoS):
 cdef class PyIntegrationOptions:
     cdef shared_ptr[IntegrationOptions] io
 
-    def __cinit__(self, int max_step=1000000, double target_error=1e-10, double min_stepsize=1e-18, double max_stepsize=1e-2, bool save_intermediate=False, int verbose=0):
+    def __cinit__(self, int max_step=1000000, double target_error=1e-12, double min_stepsize=1e-16, double max_stepsize=1e-2, bool save_intermediate=False, int verbose=0):
         self.io = make_shared[IntegrationOptions](max_step, target_error, min_stepsize, max_stepsize, save_intermediate, verbose)
 
 
@@ -60,9 +66,9 @@ cdef class PyFermionBosonStar:
         self.evaluated=False
 
     @staticmethod
-    def FromParameters(PyEoS pyEoS, mu, lambda_=0., omega=0.):
+    def FromParameters(PyEoS pyEoS, mu, lambda_=0., omega=0., rho_0 = 0., phi_0 = 0.):
         cdef PyFermionBosonStar pfbs = PyFermionBosonStar.__new__(PyFermionBosonStar)
-        pfbs.fbs = make_shared[FermionBosonStar](pyEoS.eos, <double>mu, <double>lambda_, <double>omega)
+        pfbs.fbs = make_shared[FermionBosonStar](pyEoS.eos, <double>mu, <double>lambda_, <double>omega, <double>rho_0, <double>phi_0)
         return pfbs
 
     @staticmethod
@@ -76,12 +82,6 @@ cdef class PyFermionBosonStar:
         cdef PyFermionBosonStar pfbs = PyFermionBosonStar.__new__(PyFermionBosonStar)
         pfbs.fbs = make_shared[FermionBosonStar](fbs)
         return pfbs
-
-    def set_initial_conditions(self, double rho_0, double phi_0):
-        deref(self.fbs).rho_0 = rho_0
-        deref(self.fbs).phi_0 = phi_0
-        #deref(self.fbs).set_initial_conditions(rho_0, phi_0)
-        self.evaluated=False
 
     def bisection(self, omega_0, omega_1, n_mode=0, max_step=500, delta_omega=1e-15):
         deref(self.fbs).bisection(omega_0, omega_1, n_mode, max_step, delta_omega)
