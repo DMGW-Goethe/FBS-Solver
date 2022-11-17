@@ -395,20 +395,33 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
     const int step_number = results.size();
 
-    /* obtain estimate for the total mass:
-     * find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
-     * start iterating through the solution array backwards */
-    int min_index_a = results.size()-1;
-    double curr_a_min = results[results.size()-1].second[0];  // last value for the metric component a at r=0
+    bool phi_converged = false;
+    if (this->phi_0 > 0. && events.size() > 1 && events[events.size()-2].name == FermionBosonStar::phi_converged.name)
+        phi_converged = events[events.size()-2].steps.size() > 0;
+    std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
 
-    // find the index of the minimum of the g_rr metric component:
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        if (results[i].second[0] < curr_a_min) {
-            curr_a_min = results[i].second[0]; // update current minimum
-            min_index_a = i;  // update min_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
+    /* find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later)
+     *  */
+    int index_phi_converged = 1;
+
+    if (this->phi_0 > 0.) {
+        if (phi_converged) {
+            auto phi_converged_event = events[events.size()-2];
+            while (results[index_phi_converged].first < phi_converged_event.steps[0].first)
+                index_phi_converged++;
+        } else { // otherwise implement failsafe
+            auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
+            std::vector<int> abs_phi_minima({});
+            int index_phi_global_min = 0;
+            for (unsigned int i=1; i < step_number-1; i++) {
+                if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
+                    abs_phi_minima.push_back(i);
+                if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
+                    index_phi_global_min = i;
+            }
+            index_phi_converged = index_phi_global_min;
+            if(abs_phi_minima.size() > 0)
+                index_phi_converged = std::max(index_phi_converged, abs_phi_minima[abs_phi_minima.size()-1]);
         }
     }
 
@@ -418,49 +431,45 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
      * M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
      * Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
      * the optimum can be found at the point where the derivative of M_t with respect to r is minimal*/
+    double M_T = 0.;
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
     auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
                                                         + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
 
-    std::vector<int> dM_minima;
-    int index_dM_global_minimum = results.size()-3;
-    for (unsigned int i=results.size()-3; i > 2; i--) {
-        if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
-            dM_minima.push_back(i);
-        if(dM_func(i) < dM_func(index_dM_global_minimum)) // and find the global one
-            index_dM_global_minimum = i;
+    if (phi_converged || this->phi_0 == 0.) {
+        M_T = M_func(step_number-1);
     }
-    // calculate M_T where the last local minimum of M_T is, if it doesn't exist use the global one:
-    int min_index_dMdr;
-    if(dM_minima.size() > 0) {
-        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
-        min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
-    }
-    else
-        min_index_dMdr = index_dM_global_minimum;
+    else {
+        //std::vector<int> dM_minima;
+        int index_dM_global_minimum = results.size()-3;
+        for (unsigned int i=results.size()-3; i > index_phi_converged; i--) {
+            if(dM_func(index_dM_global_minimum) != dM_func(index_dM_global_minimum)) // NaN prevention
+                index_dM_global_minimum = i;
+            /*if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
+                dM_minima.push_back(i);*/
+            if(dM_func(i) < dM_func(index_dM_global_minimum)) // and find the global one
+                index_dM_global_minimum = i;
+        }
+        // calculate M_T where the last local minimum of M_T is, if it doesn't exist use the global one:
+        int min_index_dMdr;
+        /*if(dM_minima.size() > 0) {
+            std::cout << "found minimum at " << dM_minima[0] << " with " << dM_func(dM_minima[0]) << std::endl;
+            min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
+            min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
+        }
+        else*/
+            min_index_dMdr = index_dM_global_minimum;
+        std::cout << "chose " << min_index_dMdr << " with global minimum " << index_dM_global_minimum << ": " << dM_func(index_dM_global_minimum) << " with step_num " << step_number << std::endl;
 
-    double M_T = M_func(min_index_dMdr);
+        M_T = M_func(min_index_dMdr);
+    }
 
     // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
-    /* find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later)
-     * Note: this method will maybe not work well if we consider higher modes of phi
-     * TODO: Adjust for new integration method where we avoid divergence */
-    int min_index_phi = results.size()-1;
-    double curr_phi_min = std::abs(results[results.size()-1].second[2]);  // last value for the phi field a at r=0
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        if (std::abs(results[i].second[2]) < curr_phi_min) {
-            curr_phi_min = std::abs(results[i].second[2]); // update current minimum
-            min_index_phi = i;  // update min_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
-        }
-    }
 
     /*  N_B, N_F
      *  We need to integrate the particle number densities to obtain N_B, N_F */
-    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
+    std::vector<double> r(step_number), N_B_integrand(step_number), N_F_integrand(step_number);
     vector v;
     double rho, eps;
 
@@ -468,7 +477,10 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
         r[i] = results[i].first;
         v = results[i].second;
         N_B_integrand[i] = 8.*M_PI * v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
-        this->EOS->callEOS(rho, eps, std::max(0., v[4]));
+        if (v[4] < P_ns_min || v[4] < this->EOS->min_P())
+            rho = 0.;
+        else
+            this->EOS->callEOS(rho, eps, v[4]);
         N_F_integrand[i] = 4.*M_PI * v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
     }
 
@@ -478,13 +490,13 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
 
     // Find where 99% of N_B,N_F are reached to get the radii
-    double N_F =  N_F_integrated[min_index_a],
-           N_B =  N_B_integrated[min_index_phi];
+    double N_F =  N_F_integrated[step_number-1],
+           N_B =  N_B_integrated[index_phi_converged /*step_number-1*/];
 
     // first find the index in array where 99% is contained
     // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
     int i_B = 0, i_F = 0;
-    unsigned int max_index = std::max(min_index_phi, min_index_a);
+    unsigned int max_index = /*std::max(min_index_phi, min_index_a)*/ step_number;
     for(unsigned int i = 1; i < max_index; i++) {
         if(N_B_integrated[i] < 0.99*N_B)
             i_B++;
