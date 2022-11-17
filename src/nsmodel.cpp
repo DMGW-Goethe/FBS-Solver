@@ -915,8 +915,8 @@ vector TwoFluidFBS::dy_dt(const double r, const vector &vars)
 	EquationOfState &myEOS2 = *(this->EOS_fluid2);
 
 	// call both EoS and compute the wanted values
-	double etot1, rho1, epsilon1, dP1_drho, drho_dP1;
-	double etot2, rho2, epsilon2, dP2_drho, drho_dP2;
+	double rho1, etot1, epsilon1, dP1_drho, dP1_detot, drho_dP1, detot_dP1;
+	double rho2, etot2, epsilon2, dP2_drho, dP2_detot, drho_dP2, detot_dP2;
 	// first EoS
 	if (P1 <= 0. || P1 < myEOS1.min_P())
 	{
@@ -927,10 +927,12 @@ vector TwoFluidFBS::dy_dt(const double r, const vector &vars)
 	}
 	else
 	{
-		myEOS1.callEOS(rho1, epsilon1, P1); // change rho and epsilon by reference using EOS member function
-		//etot1 = myEOS1.get_etot_from_P(P1);
-		dP1_drho = rho1 > myEOS1.min_rho() ? myEOS1.dP_drho(rho1, epsilon1) : 0.;
-		drho_dP1 = dP1_drho > 0. ? 1. / dP1_drho : 0.;
+		//myEOS1.callEOS(rho1, epsilon1, P1); // change rho and epsilon by reference using EOS member function
+		etot1 = myEOS1.get_etot_from_P(P1);
+		//dP1_drho = rho1 > myEOS1.min_rho() ? myEOS1.dP_drho(rho1, epsilon1) : 0.;
+		//drho_dP1 = dP1_drho > 0. ? 1. / dP1_drho : 0.;
+		dP1_detot = etot1 > myEOS1.min_etot() ? myEOS1.dP_detot(etot1) : 0.;
+		detot_dP1 = dP1_detot > 0. ? 1. / dP1_detot : 0.;
 	}
 	// second EoS
 	if (P2 <= 0. || P2 < myEOS2.min_P())
@@ -942,27 +944,34 @@ vector TwoFluidFBS::dy_dt(const double r, const vector &vars)
 	}
 	else
 	{
-		myEOS2.callEOS(rho2, epsilon2, P2); // change rho and epsilon by reference using EOS member function
-		dP2_drho = rho2 > myEOS2.min_rho() ? myEOS2.dP_drho(rho2, epsilon2) : 0.;
-		drho_dP2 = dP2_drho > 0. ? 1. / dP2_drho : 0.;
+		//myEOS2.callEOS(rho2, epsilon2, P2); // change rho and epsilon by reference using EOS member function
+		etot2 = myEOS2.get_etot_from_P(P2);
+		//dP2_drho = rho2 > myEOS2.min_rho() ? myEOS2.dP_drho(rho2, epsilon2) : 0.;
+		//drho_dP2 = dP2_drho > 0. ? 1. / dP2_drho : 0.;
+		dP2_detot = etot2 > myEOS2.min_etot() ? myEOS2.dP_detot(etot2) : 0.;
+		detot_dP2 = dP2_detot > 0. ? 1. / dP2_detot : 0.;
 	}
+
+	// uncomment the following if you want to use the EoS using rho and epsilon:
+	//etot1 = rho1*(1. + epsilon1);
+	//etot2 = rho2*(1. + epsilon2);
 
 	// compute 'total'-values and helper variables:
 	double mtot = m1 + m2;
 	double Ptot = P1 + P2;
-	double rhotot = rho1 + rho2;
+	double etot_tot = etot1 + etot2;
 	double e_lambda = 1. / (1. - 2. * mtot / r);						 // metric component: e^{-lambda(r)} = 1 - 2mtot(r)/r
-	double rhoP_param = (rho1 + P1) * drho_dP1 + (rho2 + P2) * drho_dP2; // special parameter used to compute Q
+	double rhoP_param = (etot1 + P1) * detot_dP1 + (etot2 + P2) * detot_dP2; // special parameter used to compute Q
 
 	// compute the ODE:
 	double dnu_dr = 2. * (mtot + 4 * M_PI * r * r * r * Ptot) * e_lambda / (r * r);
-	double dm1_dr = 4. * M_PI * r * r * rho1;
-	double dm2_dr = 4. * M_PI * r * r * rho2;
-	double dP1_dr = -0.5 * dnu_dr * (rho1 + P1);
-	double dP2_dr = -0.5 * dnu_dr * (rho2 + P2);
+	double dm1_dr = 4. * M_PI * r * r * etot1;
+	double dm2_dr = 4. * M_PI * r * r * etot2;
+	double dP1_dr = -0.5 * dnu_dr * (etot1 + P1);
+	double dP2_dr = -0.5 * dnu_dr * (etot2 + P2);
 	// compute tidal function:
-	double Q = 4. * M_PI * e_lambda * (5. * (rhotot) + 9. * (P1 + P2) + rhoP_param) - 6. * e_lambda / r / r - dnu_dr * dnu_dr; // helper variable Q
-	double dY_dr = -Y * Y / r - Y * e_lambda * (1. + 4. * M_PI * r * r * (Ptot - rhotot)) / r - r * Q;								// tidal perturbation function y(r)
+	double Q = 4. * M_PI * e_lambda * (5. * (etot_tot) + 9. * (P1 + P2) + rhoP_param) - 6. * e_lambda / r / r - dnu_dr * dnu_dr; // helper variable Q
+	double dY_dr = -Y * Y / r - Y * e_lambda * (1. + 4. * M_PI * r * r * (Ptot - etot_tot)) / r - r * Q;								// tidal perturbation function y(r)
 
 	return vector({dnu_dr, dm1_dr, dm2_dr, dP1_dr, dP2_dr, dY_dr});
 }
