@@ -11,7 +11,7 @@
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the maximum integration radius
 #define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
-#define PHI_converged 1e-6
+#define PHI_converged 1e-5
 #define M_T_converged 1e-15
 
 /*  NSmodel
@@ -111,7 +111,7 @@ protected:
     static std::vector<std::string> labels();
 
     /* These events are used for different integration purposes */
-    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged, P_min_reached;
+    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged, P_min_reached, Psi_positive;
 
 };
 

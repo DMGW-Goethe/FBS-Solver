@@ -61,22 +61,28 @@ vector FermionBosonStar::dy_dr(const double r, const vector& vars) {
 /* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged */
 const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
                                                                                                         double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
-                                                                                                        return  dM_dr < M_T_converged ; },true);
+                                                                                                        return  dM_dr < M_T_converged ; }, true, "M_converged");
 
 /* This event triggers when Psi starts to diverge, i.e. Psi > 1. */
 const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return (std::abs(y[3]) > 1.0); }, true);
+                                                                                                { return (std::abs(y[3]) > 1.0); }, true, "Psi_diverging");
+
+/* This event triggers when Psi becomes positive - why is this here? to force an accurate resolution wherever Psi becomes positive, so that phi_converged might trigger */
+const integrator::Event FermionBosonStar::Psi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (y[3] > 0.0); }, false, "Psi_positive", 1e-8);
 
 /* This event triggers when phi becomes negative, it is used to count the zero crossings of phi */
 const integrator::Event FermionBosonStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return y[2] < 0.; });
+                                                                                                { return y[2] < 0.; }, false, "phi_negative");
 /* This event triggers when phi becomes positive */
 const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return y[2] > 0.; });
+                                                                                                { return y[2] > 0.; }, false, "phi_positive");
 
 /* This event triggers when phi is sufficiently converged, i.e. phi < PHI_converged and dphi < PHI_converged */
 const integrator::Event FermionBosonStar::phi_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return (std::abs(y[2]) < PHI_converged && std::abs(y[3]) < PHI_converged); });
+                                                                                                { return (std::abs(y[2])/((FermionBosonStar*)params)->phi_0 < PHI_converged &&
+                                                                                                            std::abs(y[3])/((FermionBosonStar*)params)->phi_0/r < PHI_converged); }, true, "phi_converged");
+                                                                                                /*{ return (std::abs(y[2])/((FermionBosonStar*)params)->phi_0 < PHI_converged && y[3] > 0. && dy[3] > 0.); }, true, "phi_converged");*/
 
 /* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
 const integrator::Event FermionBosonStar::integration_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
@@ -84,7 +90,7 @@ const integrator::Event FermionBosonStar::integration_converged = integrator::Ev
 
 /* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
 const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return y[4] <= P_ns_min; }, false, "P_min_reached", 1e-5);
+                                                                                                { return (y[4] <= std::max(P_ns_min, ((FermionBosonStar*)params)->EOS->min_P())); }, false, "P_min_reached", 1e-5);
 
 /* This function gives the initial conditions for the FBS integration
  * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, and P_0 = EOS(rho_0)
@@ -105,19 +111,22 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
 
     results.clear();
 
-    auto phi_converged = FermionBosonStar::phi_converged;
+    integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
+    integrator::Event phi_converged = FermionBosonStar::phi_converged;
     if(this->phi_0 > 0.) // if there is no phi component ignore
         phi_converged.stopping_condition = true;
+    events.push_back(Psi_positive);
     events.push_back(phi_converged);
 
     int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
 
-    phi_converged = events[events.size()-1]; events.pop_back();
+    phi_converged = events[events.size()-1];
     if(res == integrator::event_stopping_condition && phi_converged.active) {
         //std::cout << "phi has converged before P=0 -> restart integration" << std::endl;
         vector initial_conditions = results[results.size()-1].second;
         initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
 
+        events[events.size()-1].stopping_condition = false;
         std::vector<integrator::step> additional_results;
         events.push_back(FermionBosonStar::integration_converged);
         double last_r = results[results.size()-1].first;
@@ -128,7 +137,6 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
         results.reserve(results.size() + additional_results.size());
         for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
             results.push_back(additional_results[i]);
-        events.pop_back();
     }
     return res;
 }
@@ -253,7 +261,12 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     if (verbose > 0)
         std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
-    while(omega_1 - omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
+    // optional test if the event triggers for later integration
+    integrator::Event phi_converged = FermionBosonStar::phi_converged;
+    phi_converged.stopping_condition = false;
+    events.push_back(phi_converged);
+
+    while((omega_1 - omega_0)/omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
         omega_mid = (omega_0 + omega_1)/2.;
         this->omega = omega_mid;
         res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
@@ -277,10 +290,18 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             continue;
         }
     }
+    // TODO: Check usability
+    phi_converged = events[events.size()-1];
+    if (phi_converged.steps.size() == 0)
+        std::cout << "Warning: phi_converged not hasn't triggered after bisection" << std::endl;
 
+    if (n_inft_1 > 0.)
+        this->omega = omega_1;
+    else
+        this->omega = omega_0;
     if (verbose > 0)
-        std::cout << "After " << i << " steps, chose omega= omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " while omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
-    this->omega = omega_0;
+        std::cout << "After " << i << " steps, chose " << omega << " out of omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << ", omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
+
     return 0;
 }
 
@@ -930,19 +951,23 @@ int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrat
 
     results.clear();
 
-    auto phi_converged = FermionBosonStar::phi_converged;
-    if(this->phi_0 > 0.)
+    integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
+    integrator::Event phi_converged = FermionBosonStar::phi_converged;
+    if(this->phi_0 > 0.) // if there is no phi component ignore
         phi_converged.stopping_condition = true;
+    events.push_back(Psi_positive);
     events.push_back(phi_converged);
 
     int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
 
-    phi_converged = events[events.size()-1]; events.pop_back();
-    if(res == integrator::event_stopping_condition && phi_converged.active ) {
+    phi_converged = events[events.size()-1];
+    if(res == integrator::event_stopping_condition && phi_converged.active) {
+        //std::cout << "phi has converged before P=0 -> restart integration" << std::endl;
         vector initial_conditions = results[results.size()-1].second;
-        initial_conditions[2] = 0.; initial_conditions[3] = 0.; // set phi = Psi = 0
+        initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
         initial_conditions[7] = 0.; initial_conditions[8] = 0.; // set phi_1 = dphi_1 = 0
 
+        events[events.size()-1].stopping_condition = false;
         std::vector<integrator::step> additional_results;
         events.push_back(FermionBosonStar::integration_converged);
         double last_r = results[results.size()-1].first;
@@ -953,7 +978,6 @@ int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrat
         results.reserve(results.size() + additional_results.size());
         for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
             results.push_back(additional_results[i]);
-        events.pop_back();
     }
     return res;
 }
