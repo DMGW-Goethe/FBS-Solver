@@ -441,9 +441,9 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     for(unsigned int i = 0; i < results.size(); i++) {
         r[i] = results[i].first;
         v = results[i].second;
-        N_B_integrand[i] = v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
+        N_B_integrand[i] = 8.*M_PI * v[0] * this->omega *  v[2] * v[2] * r[i] * r[i] / v[1];  // get bosonic mass (paricle number) for each r
         this->EOS->callEOS(rho, eps, std::max(0., v[4]));
-        N_F_integrand[i] = v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
+        N_F_integrand[i] = 4.*M_PI * v[0] * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
     }
 
     // Integrate
@@ -452,10 +452,8 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
 
     // Find where 99% of N_B,N_F are reached to get the radii
-    // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
-    // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
-    double N_F = 4.*M_PI* N_F_integrated[min_index_a],
-           N_B = 8.*M_PI* N_B_integrated[min_index_phi];
+    double N_F =  N_F_integrated[min_index_a],
+           N_B =  N_B_integrated[min_index_phi];
 
     // first find the index in array where 99% is contained
     // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
@@ -468,22 +466,19 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
             i_F++;
     }
     // obtain radius from corresponding index
-    double R_B = r[i_B], R_F = r[i_F];
-    R_F = 0.0; // R_F gives wrong radii and should never be used. R_F_0, which is calculated below gives the correct radius
+    double R_B = r[i_B], R_F_0 = r[i_F];
 
-    /*  R_F_0
+    /*  R_F
      * compute the fermionic radius R_f using the definition where P(R_f)==0
      * iterate the Pressure-array until we find the first point where the pressure is zero */
-    double R_F_0 = 0.;
+    double R_F = 0.;
+    int index_R_F = 0;
+    auto P_func = [&results] (int index) {return results[index].second[4];};
 
-    // find the first point where the pressure is (approx) zero and take this as the fermionic radius
-    for (unsigned i = 1; i < results.size(); i++) {
-        if (results[i].second[4] < P_ns_min) {
-            R_F_0 = r[i];
-            N_F = 4.*M_PI* N_F_integrated[i];
-            break;
-        }
-    }
+    while( P_func(index_R_F) > std::max(P_ns_min, EOS->min_P())  && index_R_F < step_number-1)
+        index_R_F++;
+    R_F = r[index_R_F];
+    N_F = N_F_integrated[index_R_F];
 
     //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
@@ -527,7 +522,6 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.rho_0                 << " "   // central density
                 << fbs.phi_0                 << " "   // central scalar field
                 << fbs.R_F*1.476625061       << " "   // fermionic radius
-                << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
                 << fbs.N_F                   << " "   // number of fermions
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
                 << fbs.N_B                   << " "   // number of bosons
@@ -538,7 +532,7 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
 }
 /* Gives the labels of the values from the output */
 std::vector<std::string> FermionBosonStar::labels() {
-    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
 }
 
 
@@ -621,25 +615,27 @@ vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) {
  * */
 void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
+    const int step_number = results.size();
     // calculate parameters for unperturbed star
     //FermionBosonStar::calculate_star_parameters(results, events); // TODO: Check if can be uncommented
 
     /* The quantity to compute is y = r H' / H
-     * if the fermionic radius (much) larger than the bosonic one, take y = y(R_F_0)
+     * if the fermionic radius (much) larger than the bosonic one, take y = y(R_F)
      * if the bosonic radius is larger, find the maxiumum going from the back to the front */
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
     double y = 0., R_ext = 0., M_ext = 0.;
 
-    if(this->R_F_0 > 100.*this->R_B) {
+    if(this->R_F > 100.*this->R_B) {
         int index_R_F = 0;
-        while ( results[index_R_F].first < this->R_F_0 ) index_R_F++;
-        // approximate y, M_ext at R_F_0
-        y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        R_ext = R_F_0;
-        //std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
+        while ( results[index_R_F].first < this->R_F && index_R_F < step_number-1)
+            index_R_F++;
+        // approximate y, M_ext at R_F
+        y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
+        M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
+        R_ext = R_F;
+        //std::cout << "R_F > R_B:  at R_F=" << R_F << " y = " << y << std::endl;
     }
     else {
         // to find the starting point see where y actually has a minimum
@@ -670,7 +666,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
         y = y_func(index_y);
         R_ext = results[index_y].first;
         M_ext = M_func(index_y); // extract M_ext at the same radius
-        //std::cout << "R_B> R_F_0: found max y = " << y << " at " << index_y << ", R_ext=" << R_ext << std::endl;
+        //std::cout << "R_B> R_F: found max y = " << y << " at " << index_y << ", R_ext=" << R_ext << std::endl;
 
     }
 
