@@ -15,37 +15,39 @@
 // --------------------------------------------------------------------
 
 
-/*
-int test_FBSTLN() {
+
+int Example_Star() {
 
     double mu = 1.;
     double lambda = 0.;
 
-    //auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
-    auto Polytrope = std::make_shared<PolytropicEoS>();
+    auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+    //auto Polytrope = std::make_shared<PolytropicEoS>();
 
-    double rho_0 = 1e-20;
-    double phi_0 = 0.02;
+    double rho_0 = 1e-3;
+    double phi_0 = 1e-2;
     std::vector<integrator::step> steps;
 
-    FermionBosonStar fbs(Polytrope, mu, lambda, 0.);
-    fbs.set_initial_conditions(rho_0, phi_0);
+    // define star parameters
+    FermionBosonStar fbs(EOS_DD2, mu, lambda, 0., rho_0, phi_0);
 
+    // find omega and integrate
     double omega_0 = 1., omega_1 = 10.;
-    fbs.bisection(omega_0, omega_1);
+    //int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15, int verbose=0);
+    fbs.bisection(omega_0, omega_1, 0, 500, 1e-15, 1);
     fbs.evaluate_model(steps, integrator::IntegrationOptions(), "test/fbs.txt");
 
-    double H_0 = 1.;
+    std::cout << fbs << std::endl;
+
+    // construct TLN instance from previous instance
     FermionBosonStarTLN fbstln(fbs);
-    fbstln.set_initial_conditions(0., H_0);
 
-    double phi_1_0 = 1e-20, phi_1_1 = 1e3;
-    fbstln.bisection_phi_1(phi_1_0, phi_1_1);
-
+    // find phi_1_0 and integrate
+    double phi_1_0_l = phi_0*1e-3, phi_1_0_r = 1e5*phi_0;
+    fbstln.bisection_phi_1(phi_1_0_l, phi_1_0_r);
     fbstln.evaluate_model(steps, "test/fbstln.txt");
 
-    std::cout << fbs << "\n"
-              << fbstln << std::endl;
+    std::cout << fbstln << std::endl;
 
 
     #ifdef DEBUG_PLOTTING
@@ -55,7 +57,7 @@ int test_FBSTLN() {
 
     return 0;
 }
-*/
+
 
 void fillValuesPowerLaw(const double minValue, const double maxValue, std::vector<double>& values, const int power)
 {
@@ -67,9 +69,9 @@ void fillValuesPowerLaw(const double minValue, const double maxValue, std::vecto
 
         return;
     }
-    
+
     fillValuesPowerLaw(0.0, 1.0, values, 1);
-    
+
     for(size_t i = 0; i < values.size(); i++)
     {
         values[i] = pow(values[i], power);
@@ -81,7 +83,7 @@ void fillValuesPowerLaw(const double minValue, const double maxValue, std::vecto
 void fillValuesLogarithmic(const double minValue, const double maxValue, std::vector<double>& values)
 {
     fillValuesPowerLaw(log(minValue), log(maxValue), values, 1);
-    
+
     for(size_t i = 0; i < values.size(); i++)
         values[i] = exp(values[i]);
 }
@@ -92,7 +94,7 @@ int main() {
     //matplotlibcpp::backend("TkAgg");
     */
 
-    //return test_FBSTLN();
+    return Example_Star();
 
     // ----------------------------------------------------------------
     // generate MR curves:
