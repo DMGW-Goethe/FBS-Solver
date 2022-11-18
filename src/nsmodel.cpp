@@ -1130,7 +1130,7 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 
 std::vector<std::string> TwoFluidFBS::labels()
 {
-	return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "M_1", "M_2", "R_1", "R_1_0", "R_2", "R_2_0", "M_2/M_1", "k2", "lambda_tidal"});
+	return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "k2", "lambda_tidal"});
 }
 
 const integrator::Event TwoFluidFBS::all_Pressure_zero = integrator::Event([](const double r, const double dr, const vector &y, const vector &dy, const void *params)

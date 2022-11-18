@@ -8,6 +8,7 @@ double PolytropicEoS::get_P_from_rho(const double rho_in, const double epsilon) 
 
 double PolytropicEoS::get_P_from_etot(const double etot_in) {
 	// todo, maybe have to do root finding?
+	return 0.0;
 }
 
 double PolytropicEoS::get_etot_from_P(const double P_in) {
@@ -20,6 +21,11 @@ double PolytropicEoS::get_etot_from_P(const double P_in) {
 double PolytropicEoS::dP_drho(const double rho_in, const double epsilon) {
 
 	return this->kappa*this->Gamma*std::pow(rho_in, this->Gamma-1.);
+}
+
+double PolytropicEoS::dP_detot(const double etot_in) {
+
+	return 0.0;	// TBD
 }
 
 void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
@@ -87,6 +93,11 @@ double EffectiveBosonicEoS::get_etot_from_P(const double P_in) {
 double EffectiveBosonicEoS::dP_detot(const double etot_in) {
 	// etot is actually the total energy density of the fluid
 	return ( 1./3. - std::pow(1.+ (3./4.)*(etot_in/this->rho0) , -0.5) / 3.0 );
+}
+
+double EffectiveBosonicEoS::dP_drho(const double rho_in, const double epsilon) {
+	// is not implemented yet
+	return 0.0;
 }
 
 void EffectiveBosonicEoS::callEOS(double& myrho, double& epsilon, const double P) {

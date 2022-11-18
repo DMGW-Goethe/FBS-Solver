@@ -45,6 +45,7 @@ public:
 	double get_etot_from_P(const double P_in);
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
+	double dP_detot(const double etot);
 
     double min_P();
     double min_rho();

@@ -106,11 +106,11 @@ int main() {
 	std::vector<FermionBosonStarTLN> MRphi_tln_curve;
 
 	// calc the unperturbed equilibrium solutions:
-    calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
+    //calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
 	// calc the perturbed solutions to get the tidal love number:
-	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
+	//calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda-0.txt");
+	//write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda-0.txt");
 
     // space for more EOS
 
@@ -123,6 +123,18 @@ int main() {
 
     // calc three MR-curves with different Nb/Nf Ratios!
     //calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, "plots/NbNf_test1.txt");
+
+	// test two-fluid EOS:
+	double rho1_0 = 0.001;
+	double rho2_0 = 0.001;
+	lambda = 300.; 	// the effective bosonic EoS only works for large values of lambda
+	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
+
+	TwoFluidFBS my_twofluid_FBS(EOS_DD2, myEffectiveEOS);
+	my_twofluid_FBS.set_initial_conditions(rho1_0, rho2_0);
+	std::vector<integrator::step> my_twofluid_results;
+	my_twofluid_FBS.evaluate_model(my_twofluid_results, "plots/twofluid_test1.txt");
+	std::cout << "Macroscopic values of twofluid model:" << std::endl << my_twofluid_FBS << std::endl;
 
 
     // ----------------------------------------------------------------
