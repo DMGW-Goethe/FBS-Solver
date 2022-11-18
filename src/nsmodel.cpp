@@ -986,13 +986,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 
 	// compute all values of the star, including the tidal deformability:
 
-	// obtain estimate for the total mass:
-	// the total mass M_T is defined at the point M(R) where R ist the largest radius between fluid 1 and fluid 2:
-	// M_T can be obtained from the metric component nu:
-	// e^nu = 1 - 2M/R  ==>> M(r) = r/2 * (1 - exp(nu(r)))
-
 	int last_index = results.size() - 1; // last index in the integration
-	double M_T = 0.5 * results[last_index].first * (1. - std::exp(results[last_index].second[0]));
 
 	// next compute the masses of only 1st fluid and 2nd fluid respectively:
 	// it is fine to take the last indices of the whole integration because once one fluid has reached zero pressure, the change in mass dm/dr will be zero
@@ -1020,6 +1014,13 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 			break;
 		}
 	}
+
+	// obtain estimate for the total mass:
+	// the total mass M_T is defined at the point M(R) where R ist the largest radius between fluid 1 and fluid 2:
+	// M_T can be obtained from the metric component nu:
+	// e^nu = 1 - 2M/R  ==>> M(r) = r/2 * (1 - exp(nu(r)))
+	double M_T = -0.5 * std::max(R_1_0, R_2_0) * (1. - std::exp(results[std::max(i_R1_0, i_R2_0)].second[0]));
+
 
 	// radius where 99% of the fluid (1st/2nd respectively) is contained:
 
@@ -1134,5 +1135,5 @@ std::vector<std::string> TwoFluidFBS::labels()
 }
 
 const integrator::Event TwoFluidFBS::all_Pressure_zero = integrator::Event([](const double r, const double dr, const vector &y, const vector &dy, const void *params)
-																		   { return ((y[3] <= 1e-20) && (y[4] <= 1e-20)); },
+																		   { return ((y[3] <= 0.1*P_ns_min) && (y[4] <= 0.1*P_ns_min)); },
 																		   true);

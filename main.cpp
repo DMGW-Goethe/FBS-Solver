@@ -125,8 +125,8 @@ int main() {
     //calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, "plots/NbNf_test1.txt");
 
 	// test two-fluid EOS:
-	double rho1_0 = 0.001;
-	double rho2_0 = 0.001;
+	double rho1_0 = 0.0007;
+	double rho2_0 = 0.0002; //0.00001;
 	lambda = 300.; 	// the effective bosonic EoS only works for large values of lambda
 	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
 
