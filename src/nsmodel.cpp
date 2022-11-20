@@ -1057,9 +1057,12 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 	// otain the value of y(r) at maxR:
 	int maxRindex = std::max(i_R1_0, i_R2_0);
 	double y_R = results[maxRindex].second[5];
+	//std::cout << y_R << " " << C << std::endl;
 
 	// compute tidal love number k2:
 	// equation taken from: PHYSICAL REVIEW D 105, 123010 (2022)
+	// Note: in this model it is possible that some configurations will have a compactness >0.5, meaning that these objects are Black Holes
+	// The Buchdal-limit actually allows only stable compact objects with compactness > 4/9 ~ 0.4444. Higher compactness means that the object is not stable and will collapse to a BH
 	double k2 = (8. / 5.) * std::pow(C, 5) * std::pow(1. - 2. * C, 2) * (2. - y_R + 2. * C * (y_R - 1.)) /
 				(2. * C * (6. - 3. * y_R + 3. * C * (5. * y_R - 8.)) + 4. * std::pow(C, 3) * (13. - 11. * y_R + C * (3. * y_R - 2.) + 2. * C * C * (1. + y_R)) + 3. * std::pow(1. - 2. * C, 2) * (2. - y_R + 2. * C * (y_R - 1.) * std::log(1. - 2. * C)));
 
@@ -1073,6 +1076,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 	this->R_1_0 = R_1_0;
 	this->R_2 = R_2;
 	this->R_2_0 = R_2_0;
+	this->C = C;	// compactness
 	this->k2 = k2;
 	this->lambda_tidal = lambda_tidal;
 }
@@ -1125,13 +1129,14 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 			  << fbs.R_2_0 * 1.476625061 << " " // radius where P(r)=0 of 2nd fluid
 			  << fbs.M_2 << " "					// total mass of 2nd fluid
 			  << fbs.M_2 / fbs.M_1 << " "		// mass ratio M_2 / M_1
+			  << fbs.C << " "					// Compactness
 			  << fbs.k2 << " "
 			  << fbs.lambda_tidal;
 }
 
 std::vector<std::string> TwoFluidFBS::labels()
 {
-	return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "k2", "lambda_tidal"});
+	return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "C", "k2", "lambda_tidal"});
 }
 
 const integrator::Event TwoFluidFBS::all_Pressure_zero = integrator::Event([](const double r, const double dr, const vector &y, const vector &dy, const void *params)
