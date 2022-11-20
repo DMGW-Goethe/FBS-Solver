@@ -48,4 +48,6 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 
 void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve);
 
+void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve);
+
 #endif

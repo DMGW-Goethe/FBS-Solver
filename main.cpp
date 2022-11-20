@@ -81,9 +81,9 @@ int main() {
 
     // declare initial conditions:
     double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
-    double phi_cmin = 1e-6;    // central value of scalar field of first star
+    double phi_cmin = 0.0001;//1e-6;    // central value of scalar field of first star
     double rho_cmax = 0.004;
-    double phi_cmax = 0.10;
+    double phi_cmax = 0.004;//0.10;
 
     double drho = (rho_cmax - rho_cmin) / (Nstars -1.);
     double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
@@ -124,18 +124,24 @@ int main() {
     // calc three MR-curves with different Nb/Nf Ratios!
     //calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, "plots/NbNf_test1.txt");
 
+	// ----------------------------------------------------------------
+
 	// test two-fluid EOS:
 	double rho1_0 = 0.0007;
 	double rho2_0 = 0.0002; //0.00001;
 	lambda = 300.; 	// the effective bosonic EoS only works for large values of lambda
 	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
 
+	/*
 	TwoFluidFBS my_twofluid_FBS(EOS_DD2, myEffectiveEOS);
 	my_twofluid_FBS.set_initial_conditions(rho1_0, rho2_0);
 	std::vector<integrator::step> my_twofluid_results;
 	my_twofluid_FBS.evaluate_model(my_twofluid_results, "plots/twofluid_test1.txt");
 	std::cout << "Macroscopic values of twofluid model:" << std::endl << my_twofluid_FBS << std::endl;
-
+	*/
+	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
+	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve);
+	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/twofluid_MRphi-diagram1.txt");
 
     // ----------------------------------------------------------------
 

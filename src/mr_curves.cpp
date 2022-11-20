@@ -103,3 +103,31 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
     std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
     std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
 }
+
+//
+void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve) {
+
+	TwoFluidFBS fbs_model(EOS1, EOS2);    // create model for star
+    MRphi_curve.clear();
+    MRphi_curve.reserve(rho1_c_grid.size()*rho2_c_grid.size());
+
+    // set initial conditions for every star in the list:
+    for(unsigned int j = 0; j < rho2_c_grid.size(); j++) {
+        for(unsigned int i = 0; i < rho1_c_grid.size(); i++) {
+            TwoFluidFBS fbs(fbs_model);
+            fbs.set_initial_conditions(rho1_c_grid[i], rho2_c_grid[j]);
+            MRphi_curve.push_back(fbs);
+        }
+    }
+
+	time_point start3{clock_type::now()};
+	// integrate all the stars in parallel:
+    #pragma omp parallel for
+    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
+        MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
+    }
+    time_point end3{clock_type::now()};
+    std::cout << "evaluation of "<< MRphi_curve.size() <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
+    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
+
+}
