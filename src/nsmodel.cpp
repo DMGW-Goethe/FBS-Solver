@@ -107,7 +107,7 @@ vector FermionBosonStar::get_initial_conditions(const double r_init) const {
  *
  * Only call after omega is set to the corresponding value, otherwise this function is not useful.
  * */
-int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, std::vector<int> additional_zero_indices, double r_init, double r_end) const {
 
     results.clear();
 
@@ -120,24 +120,58 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
 
     int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
 
+    if(this->phi_0 <= 0.) // no divergence, so easy peasy return
+        return res;
+
     phi_converged = events[events.size()-1];
-    if(res == integrator::event_stopping_condition && phi_converged.active) {
-        //std::cout << "phi has converged before P=0 -> restart integration" << std::endl;
-        vector initial_conditions = results[results.size()-1].second;
-        initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
+    if (!phi_converged.active ) { // the integrator didn't catch the convergence so we have to find it ourselves
 
-        events[events.size()-1].stopping_condition = false;
-        std::vector<integrator::step> additional_results;
-        events.push_back(FermionBosonStar::integration_converged);
-        double last_r = results[results.size()-1].first;
-        intOpts.clean_events = false;  // to stop the integrator from clearing the events
+        if (!intOpts.save_intermediate) { // can't find it if we don't have the steps
+            results.clear();
+            intOpts.save_intermediate = true;
+            int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+            intOpts.save_intermediate = false;
+        }
+        // find the minimum in the phi field before it diverges
+        int index_phi_converged = 1;
 
-        res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
+        auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
+        std::vector<int> abs_phi_minima({});
+        int index_phi_global_min = 0;
+        for (unsigned int i=1; i < results.size()-1; i++) {
+            if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
+                abs_phi_minima.push_back(i);
+            if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
+                index_phi_global_min = i;
+        }
+        index_phi_converged = index_phi_global_min;
+        if(abs_phi_minima.size() > 0)
+            index_phi_converged = abs_phi_minima[abs_phi_minima.size()-1];
 
-        results.reserve(results.size() + additional_results.size());
-        for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
-            results.push_back(additional_results[i]);
+        results.erase(results.begin()+index_phi_converged, results.end()); // remove elements from integration
+
+        for (auto it = events.begin(); it != events.end(); ++it) // set events to active so that they don't trigger again in case they were active at the point of convergence
+            it->active = true;
     }
+
+    // now we can restart the integration
+    vector initial_conditions = results[results.size()-1].second;
+    initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
+    for (auto it = additional_zero_indices.begin(); it != additional_zero_indices.end(); ++it)  // and any other specified
+        initial_conditions[*it] = 0.;
+
+    events[events.size()-1].stopping_condition = false;
+    std::vector<integrator::step> additional_results;
+    events.push_back(FermionBosonStar::integration_converged);
+    double last_r = results[results.size()-1].first;
+    intOpts.clean_events = false;  // to stop the integrator from clearing the events
+
+    res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
+
+    results.reserve(results.size() + additional_results.size());
+    for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
+        results.push_back(additional_results[i]);
+
     return res;
 }
 
@@ -413,7 +447,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
             auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
             std::vector<int> abs_phi_minima({});
             int index_phi_global_min = 0;
-            for (unsigned int i=1; i < step_number-1; i++) {
+            for (int i=1; i < step_number-1; i++) {
                 if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
                     abs_phi_minima.push_back(i);
                 if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
@@ -442,7 +476,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     else {
         //std::vector<int> dM_minima;
         int index_dM_global_minimum = results.size()-3;
-        for (unsigned int i=results.size()-3; i > index_phi_converged; i--) {
+        for (int i=results.size()-3; i > index_phi_converged; i--) {
             if(dM_func(index_dM_global_minimum) != dM_func(index_dM_global_minimum)) // NaN prevention
                 index_dM_global_minimum = i;
             /*if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
@@ -746,7 +780,8 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
     std::vector<integrator::Event> events;
     results.clear();
 
-    int res = this->integrate_and_avoid_phi_divergence(results, events,  intOpts);
+    std::vector<int> additional_zero_indices = {7,8};
+    int res = this->integrate_and_avoid_phi_divergence(results, events,  intOpts, additional_zero_indices);
     /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
     for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
         using namespace integrator;
@@ -959,6 +994,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
  * It then restarts the integration after artifically setting phi = Psi = phi_1 = dphi_1 = 0 at that point
  * This allows to integrate the neutron matter and metric components until they converge
  * */
+/*
 int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
 
     results.clear();
@@ -992,4 +1028,4 @@ int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrat
             results.push_back(additional_results[i]);
     }
     return res;
-}
+}*/

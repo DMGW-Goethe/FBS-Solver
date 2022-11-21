@@ -11,7 +11,7 @@
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the maximum integration radius
 #define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
-#define PHI_converged 1e-5
+#define PHI_converged 1e-6
 #define M_T_converged 1e-15
 
 /*  NSmodel
@@ -76,7 +76,7 @@ protected:
 
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. Only call when omega is found after the bisection! */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
+    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), std::vector<int> additional_zero_indices={}, double r_init=R_INIT, double r_end=R_MAX) const;
 
     public:
     double mu, lambda, omega;
@@ -146,7 +146,7 @@ protected:
 
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, phi_1 = 0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. For phi=0 the DE for H,phi_1 decouple and we are only interested in H anyways. */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
+    /*int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;*/
 
 public:
     double H_0, phi_1_0;
