@@ -915,8 +915,8 @@ vector TwoFluidFBS::dy_dt(const double r, const vector &vars)
 	EquationOfState &myEOS2 = *(this->EOS_fluid2);
 
 	// call both EoS and compute the wanted values
-	double rho1, etot1, epsilon1, dP1_drho, dP1_detot, drho_dP1, detot_dP1;
-	double rho2, etot2, epsilon2, dP2_drho, dP2_detot, drho_dP2, detot_dP2;
+	double rho1=0., etot1=0., epsilon1=0., dP1_drho=0., dP1_detot=0., drho_dP1=0., detot_dP1=0.;
+	double rho2=0., etot2=0., epsilon2=0., dP2_drho=0., dP2_detot=0., drho_dP2=0., detot_dP2=0.;
 	// first EoS
 	if (P1 <= 0. || P1 < myEOS1.min_P())
 	{
@@ -995,7 +995,10 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 
 	// compute the radii of 1st and 2nd fluid:
 	// radius where pressure is approximately zero:
-	int i_R1_0, i_R2_0;
+	int i_R1_0 = last_index, i_R2_0 = last_index;
+	double R_1_0 = results[last_index].first, R_2_0 = results[last_index].first;
+	// there is an edgecase where the pressure does not drop below P_ns_min within the largest allowed integration radius R_MAX (=500).
+	// in this case the below iteration will return the initialization value for R_1_0, i_R1_0 etc.
 	for (unsigned i = 1; i < results.size(); i++)
 	{
 		if (results[i].second[3] < P_ns_min)
@@ -1017,38 +1020,19 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 
 	// obtain estimate for the total mass:
 	// the total mass M_T is defined at the point M(R) where R ist the largest radius between fluid 1 and fluid 2:
-	// M_T can be obtained from the metric component nu:
-	// e^nu = 1 - 2M/R  ==>> M(r) = r/2 * (1 - exp(nu(r)))
-	double M_T = -0.5 * std::max(R_1_0, R_2_0) * (1. - std::exp(results[std::max(i_R1_0, i_R2_0)].second[0]));
-
+	double M_T = M_1 + M_2; 	// total mass as sum of constituent masses (actually energy-momentum-content) of both fluids
 
 	// radius where 99% of the fluid (1st/2nd respectively) is contained:
-
-	std::vector<double> r(results.size()), M_1_integrand(results.size()), M_2_integrand(results.size());
-	// fill the integrand functions:
-	for (unsigned i = 0; i < results.size(); ++i)
-	{
-		r[i] = results[i].first;
-		M_1_integrand[i] = results[i].second[1]; // mass of 1st fluid
-		M_2_integrand[i] = results[i].second[2]; // mass of 2nd fluid
-	}
-
-	// Integrate both fluid masses:
-	std::vector<double> M_1_integrated, M_2_integrated;
-	integrator::cumtrapz(r, M_1_integrand, M_1_integrated);
-	integrator::cumtrapz(r, M_2_integrand, M_2_integrated);
-
-	// now find the radius:
-	int i_B = 0, i_F = 0;
+	int i_R_1 = 0, i_R_2 = 0;
 	for (unsigned int i = 0; i < results.size(); i++)
 	{
-		if (M_1_integrated[i] < 0.99 * M_1)
-			i_B++;
-		if (M_2_integrated[i] < 0.99 * M_2)
-			i_F++;
+		if (results[i].second[1] < 0.99 * M_1)
+			i_R_1++;
+		if (results[i].second[2] < 0.99 * M_2)
+			i_R_2++;
 	}
 	// obtain radius from corresponding index
-	double R_1 = r[i_B], R_2 = r[i_F];
+	double R_1 = results[i_R_1].first, R_2 = results[i_R_2].first;
 
 	// compute the tidal deformability:
 	// it is defined at the point where both fluids reach zero density (i.e. the surface of the combined star)

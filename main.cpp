@@ -67,7 +67,7 @@ int main() {
     // ----------------------------------------------------------------
     // generate MR curves:
     const unsigned Nstars = 100;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 2;   // number of MR curves of constant rho_c
+    const unsigned NstarsPhi = 100;   // number of MR curves of constant rho_c
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
@@ -127,18 +127,18 @@ int main() {
 	// ----------------------------------------------------------------
 
 	// test two-fluid EOS:
-	double rho1_0 = 1.9000000000e-03;
-	double rho2_0 = 1.0000000000e-04; //0.00001;
+	double rho1_0 = 1.0000000000e-04;
+	double rho2_0 =  1.0000000000e-20; //0.00001;
 	lambda = 300.; 	// the effective bosonic EoS only works for large values of lambda
 	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
 
-	/*
+	/* 	
 	TwoFluidFBS my_twofluid_FBS(EOS_DD2, myEffectiveEOS);
 	my_twofluid_FBS.set_initial_conditions(rho1_0, rho2_0);
 	std::vector<integrator::step> my_twofluid_results;
 	my_twofluid_FBS.evaluate_model(my_twofluid_results, "plots/twofluid_test2_nansearch.txt");
 	std::cout << "Macroscopic values of twofluid model:" << std::endl << my_twofluid_FBS << std::endl;
-	*/
+	 */
 	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
 	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve);
 	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/twofluid_MRphi-diagram1.txt");
