@@ -642,7 +642,7 @@ vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) {
         P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
     } else {
         myEOS.callEOS(rho, epsilon, P);
-        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
+        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_de(rho, epsilon) : 0.;
         drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
     }
 

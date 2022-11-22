@@ -7,7 +7,7 @@ double PolytropicEoS::get_P_from_rho(const double rho, const double epsilon) {
 	return this->kappa*std::pow(rho, this->Gamma);
 }
 
-double PolytropicEoS::dP_drho(const double rho, const double epsilon) {
+double PolytropicEoS::dP_de(const double rho, const double epsilon) { // TODO: Check
 	return this->kappa*this->Gamma*std::pow(rho, this->Gamma-1.);
 }
 /* This expects as input P and will give rho, epsilon as output through reference
@@ -35,9 +35,9 @@ double CausalEoS::get_P_from_rho(const double rho, const double epsilon) {
 	return this->P_f + rho*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
 }
 
-double CausalEoS::dP_drho(const double rho, const double epsilon) {
+double CausalEoS::dP_de(const double rho, const double epsilon) {
 
-	return (1. + epsilon);   // p = P_f + eps - eps_f
+	return 1.;   // p = P_f + eps - eps_f
 }
 
 /* This expects as input P and will give rho, epsilon as output through reference
@@ -178,28 +178,28 @@ double EoStable::get_P_from_rho(const double rho, const double epsilon) {
 	return 0.;
 }
 
-/* This expects as input rho and returns dP/drho (epsilon is ignored)
+/* This expects as input rho, epsilon and returns dP/de
  * according to the tabulated EoS
- * If we are below or above the densities in rho, 0. is returned
- *  otherwise simple linear interpolation is used to obtain P from rho */
-double EoStable::dP_drho(const double rho, const double epsilon) {
-	// search the table for the correct value:
-	unsigned int table_len = rho_table.size();
+ * If we are below or above the energies in e, 0. is returned
+ *  otherwise simple linear interpolation is used to obtain P from e */
+double EoStable::dP_de(const double rho, const double epsilon) {
+    // search the table for the correct value:
+    unsigned int table_len = e_table.size();
+    const double e = rho*(1. + epsilon);
 
-    //assert(rho < rho_table[table_len-2]); // out of range will return 0.
-    if(rho < rho_table[1])
+    if(e < e_table[1])
         return 0.;
 
-	for (unsigned int i = 2; i<table_len; i++) {
-		// scan for the first matching rho
-		if (rho_table[i] > rho) {
+    for (unsigned int i = 2; i<table_len; i++) {
+        // scan for the first matching e
+        if (e_table[i] > e) {
             // estimate derivative at point i-1 and i
-            double dP1 = (P_table[i]-P_table[i-1])/(rho_table[i]-rho_table[i-1])/2. + (P_table[i-1] - P_table[i-2])/(rho_table[i-1]-rho_table[i-2])/2.;
-            double dP2 = (P_table[i+1]-P_table[i])/(rho_table[i+1]-rho_table[i])/2. + (P_table[i] - P_table[i-1])/(rho_table[i]-rho_table[i-1])/2.;
-            return dP1 + (dP2-dP1)/(rho_table[i]- rho_table[i-1]) * (rho - rho_table[i-1]);
-		}
-	}
-	return 0.;
+            double dP1 = (P_table[i]-P_table[i-1])/(e_table[i]-e_table[i-1])/2. + (P_table[i-1] - P_table[i-2])/(e_table[i-1]-e_table[i-2])/2.;
+            double dP2 = (P_table[i+1]-P_table[i])/(e_table[i+1]-e_table[i])/2. + (P_table[i] - P_table[i-1])/(e_table[i]-e_table[i-1])/2.;
+            return dP1 + (dP2-dP1)/(e_table[i]- e_table[i-1]) * (e - e_table[i-1]);
+        }
+    }
+    return 0.;
 }
 
 double EoStable::min_P() {
