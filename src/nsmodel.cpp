@@ -895,13 +895,29 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
  * TwoFluidFBS *
  ***********************/
 
+// initial conditions for two arbitrary fluids
 void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double rho2_0)
 {
 	this->rho1_0 = rho1_0;
 	this->rho2_0 = rho2_0;
+		// do not use the bosonic EOS. Initialize with two central pressures rhoi_0
 	// d/dr (nu, m1, m2, p1, p2, y(r))
 	this->initial_conditions = vector({0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0.,
 									   rho2_0 > this->EOS_fluid2->min_rho() ? this->EOS_fluid2->get_P_from_rho(rho2_0, 0.) : 0., 2.0});
+}
+
+// initial conditions for one fluid and one effective bosonic EOS
+void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double phi_c_0, double mu, double lambda)
+{
+	this->rho1_0 = rho1_0;
+	this->rho2_0 = phi_c_0;
+		// use the bosonic EOS. One is initialized using a pressure rho1_0, the other parameter is interpreted as a scalar field-value phi_c (=rho2_0)
+		// compute the effective boson-centran energy density:
+		double e_phi_c = 2.* std::pow(mu ,2)* std::pow(phi_c_0,2) + 1.5*lambda*std::pow(phi_c_0,4); // effective central energy density of 2nd fluid (uses the effective bosonic EOS)
+	// d/dr (nu, m1, m2, p1, p2, y(r))
+	this->initial_conditions = vector({0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0.,
+									   e_phi_c > this->EOS_fluid2->min_etot() ? this->EOS_fluid2->get_P_from_etot(e_phi_c) : 0., 2.0});
+
 }
 
 vector TwoFluidFBS::dy_dt(const double r, const vector &vars)
@@ -1105,7 +1121,7 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 {
 	return os << fbs.M_T << " "					// total gravitational mass
 			  << fbs.rho1_0 << " "				// central density of 1st fluid
-			  << fbs.rho2_0 << " "				// central density of 2nd fluid
+			  << fbs.rho2_0 << " "				// central density of 2nd fluid / or central value of scalar field, if effective bosonic EOS is used
 			  << fbs.R_1 * 1.476625061 << " "	// radius (99% matter included) of 1st fluid
 			  << fbs.R_1_0 * 1.476625061 << " " // radius where P(r)=0 of 1st fluid
 			  << fbs.M_1 << " "					// total mass of 1st fluid
@@ -1120,7 +1136,11 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 
 std::vector<std::string> TwoFluidFBS::labels()
 {
-	return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "C", "k2", "lambda_tidal"});
+	// labels for the effective bosonic EOS case:
+	return std::vector<std::string>({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "C", "k2", "lambda_tidal"});
+	// labels for the pure two-fluid case:
+	//return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "C", "k2", "lambda_tidal"});
+	
 }
 
 const integrator::Event TwoFluidFBS::all_Pressure_zero = integrator::Event([](const double r, const double dr, const vector &y, const vector &dy, const void *params)

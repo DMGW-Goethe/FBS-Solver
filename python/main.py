@@ -13,7 +13,8 @@ if __name__ == "__main__":
 	filename1 = "../plots/NbNf_test1.txt"
 	filename2 = "../plots/tlncurve_mu2-lambda-200.txt"
 	filename3 = "../plots/tlncurve_test3dd2_no_re-computing-NSvalues.txt"
-	df, indices = load_data.load_MRPhi_data(filename2)
+	filename4 = "../plots/twofluid_MRphi-diagram3.txt"
+	df, indices = load_data.load_MRPhi_data(filename4)
 
 	#print(df)
 	#pfuncts.scatter_plotter(df)
@@ -27,29 +28,33 @@ if __name__ == "__main__":
 	#-------------------------------------------
 	# Set labels, colour and corresponding levels and contour lines for 2D Mass-plot:
 	contourlines_colour = ['purple', 'brown', 'red', 'green', 'orange']
-	contourlines_colour = ['orange', 'yellow', 'red', 'green', 'purple']
+	#contourlines_colour = ['orange', 'yellow', 'red', 'green', 'purple']
 	contourlines_levels = [0.62, 1.2, 1.6, 2.0, 2.3]
-	contourlines_levels = [10, 200, 700, 1000, 3000]
-	my_plot_filename = "plots/tldtest_mu2-lambda-200.png"
-	plot_title = "DD2 EOS mu=2 lamb=-200 tln solution"
+	#contourlines_levels = [10, 200, 700, 1000, 3000]
+	my_plot_filename = "plots/effective_EOS-Dm-fraction1.png"
+	plot_title = "DD2 EOS + effective boson EOS $\mu=1, \lambda=300$"
 	plot_colorbar_label = 'Total Gravitational Mass [M$_\odot$]'
-	plot_colorbar_label = '$\Lambda_{tidal}$'
+	#plot_colorbar_label = '$\Lambda_{tidal}$'
+	plot_colorbar_label = 'Dark Matter fraction'
 
 	# plot the rho-phi-diagram
-	pfuncts.plot_rho_phi_stability_curve_diagram(np.clip(df,0., 5000.), indices, 'lambda_tidal' , stab_curve, NstarsRho, NstarsPhi, contourlines_colour, contourlines_levels, 0.004, 0.10, plot_title, my_plot_filename, plot_colorbar_label)
+	pfuncts.plot_rho_phi_stability_curve_diagram(np.clip(df, 0., 5000), indices, 'M_T' , stab_curve, NstarsRho, NstarsPhi, contourlines_colour, contourlines_levels, 0.004, 0.1, plot_title, my_plot_filename, plot_colorbar_label)
 
 	#-------------------------------------------
 	# Set labels, colour and corresponding levels for MR-plot:
 	my_plot_filename = "plots/tldtest_mu2-lambda-200_MR_plottest.png"
+	my_plot_filename = "plots/effective_EOS-Dm-fraction2.png"
 	plot_title = "stab region: DD2 EOS mu=2 lamb=-200 tln solution"
+	plot_title = "DD2 EOS + effective boson EOS $\mu=1, \lambda=300$"
 	plot_colorbar_label = "log10 $\Lambda_{tidal}$"
+	plot_colorbar_label = 'Dark Matter fraction'
 	# sets the number of bins in the colorbar. Can be int or array. if it is an array, all bins have to be set manually in ascending order
 	colorbar_levels = 100
 
 	filtered_data_arr = scc.filter_stab_curve_data(df, indices, stab_curve) # filter the stars inside the stability region
 
 	# plot the stars in an MR-diagram with a specified quantity as values in the colorbar
-	#pfuncts.plot_interpolate_stability_region(np.clip(filtered_data_arr,0.0, 5000.), indices, 'lambda_tidal', 20.0, 2.5, 0.55, False, plot_title, my_plot_filename, plot_colorbar_label, False, colorbar_levels)
+	pfuncts.plot_interpolate_stability_region(np.clip(filtered_data_arr,0.0, 5000.), indices, 'DM-fraction', 20.0, 2.5, 0.55, False, plot_title, my_plot_filename, plot_colorbar_label, False, colorbar_levels)
 
 	#-------------------------------------------
 	# Obtain the stability curve as a function of Mass and Radius:

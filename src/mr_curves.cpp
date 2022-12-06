@@ -105,7 +105,7 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
 }
 
 //
-void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve) {
+void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu, double lambda, bool use_effective_EOS) {
 
 	TwoFluidFBS fbs_model(EOS1, EOS2);    // create model for star
     MRphi_curve.clear();
@@ -115,7 +115,12 @@ void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr
     for(unsigned int j = 0; j < rho2_c_grid.size(); j++) {
         for(unsigned int i = 0; i < rho1_c_grid.size(); i++) {
             TwoFluidFBS fbs(fbs_model);
-            fbs.set_initial_conditions(rho1_c_grid[i], rho2_c_grid[j]);
+			if (use_effective_EOS) {
+				fbs.set_initial_conditions(rho1_c_grid[i], rho2_c_grid[j], mu, lambda);
+			}
+			else{
+            	fbs.set_initial_conditions(rho1_c_grid[i], rho2_c_grid[j]);
+			}
             MRphi_curve.push_back(fbs);
         }
     }

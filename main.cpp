@@ -56,6 +56,49 @@ int test_FBSTLN() {
     return 0;
 }
 
+// compute here e.g. a few configurations with the full system and with the effective EOS for different lambda, to check if they produce the same results.
+void test_effectiveEOS_pure_boson_star() {
+
+	double mu = 0.25;
+	double lambda = 0.0*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
+
+	// create the phi_c-grid:
+	const unsigned NstarsPhi = 100;
+	double rho_cmin = 1e-25;	// we want to consider a pure boson star
+	double phi_cmin = 1e-6;
+	double phi_cmax = 0.20;
+	double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
+	std::vector<double> rho_c_grid, phi_c_grid;
+    rho_c_grid.push_back(rho_cmin);
+    for (unsigned j = 0; j < NstarsPhi; ++j) {
+            phi_c_grid.push_back(j*dphi + phi_cmin);
+            std::cout << phi_c_grid[j] << std::endl;}
+
+	// declare different EOS types:
+    auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
+
+
+	// compute full self-consistent system:
+	// setup to compute a full NS configuration, including tidal deformability:
+	std::vector<FermionBosonStar> MRphi_curve; std::vector<FermionBosonStarTLN> MRphi_tln_curve;
+	// calc the unperturbed equilibrium solutions:
+    calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, phi_c_grid, MRphi_curve);
+	// calc the perturbed solutions to get the tidal love number:
+	//calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
+	// save the results in a txt file:
+	std::string plotname = "colpi-comparison_fullsys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
+	write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
+	// write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/" + plotname + ".txt");
+
+	// compute effective two-fluid model:
+	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
+	//calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
+	plotname = "colpi-comparison_effectivesys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
+	//write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/" + plotname + ".txt");
+}
+
+
 int main() {
     /*[> see https://github.com/lava/matplotlib-cpp/issues/268
       if this doesn't work, look at the end of the function
@@ -66,13 +109,13 @@ int main() {
 
     // ----------------------------------------------------------------
     // generate MR curves:
-    const unsigned Nstars = 100;     // number of stars in MR curve of constant Phi_c
-    const unsigned NstarsPhi = 100;   // number of MR curves of constant rho_c
+    const unsigned Nstars = 50;     // number of stars in MR curve of constant Phi_c
+    const unsigned NstarsPhi = 50;   // number of MR curves of constant rho_c
     const unsigned NstarsNbNf = 2;  // number of MR curves of constand NbNf ratio
 
     // define some global values:
-    double mu = 1.0;        // DM mass
-    double lambda = 0.0;    //self-interaction parameter
+    double mu = 0.25;        // DM mass
+    double lambda = 5000*mu*mu;    //self-interaction parameter
 
 
     // declare different EOS types:
@@ -80,10 +123,10 @@ int main() {
     auto Polytrope = std::make_shared<PolytropicEoS>();
 
     // declare initial conditions:
-    double rho_cmin = 0.0001;   // central density of first star (good for DD2 is 0.0005)
-    double phi_cmin = 1e-20;//0.0001;//1e-6;    // central value of scalar field of first star
+    double rho_cmin = 0.00001;   // central density of first star (good for DD2 is 0.0005)
+    double phi_cmin = 1e-6;//0.0001;//1e-6;    // central value of scalar field of first star
     double rho_cmax = 0.004;
-    double phi_cmax = 0.004;//0.10;
+    double phi_cmax = 0.10;//0.10;
 
     double drho = (rho_cmax - rho_cmin) / (Nstars -1.);
     double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
@@ -110,8 +153,10 @@ int main() {
 	// calc the perturbed solutions to get the tidal love number:
 	//calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	//write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/tlncurve_mu1_lambda-0.txt");
+	std::string plotname = "colpireproduceplots_full-system-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
+	//write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/" + plotname + ".txt");
 
+	test_effectiveEOS_pure_boson_star();
     // space for more EOS
 
     // method for the bisection with respect to Nb/Nf:
@@ -140,8 +185,12 @@ int main() {
 	std::cout << "Macroscopic values of twofluid model:" << std::endl << my_twofluid_FBS << std::endl;
 	 */
 	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
-	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve);
-	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/twofluid_MRphi-diagram1.txt");
+	//calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
+	//write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/twofluid_MRphi-diagram3.txt");
+	//test_effectiveEOS_pure_boson_star();
+	/*Use the two-fluid model without the effective bosonic EOS like:
+	calc_twofluid_curves(EOS1, EOS2, rho1_c_grid, rho2_c_grid, twofluid_MRphi_curve);
+	*/
 
     // ----------------------------------------------------------------
 
