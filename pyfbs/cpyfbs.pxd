@@ -73,6 +73,7 @@ cdef extern from "nsmodel.hpp":
         double N_B
         double N_F
         double R_B
+        double R_B_0
         double R_F
         double R_F_0
 

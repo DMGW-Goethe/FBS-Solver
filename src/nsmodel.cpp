@@ -100,36 +100,32 @@ vector FermionBosonStar::get_initial_conditions(const double r_init) const {
 }
 
 
+int FermionBosonStar::find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double& R_B_0, double r_init, double r_end) const {
 
-/* This function integrates the FBS system of equations and stops when phi is sufficiently converged (via the phi_converged event)
- * It then restarts the integration after artifically setting phi = Psi = 0 at that point
- * This allows to integrate the neutron matter and metric components until they converge
- *
- * Only call after omega is set to the corresponding value, otherwise this function is not useful.
- * */
-int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, std::vector<int> additional_zero_indices, double r_init, double r_end) const {
-
-    results.clear();
+    if(this->phi_0 <= 0.)
+        return -1;
 
     integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
     integrator::Event phi_converged = FermionBosonStar::phi_converged;
-    if(this->phi_0 > 0.) // if there is no phi component ignore
-        phi_converged.stopping_condition = true;
+    phi_converged.stopping_condition = true;
     events.push_back(Psi_positive);
     events.push_back(phi_converged);
 
     int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
 
-    if(this->phi_0 <= 0.) // no divergence, so easy peasy return
+    phi_converged = events[events.size()-1];
+    events.pop_back(); // Remove events that we added
+    events.pop_back();
+
+    if (res == integrator::event_stopping_condition && !phi_converged.active) // in this case another event triggered the stop so just return
         return res;
 
-    phi_converged = events[events.size()-1];
     if (!phi_converged.active ) { // the integrator didn't catch the convergence so we have to find it ourselves
 
         if (!intOpts.save_intermediate) { // can't find it if we don't have the steps
             results.clear();
             intOpts.save_intermediate = true;
-            int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+            res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
             intOpts.save_intermediate = false;
         }
         // find the minimum in the phi field before it diverges
@@ -154,13 +150,45 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
             it->active = true;
     }
 
+    R_B_0 = results[results.size()-1].first;
+    return res;
+}
+
+/* This function integrates the FBS system of equations and stops when phi is sufficiently converged (via the phi_converged event)
+ * It then restarts the integration after artifically setting phi = Psi = 0 at that point
+ * This allows to integrate the neutron matter and metric components until they converge
+ *
+ * Only call after omega is set to the corresponding value, otherwise this function is not useful.
+ * */
+int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, std::vector<int> additional_zero_indices, double r_init, double r_end)  {
+
+    results.clear();
+    int res;
+
+    if(this->phi_0 <= 0.) { // no divergence, so easy peasy return
+        res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+        return res;
+    }
+
+    // integrate to R_B_0
+    if(this->R_B_0 == 0.) { // find it first
+        res = this->find_bosonic_convergence(results, events, intOpts, this->R_B_0, r_init, r_end);
+        if (this->R_B_0 == 0.) // the algorithm returned without finding R_B_0
+            return res;
+        std::cout << "found R_B_0=" << R_B_0 << std::endl;
+    }
+    else  {
+        res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, this->R_B_0);
+        if(res != integrator::endpoint_reached) // e.g. if some other event triggered
+            return res;
+    }
+
     // now we can restart the integration
     vector initial_conditions = results[results.size()-1].second;
     initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
     for (auto it = additional_zero_indices.begin(); it != additional_zero_indices.end(); ++it)  // and any other specified
         initial_conditions[*it] = 0.;
 
-    events[events.size()-1].stopping_condition = false;
     std::vector<integrator::step> additional_results;
     events.push_back(FermionBosonStar::integration_converged);
     double last_r = results[results.size()-1].first;
@@ -172,6 +200,7 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
     for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
         results.push_back(additional_results[i]);
 
+    events.pop_back();
     return res;
 }
 
@@ -598,6 +627,7 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.R_F*1.476625061       << " "   // fermionic radius
                 << fbs.N_F                   << " "   // number of fermions
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
+                << fbs.R_B_0*1.476625061     << " "   // phi converged
                 << fbs.N_B                   << " "   // number of bosons
                 << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
                 << fbs.omega                 << " "   // omega
@@ -606,7 +636,7 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
 }
 /* Gives the labels of the values from the output */
 std::vector<std::string> FermionBosonStar::labels() {
-    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
 }
 
 

@@ -75,18 +75,19 @@ protected:
     /* Calculates the parameters M_T, N_B, N_F, R_B, R_F_0 for a given integration contained in results,events */
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
+    int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, double& R_B_0, double r_init, double r_end) const;
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. Only call when omega is found after the bisection! */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), std::vector<int> additional_zero_indices={}, double r_init=R_INIT, double r_end=R_MAX) const;
+    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), std::vector<int> additional_zero_indices={}, double r_init=R_INIT, double r_end=R_MAX);
 
     public:
     double mu, lambda, omega;
     double rho_0, phi_0;
-    double M_T, N_B, N_F, R_B, R_F, R_F_0;
+    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0;
 
     /* Constructor for the FBS class, just sets the relevant values of the class */
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0., double rho_0=0., double phi_0=0.)
-            : NSmodel(EOS), mu(mu), lambda(lambda), omega(omega), rho_0(rho_0), phi_0(phi_0), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_F(0.), R_F_0(0.) {}
+            : NSmodel(EOS), mu(mu), lambda(lambda), omega(omega), rho_0(rho_0), phi_0(phi_0), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_B_0(0.), R_F(0.), R_F_0(0.) {}
 
     /* The differential equations describing the FBS. The quantities are a, alpha, P, phi, and Psi, as described in https://arxiv.org/pdf/2110.11997.pdf */
     vector dy_dr(const double r, const vector& vars);

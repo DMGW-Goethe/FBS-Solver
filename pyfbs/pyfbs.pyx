@@ -120,6 +120,7 @@ cdef class PyFermionBosonStar:
                 "N_B":deref(self.fbs).N_B,
                 "N_F":deref(self.fbs).N_F,
                 "R_B":deref(self.fbs).R_B,
+                "R_B_0":deref(self.fbs).R_B_0,
                 "R_F":deref(self.fbs).R_F,
                 "R_F_0":deref(self.fbs).R_F_0,
                 "rho_0":deref(self.fbs).rho_0,
