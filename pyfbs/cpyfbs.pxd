@@ -105,8 +105,11 @@ cdef extern from "nsmodel.hpp":
 
 cdef extern from "mr_curves.hpp":
     void write_MRphi_curve(const stdvector[FermionBosonStar]& MRphi_curve, string filename);
+    void write_MRphi_curve(const stdvector[FermionBosonStarTLN]& MRphi_curve, string filename);
 
-    void calc_rhophi_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& phi_c_grid, stdvector[FermionBosonStar]& MRphi_curve);
+    void calc_rhophi_curves(stdvector[FermionBosonStar]& MRphi_curve, int verbose);
+
+    void calc_rhophi_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& phi_c_grid, stdvector[FermionBosonStar]& MRphi_curve, int verbose);
 
     void calc_NbNf_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& NbNf_grid, stdvector[FermionBosonStar]& MRphi_curve);
 

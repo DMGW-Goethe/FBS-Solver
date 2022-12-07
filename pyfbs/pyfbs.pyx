@@ -195,7 +195,28 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
 cdef class PyMRcurve:
 
     @staticmethod
-    def from_rhophi_curve(mu, lam, PyEoS eos, np.ndarray rho_c_grid, np.ndarray phi_c_grid, str filename=""):
+    def from_list(pMRphi_curve, str filename=""):
+        cdef string f = <string> filename.encode('utf-8')
+        cdef stdvector[FermionBosonStar] MRphi_curve
+        cdef PyFermionBosonStar fbs
+
+        for fbs in pMRphi_curve:
+            MRphi_curve.push_back(deref( fbs.fbs))
+
+        calc_rhophi_curves(MRphi_curve, 2);
+
+        if(not f.empty()):
+            write_MRphi_curve(MRphi_curve, f)
+
+        pMRphi_curve = []
+        for i in range(MRphi_curve.size()):
+            pMRphi_curve.append(PyFermionBosonStar.FromObject(MRphi_curve[i]))
+
+        return pMRphi_curve
+
+
+    @staticmethod
+    def from_rhophi_list(mu, lam, PyEoS eos, np.ndarray rho_c_grid, np.ndarray phi_c_grid, str filename=""):
         cdef stdvector[double] crho_c_grid
         cdef stdvector[double] cphi_c_grid
         cdef stdvector[FermionBosonStar] MRphi_curve
@@ -206,7 +227,7 @@ cdef class PyMRcurve:
         for i in range(len(phi_c_grid)):
             cphi_c_grid.push_back(phi_c_grid[i])
 
-        calc_rhophi_curves(mu, lam, eos.eos, crho_c_grid, cphi_c_grid, MRphi_curve)
+        calc_rhophi_curves(mu, lam, eos.eos, crho_c_grid, cphi_c_grid, MRphi_curve, 2)
         if(not f.empty()):
             write_MRphi_curve(MRphi_curve, f)
 
@@ -233,15 +254,19 @@ cdef class PyMRcurve:
             write_MRphi_curve(MRphi_curve, f)
 
     @staticmethod
-    def calc_TLN_curve(pMRphi_curve):
+    def calc_TLN_curve(pMRphi_curve, str filename=""):
         cdef stdvector[FermionBosonStar] MRphi_curve
         cdef stdvector[FermionBosonStarTLN] tln_curve
         cdef PyFermionBosonStar fbs
+        cdef string f = <string> filename.encode('utf-8')
 
         for fbs in pMRphi_curve:
             MRphi_curve.push_back(deref( fbs.fbs))
 
         calc_MRphik2_curve(MRphi_curve, tln_curve)
+
+        if(not f.empty()):
+            write_MRphi_curve(tln_curve, f)
 
         pTLN_curve = []
         for i in range(tln_curve.size()):

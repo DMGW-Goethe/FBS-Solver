@@ -42,7 +42,8 @@ void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename) 
 	img.close();
 }
 
-void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve);
+void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose=2);
+void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose=2);
 
 void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve);
 

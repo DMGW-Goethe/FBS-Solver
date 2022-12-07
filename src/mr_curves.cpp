@@ -8,8 +8,36 @@ template <typename T>
 void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename);
 */
 
+void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
+
+    const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
+
+    unsigned int done = 0;
+
+    time_point start3{clock_type::now()};
+    #pragma omp parallel for schedule(dynamic, 10)
+    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
+        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+		if (bisection_success == -1)
+            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
+        MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
+
+        #pragma omp atomic
+        done++;
+
+        if(verbose >1)
+            std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
+    }
+    time_point end3{clock_type::now()};
+    if(verbose > 0) {
+        std::cout << "evaluation of "<< MRphi_curve.size() <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
+        std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
+    }
+
+}
+
 // compute curves of constant rho_c and phi_c:
-void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve) {
+void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
     MRphi_curve.clear();
@@ -24,28 +52,7 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
         }
     }
 
-    // calculate curve
-    const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
-
-    unsigned int done = 0;
-
-    time_point start3{clock_type::now()};
-    #pragma omp parallel for schedule(dynamic, 10)
-    for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
-		if (bisection_success == -1)
-            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
-        MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
-    
-        #pragma omp atomic
-        done++;
-
-        std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
-    }
-    time_point end3{clock_type::now()};
-    std::cout << "evaluation of "<< MRphi_curve.size() <<" stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
-    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
-
+    calc_rhophi_curves(MRphi_curve, verbose);
 }
 
 
