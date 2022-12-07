@@ -175,7 +175,7 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
         res = this->find_bosonic_convergence(results, events, intOpts, this->R_B_0, r_init, r_end);
         if (this->R_B_0 == 0.) // the algorithm returned without finding R_B_0
             return res;
-        std::cout << "found R_B_0=" << R_B_0 << std::endl;
+        // std::cout << "found R_B_0=" << R_B_0 << std::endl;
     }
     else  {
         res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, this->R_B_0);
@@ -223,6 +223,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
 
     // variables for integration
     integrator::IntegrationOptions intOpts;
+    intOpts.verbose = verbose - 1;
     std::vector<integrator::Event> events = {phi_negative, phi_positive, Psi_diverging};
     std::vector<integrator::step> results_0, results_1, results_mid;
 
@@ -287,15 +288,15 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
     // iterate until the upper and lower omega produce results with one root difference
-    while(n_roots_1 - n_roots_0 > 1) {
+    while(n_roots_1 - n_roots_0 > 1 && i < max_steps) {
         omega_mid = (omega_0 + omega_1)/2.;
         this->omega = omega_mid;
         res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
 
         if (verbose> 1)
-            std::cout << "omega_mid = " << omega_mid  << " with n_roots = " << n_roots_mid << std::endl;
-
+            std::cout << "i=" << i << ": omega_mid = " << omega_mid  << " with n_roots = " << n_roots_mid << std::endl;
+        i++;
         if(n_roots_mid == n_roots_0 || n_roots_mid <= n_mode) {
             n_roots_0 = n_roots_mid;
             omega_0 = omega_mid;
@@ -306,6 +307,11 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             omega_1 = omega_mid;
             continue;
         }
+    }
+    if(abs(n_roots_1 - n_roots_0) != 1) { // number of roots does no match, we can't continue
+        if (verbose > 0)
+            std::cout << "no suitable pair of omegas found  omega_0 = " << omega_0 << " with n_roots_0 = " << n_roots_0 << " and omega_1 = " << omega_1 << " with n_roots_1 = " << n_roots_1 << std::endl;
+        return -1;
     }
     if (verbose > 0)
         std::cout << "found omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
@@ -327,6 +333,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     phi_converged.stopping_condition = false;
     events.push_back(phi_converged);
 
+    i = 0;
     while((omega_1 - omega_0)/omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
         omega_mid = (omega_0 + omega_1)/2.;
         this->omega = omega_mid;

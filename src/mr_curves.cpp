@@ -20,7 +20,8 @@ void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose)
         int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
 		if (bisection_success == -1)
             std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
-        MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
+        else
+            MRphi_curve[i].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
 
         #pragma omp atomic
         done++;
@@ -112,8 +113,9 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
         //FermionBosonStarTLN fbstln(*it);
         phi_1_0 = 1e-3 * MRphi_curve[i].phi_0;
         phi_1_1 = 1e6 * MRphi_curve[i].phi_0;
-        MRphik2_curve[i].bisection_phi_1(phi_1_0, phi_1_1);
-        MRphik2_curve[i].evaluate_model();
+        int bisection_success = MRphik2_curve[i].bisection_phi_1(phi_1_0, phi_1_1);
+        if (bisection_success == 0)
+            MRphik2_curve[i].evaluate_model();
         //MRphik2_curve[i].push_back(fbstln);
 
         #pragma omp atomic
