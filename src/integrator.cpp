@@ -170,8 +170,11 @@ int integrator::RKF45(ODE_system dy_dr, const double r0, const vector y0, const 
                 if(!it->active) {   // these events only trigger when the condition wasn't previously active
                     it->active = true;
                     it->steps.push_back(current_step);  // add the current values of the ODE vars to the event object
-                    if(it->stopping_condition)      // if the event is defined as a stopping condition, we stop the iteration (see below)
+                    if(it->stopping_condition) {     // if the event is defined as a stopping condition, we stop the iteration (see below)
                         stop = event_stopping_condition;
+                        if(options.verbose > 0)
+                            std::cout << "stopping condition: " << it->name << " triggered - ";
+                    }
                 }
             } else
                 it->active = false;

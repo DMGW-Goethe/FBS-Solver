@@ -60,7 +60,7 @@ vector FermionBosonStar::dy_dr(const double r, const vector& vars) {
 
 /* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged */
 const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
-                                                                                                        double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
+                                                                                                        const double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
                                                                                                         return  dM_dr < M_T_converged ; }, true, "M_converged");
 
 /* This event triggers when Psi starts to diverge, i.e. Psi > 1. */
@@ -86,9 +86,9 @@ const integrator::Event FermionBosonStar::phi_converged = integrator::Event([](c
 
 /* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
 const integrator::Event FermionBosonStar::integration_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < PHI_converged; }, true, "integration_converged");
+                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < INT_converged; }, false, "integration_converged");
 
-/* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
+/* This event triggers when the neutron has has converged  */
 const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
                                                                                                 { return (y[4] <= std::max(P_ns_min, ((FermionBosonStar*)params)->EOS->min_P())); }, false, "P_min_reached", 1e-5);
 
@@ -175,8 +175,6 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
     return res;
 }
 
-// find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
-// args: FermionBosonStar, vector, min omega, max omega
 /* This function tries to find the corresponding omega for a given mu, lambda, rho_0, phi_0
  * such that it is an eigenfrequency with a bisection algorithm.
  * The initial range is given by (omega_0, omega_1). First, the right number of zero crossings for (n_mode) is found
@@ -432,7 +430,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     bool phi_converged = false;
     if (this->phi_0 > 0. && events.size() > 1 && events[events.size()-2].name == FermionBosonStar::phi_converged.name)
         phi_converged = events[events.size()-2].steps.size() > 0;
-    std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
+    //std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
 
     /* find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later)
      *  */
@@ -716,10 +714,10 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     else {
         // to find the starting point see where y actually has a minimum
         int index_bs_radius = 1;
-        while(results[index_bs_radius].first < this->R_B/1e3  && (unsigned int)index_bs_radius < results.size()-1)
+        while(results[index_bs_radius].first < this->R_B/1e3  && (unsigned int)index_bs_radius < step_number-2)
             index_bs_radius++;
         int index_y_min = index_bs_radius;
-        while(y_func(index_y_min) < y_func(index_y_min-1) && (unsigned int)index_y_min < results.size()-1)
+        while(y_func(index_y_min) < y_func(index_y_min-1) && (unsigned int)index_y_min < step_number-2)
             index_y_min++;
 
         // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
@@ -825,12 +823,12 @@ std::vector<std::string> FermionBosonStarTLN::labels() {
 }
 
 /* This event triggers when dphi_1 is diverging i.e. dphi_1 > 1e6 */
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true);
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true, "dphi_1_diverging");
 
 /* This event triggers when phi_1 is negative, used for zero counting */
-const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
+const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; }, false, "phi_1_negative");
 /* This event triggers when phi_1 is positive  */
-const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
+const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; }, false, "phi_1_positive");
 
 
 /* This function finds the corresponding phi_1_0 inside the range (phi_1_0_l, phi_1_0_r)
@@ -847,7 +845,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    intOpts.verbose = 0;
+    intOpts.verbose = verbose;
     std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};
     std::vector<integrator::step> results_0, results_1, results_mid;
 

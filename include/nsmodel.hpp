@@ -12,6 +12,7 @@
 #define R_MAX 500.      // the maximum integration radius
 #define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
 #define PHI_converged 1e-6
+#define INT_converged 1e-7
 #define M_T_converged 1e-15
 
 /*  NSmodel

@@ -4,9 +4,9 @@
 // include the external boost/ublas library and use the n-dimensional vector class
 // see: https://www.boost.org/
 #include <boost/numeric/ublas/vector.hpp>
-#include <boost/numeric/ublas/vector_proxy.hpp>
+//#include <boost/numeric/ublas/vector_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
-#include <boost/range.hpp>
+//#include <boost/range.hpp>
 
 namespace ublas = boost::numeric::ublas;
 
