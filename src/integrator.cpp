@@ -28,9 +28,15 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
         dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
 
         if( vector::is_nan(dV_05) || vector::is_nan(dV_04)) {
-            if(options.verbose > 0)
-                std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
-            throw std::runtime_error("NaN detected");
+            dr *= 0.5;
+            if (dr < options.min_stepsize) {
+                if(options.verbose > 0)
+                    std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
+                throw std::runtime_error("NaN detected");
+            }
+            if(options.verbose > 3)
+                std::cout << "step not precise enough and stepsize decreased creased: dr = " << dr << std::endl;
+            continue;
         }
 
         // approximating the truncation error:
@@ -55,9 +61,8 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
                 return false;
             }
 
-            if(options.verbose > 3){
+            if(options.verbose > 3)
                 std::cout << "step not precise enough and stepsize decreased creased: dr = " << dr << std::endl;
-            }
 			continue;
 		}
 		else {
