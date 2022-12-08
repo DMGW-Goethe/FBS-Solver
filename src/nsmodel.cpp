@@ -358,10 +358,6 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             continue;
         }
     }
-    // TODO: Check usability
-    phi_converged = events[events.size()-1];
-    if (phi_converged.steps.size() == 0)
-        std::cout << "Warning: phi_converged not hasn't triggered after bisection" << std::endl;
 
     if (n_inft_1 > 0.)
         this->omega = omega_1;
@@ -463,74 +459,28 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
     const int step_number = results.size();
 
-    bool phi_converged = false;
-    if (this->phi_0 > 0. && events.size() > 1 && events[events.size()-2].name == FermionBosonStar::phi_converged.name)
-        phi_converged = events[events.size()-2].steps.size() > 0;
-    //std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
-
-    /* find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later)
+    /* find the index where the phi field converged (to accurately compute the bosonic radius component later)
      *  */
     int index_phi_converged = 1;
 
     if (this->phi_0 > 0.) {
-        if (phi_converged) {
-            auto phi_converged_event = events[events.size()-2];
-            while (results[index_phi_converged].first < phi_converged_event.steps[0].first)
-                index_phi_converged++;
-        } else { // otherwise implement failsafe
-            auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
-            std::vector<int> abs_phi_minima({});
-            int index_phi_global_min = 0;
-            for (int i=1; i < step_number-1; i++) {
-                if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
-                    abs_phi_minima.push_back(i);
-                if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
-                    index_phi_global_min = i;
-            }
-            index_phi_converged = index_phi_global_min;
-            if(abs_phi_minima.size() > 0)
-                index_phi_converged = std::max(index_phi_converged, abs_phi_minima[abs_phi_minima.size()-1]);
-        }
+        if(this->R_B_0 ==  0.) // in this case we haven't achieved convergence, so stop here
+            return ;
+
+        while(results[index_phi_converged].first < this->R_B_0 && index_phi_converged < step_number-2)
+            index_phi_converged++;
     }
 
     /*   M_T
-     * find the index of the optimum of the total mass M_T (before it diverges)
+     *   Calculate the ADM mass, since we always have convergence, read it from the end
      * M_T := r/2 * ( 1 - 1/(a^2) )
-     * M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
-     * Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
-     * the optimum can be found at the point where the derivative of M_t with respect to r is minimal*/
+     * */
     double M_T = 0.;
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
-    auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
-                                                        + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
+    //auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
+    //                                                    + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
 
-    if (phi_converged || this->phi_0 == 0.) {
-        M_T = M_func(step_number-1);
-    }
-    else {
-        //std::vector<int> dM_minima;
-        int index_dM_global_minimum = results.size()-3;
-        for (int i=results.size()-3; i > index_phi_converged; i--) {
-            if(dM_func(index_dM_global_minimum) != dM_func(index_dM_global_minimum)) // NaN prevention
-                index_dM_global_minimum = i;
-            /*if(dM_func(i) < dM_func(i-1) && dM_func(i) < dM_func(i+1)) // search for (true) local minima of dM/dr
-                dM_minima.push_back(i);*/
-            if(dM_func(i) < dM_func(index_dM_global_minimum)) // and find the global one
-                index_dM_global_minimum = i;
-        }
-        // calculate M_T where the last local minimum of M_T is, if it doesn't exist use the global one:
-        int min_index_dMdr;
-        /*if(dM_minima.size() > 0) {
-            std::cout << "found minimum at " << dM_minima[0] << " with " << dM_func(dM_minima[0]) << std::endl;
-            min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
-            min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
-        }
-        else*/
-            min_index_dMdr = index_dM_global_minimum;
-        std::cout << "chose " << min_index_dMdr << " with global minimum " << index_dM_global_minimum << ": " << dM_func(index_dM_global_minimum) << " with step_num " << step_number << std::endl;
-
-        M_T = M_func(min_index_dMdr);
-    }
+    M_T = M_func(step_number-1);
 
     // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
@@ -731,61 +681,28 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     //FermionBosonStar::calculate_star_parameters(results, events); // TODO: Check if can be uncommented
 
     /* The quantity to compute is y = r H' / H
-     * if the fermionic radius (much) larger than the bosonic one, take y = y(R_F)
-     * if the bosonic radius is larger, find the maxiumum going from the back to the front */
+     * at the point where both components have converged */
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
-    auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
+    // auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
     double y = 0., R_ext = 0., M_ext = 0.;
 
-    if(this->R_F > 100.*this->R_B) {
-        int index_R_F = 0;
-        while ( results[index_R_F].first < this->R_F && index_R_F < step_number-1)
-            index_R_F++;
-        // approximate y, M_ext at R_F
-        y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
-        M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
-        R_ext = R_F;
-        //std::cout << "R_F > R_B:  at R_F=" << R_F << " y = " << y << std::endl;
-    }
-    else {
-        // to find the starting point see where y actually has a minimum
-        int index_bs_radius = 1;
-        while(results[index_bs_radius].first < this->R_B/1e3  && (unsigned int)index_bs_radius < step_number-2)
-            index_bs_radius++;
-        int index_y_min = index_bs_radius;
-        while(y_func(index_y_min) < y_func(index_y_min-1) && (unsigned int)index_y_min < step_number-2)
-            index_y_min++;
+    int index_ext = 1;
+    R_ext = std::max(this->R_B_0, this->R_F);
+    while(results[index_ext].first < R_ext && index_ext < step_number-2)
+        index_ext++;
 
-        // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
-        std::vector<int> indices_maxima;
-        int i = index_y_min + 1;
-        for( unsigned int i = index_y_min + 1; i < results.size()-2; i++) {
-            //std::cout << "i=" << i << ", r= " << results[i].first << ", y = " << y_func(i) << ", dy = " << dy_func(i) << std::endl;
-            if(   (y_func(i) > y_func(i -1) && y_func(i) > y_func(i+1) )
-                    ||  ( y_func(i) > y_func(i-1) && dy_func(i) < dy_func(i-1) && dy_func(i) < dy_func(i+1)) ) {
-                indices_maxima.push_back(i);
-            }
-            if(y_func(i) < 0.) // here something funky is happening so stop
-                break;
-        }
-        int index_y;
-        if(indices_maxima.size() == 0) // if nothing was found just take the last point
-            index_y = results.size() - 1;
-        else
-            index_y = indices_maxima.at(indices_maxima.size()-1);
-        y = y_func(index_y);
-        R_ext = results[index_y].first;
-        M_ext = M_func(index_y); // extract M_ext at the same radius
-        //std::cout << "R_B> R_F: found max y = " << y << " at " << index_y << ", R_ext=" << R_ext << std::endl;
+    y = y_func(index_ext);
+    M_ext = M_func(index_ext);
+    R_ext = results[index_ext].first;
 
-    }
+    //std::cout << "R_F=" << R_F <<", R_B_0=" <<  R_B_0 << ", R_ext = " << R_ext << ", y = " << y << std::endl;
 
     // now that we found y, calculate k2
     double C = M_ext / R_ext; // the compactness at the extraction point
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
-    double lambda_tidal = 16./15.*pow(this->M_T, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
+    double lambda_tidal = 16./15./*pow(this->M_T, 5)*/ * pow(M_ext, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
@@ -1025,42 +942,3 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
     return 0;
 }
 
-/* This function integrates the FBS+TLN system of equations and stops when phi is sufficiently converged (via the phi_converged event)
- * It then restarts the integration after artifically setting phi = Psi = phi_1 = dphi_1 = 0 at that point
- * This allows to integrate the neutron matter and metric components until they converge
- * */
-/*
-int FermionBosonStarTLN::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
-
-    results.clear();
-
-    integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
-    integrator::Event phi_converged = FermionBosonStar::phi_converged;
-    if(this->phi_0 > 0.) // if there is no phi component ignore
-        phi_converged.stopping_condition = true;
-    events.push_back(Psi_positive);
-    events.push_back(phi_converged);
-
-    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
-
-    phi_converged = events[events.size()-1];
-    if(res == integrator::event_stopping_condition && phi_converged.active) {
-        //std::cout << "phi has converged before P=0 -> restart integration" << std::endl;
-        vector initial_conditions = results[results.size()-1].second;
-        initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
-        initial_conditions[7] = 0.; initial_conditions[8] = 0.; // set phi_1 = dphi_1 = 0
-
-        events[events.size()-1].stopping_condition = false;
-        std::vector<integrator::step> additional_results;
-        events.push_back(FermionBosonStar::integration_converged);
-        double last_r = results[results.size()-1].first;
-        intOpts.clean_events = false;  // to stop the integrator from clearing the events
-
-        res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
-
-        results.reserve(results.size() + additional_results.size());
-        for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
-            results.push_back(additional_results[i]);
-    }
-    return res;
-}*/
