@@ -900,6 +900,7 @@ void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double rho2_
 {
 	this->rho1_0 = rho1_0;
 	this->rho2_0 = rho2_0;
+	this->use_effective_bosonicEoS = false;	// here, we use two nuclear-matter-fluids, i.e no bosonic EoS
 		// do not use the bosonic EOS. Initialize with two central pressures rhoi_0
 	// d/dr (nu, m1, m2, p1, p2, y(r))
 	this->initial_conditions = vector({0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0.,
@@ -911,8 +912,10 @@ void TwoFluidFBS::set_initial_conditions(const double rho1_0, const double phi_c
 {
 	this->rho1_0 = rho1_0;
 	this->rho2_0 = phi_c_0;
+	this->use_effective_bosonicEoS = true;
+
 		// use the bosonic EOS. One is initialized using a pressure rho1_0, the other parameter is interpreted as a scalar field-value phi_c (=rho2_0)
-		// compute the effective boson-centran energy density:
+		// compute the effective boson-central energy density:
 		double e_phi_c = 2.* std::pow(mu ,2)* std::pow(phi_c_0,2) + 1.5*lambda*std::pow(phi_c_0,4); // effective central energy density of 2nd fluid (uses the effective bosonic EOS)
 	// d/dr (nu, m1, m2, p1, p2, y(r))
 	this->initial_conditions = vector({0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0.,

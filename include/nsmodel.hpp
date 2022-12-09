@@ -102,6 +102,10 @@ public:
     double rho1_0, rho2_0;	// initial conditions, central density of fluid 1 and 2 respectively
     // total mass M_T; total mass of fluid 1 (2): M_1  (M_2); radius R_1 , R_2 (99% of matter included); radius where pressure is zero R_1_0 , R_2_0;
     double M_T, M_1, M_2, R_1, R_1_0, R_2, R_2_0, C, k2, lambda_tidal;
+	
+	// define variables in case we use the effective bosonic EoS:
+	bool use_effective_bosonicEoS = false;
+	double mu = 1., lambda = 1.;	
 
 	std::shared_ptr<EquationOfState> EOS_fluid2;	// EOS of the second fluid
 

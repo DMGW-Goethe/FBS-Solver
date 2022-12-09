@@ -59,23 +59,38 @@ int test_FBSTLN() {
 // compute here e.g. a few configurations with the full system and with the effective EOS for different lambda, to check if they produce the same results.
 void test_effectiveEOS_pure_boson_star() {
 
-	double mu = 0.25;
-	double lambda = 0.0*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
+	double mu = 1.0;
+	double lambda = 10.0*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
 
 	// create the phi_c-grid:
 	const unsigned NstarsPhi = 100;
 	double rho_cmin = 1e-25;	// we want to consider a pure boson star
-	double phi_cmin = 1e-6;
+	double phi_cmin = 1e-4;
 	double phi_cmax = 0.20;
 	double dphi = (phi_cmax - phi_cmin) / (NstarsPhi -1.);
+	/*
 	std::vector<double> rho_c_grid, phi_c_grid;
     rho_c_grid.push_back(rho_cmin);
     for (unsigned j = 0; j < NstarsPhi; ++j) {
             phi_c_grid.push_back(j*dphi + phi_cmin);
             std::cout << phi_c_grid[j] << std::endl;}
+	*/
+
+	// part to vary only rho_c:
+	const unsigned NstarsRho = 100;
+	rho_cmin = 4e-5 / 2680.;	// we want to consider a pure neutron matter star
+	double rho_cmax = 10. / 2680.;	// in units of nuclear saturation density
+	phi_cmin = 1e-40;
+	double drho = (rho_cmax - rho_cmin) / (NstarsRho -1.);
+	std::vector<double> rho_c_grid, phi_c_grid;
+	phi_c_grid.push_back(phi_cmin);
+	for (unsigned j = 0; j < NstarsRho; ++j) {
+            rho_c_grid.push_back(j*drho + rho_cmin);
+            std::cout << rho_c_grid[j] << std::endl;}
 
 	// declare different EOS types:
-    auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+    //auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+	auto EOS_DD2 = std::make_shared<PolytropicEoS>();
 	auto myEffectiveEOS = std::make_shared<EffectiveBosonicEoS>(mu, lambda);
 
 
@@ -88,14 +103,16 @@ void test_effectiveEOS_pure_boson_star() {
 	//calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
 	std::string plotname = "colpi-comparison_fullsys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
+	plotname = "test_fullsys_model_pureEOS";
 	write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
 	// write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/" + plotname + ".txt");
 
 	// compute effective two-fluid model:
 	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
-	//calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
+	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
 	plotname = "colpi-comparison_effectivesys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
-	//write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/" + plotname + ".txt");
+	plotname = "test_twofluid_model_pureEOS";
+	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/" + plotname + ".txt");
 }
 
 

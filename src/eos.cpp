@@ -76,8 +76,24 @@ double CausalEoS::min_etot() {
 
 /* EffectiveBosonicEoS */
 double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
-	// for now we just use a polytrope with kappa=100, Gamma = 2
-	return ( 100.* std::pow(rho_in, 2.));
+	// (note: if for some reason, this function causes problems, then it is likely better to implement a root-finding algorithm to find Phi_eff))
+	// It is possible to compute P(rho) by inverting: rho = 2* sqrt(mu^2 + lambda*phi^2)*phi^2 
+	// and then using the energy density e, to compute P(e) using the EoS:
+
+	// use the cubic formula for: 0 = a*y^2 + y^3 - b, where y= phi^2 and a& be are defined as:
+	double a = std::pow(this->mu,2) / this->lambda;
+	double b = rho_in*rho_in / (4.*this->lambda);
+
+	double inner_root = std::sqrt(27.*b*b - 4.*a*a*a*b); // helper variable
+	double long_term = std::cbrt( 3.*std::sqrt(3.)*inner_root -2.*a*a*a + 27.*b ) ; // another helber variable
+	// calc the effective Phi:
+	double y = ( long_term/std::cbrt(2.) + std::cbrt(2.)*a*a / long_term - a ) / 3.;	// cubic formula
+	double Phi_eff = std::sqrt(y);
+	// compute energy density from the effective Phi-field:
+	double e_tot = 2.* std::pow(mu ,2)* std::pow(Phi_eff,2) + 1.5*lambda*std::pow(Phi_eff,4);
+
+	// return the pressure P(e) = P(e(Phi)) = P(e(Phi(rho))) => P(rho)
+	return ( get_P_from_etot(e_tot));
 }
 
 double EffectiveBosonicEoS::get_P_from_etot(const double etot_in) {
@@ -96,19 +112,29 @@ double EffectiveBosonicEoS::dP_detot(const double etot_in) {
 }
 
 double EffectiveBosonicEoS::dP_drho(const double rho_in, const double epsilon) {
-	// is not implemented yet
+	// is not implemented yet (only really viable to do this numerically, though)
 	return 0.0;
 }
 
 void EffectiveBosonicEoS::callEOS(double& myrho, double& epsilon, const double P) {
 	// update restmass density (rho) and specific energy (epsilon) according to effective bosonic EOS
-    	double e_tot = 3.*P + 4.* std::sqrt( P * this->rho0);	// positive root taken fron etot= 3*P +/- 4* sqrt(P*rho0)
+    double e_tot = 3.*P + 4.* std::sqrt( P * this->rho0);	// positive root taken fron etot= 3*P +/- 4* sqrt(P*rho0)
 
-		// etot = rho*(1+epsilon)
-		//e = rho*(1+epsilon)
-    	epsilon = 0.0;		// ????? probably not though...
-		myrho = e_tot / (1. + epsilon);
-		return;
+	// we can use the effective Phi-field to compute rho and epsilon.
+	// compute phi from e_tot using: etot = 2 mu^2 phi^2 + 3/2 lambda phi^4 (valid for all radii):
+	// solve the equation using the quadratic formula and only take the positive roots since phi > 0 everywhere
+	double p = 4.*std::pow(this->mu, 2) / (3. * this->lambda);
+	double q = -2.*e_tot / (3.*this->lambda);
+	// compute the effective phi:
+	double Phi_eff = std::sqrt( std::sqrt( std::pow(0.5*p,2) - q ) - 0.5*p );	// is always > 0
+
+	// now compute rho = 2*sqrt( mu^2 + lambda phi^2) * phi^2
+	myrho = 2.*std::sqrt( std::pow(this->mu,2) + this->lambda*std::pow(Phi_eff,2) ) * std::pow(Phi_eff,2);
+
+	// now use: etot = rho*(1+epsilon)
+    epsilon = e_tot/myrho - 1.;
+	
+	return;
 }
 
 double EffectiveBosonicEoS::min_P() {
@@ -121,6 +147,12 @@ double EffectiveBosonicEoS::min_etot() {
     return 0.;
 }
 
+double EffectiveBosonicEoS::get_mu() {
+	return this->mu;
+}
+double EffectiveBosonicEoS::get_lambda() {
+	return this->lambda;
+}
 
 /* EoStable */
 EoStable::EoStable(const std::string filename) {

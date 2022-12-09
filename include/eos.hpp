@@ -81,8 +81,9 @@ protected:
 					// rho0 = mu^4 / ( 2 * lambda ) in our normalization-convention for Phi and lambda (different convention to the two papers below:)
 					// compare to: PHYSICAL REVIEW LETTERS VOLUME 57, Number 20 17 NOVEMBER 1986 Boson Stars: Gravitational Equilibria of Self-Gravitating scalar fields
 					// and: Tidal deformability of dark matter admixed neutron stars PHYSICAL REVIEW D 105, 123010 (2022)
+	double mu, lambda;	// make the variables part of the class explicitly
 public:
-    EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (2.* lambda)) {}
+    EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (2.* lambda)), mu(mu), lambda(lambda) {}
 
     double get_P_from_rho(const double rho_in, const double epsilon);
 	double get_P_from_etot(const double etot_in);
@@ -90,6 +91,9 @@ public:
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
 	double dP_detot(const double etot);
+
+	double get_mu();
+	double get_lambda();
 
     double min_P();
     double min_rho();
