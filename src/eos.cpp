@@ -80,12 +80,13 @@ double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double eps
 	// It is possible to compute P(rho) by inverting: rho = 2* sqrt(mu^2 + lambda*phi^2)*phi^2 
 	// and then using the energy density e, to compute P(e) using the EoS:
 
-	// use the cubic formula for: 0 = a*y^2 + y^3 - b, where y= phi^2 and a& be are defined as:
+	// use the cubic formula for: 0 = a*y^2 + y^3 - b (see: https://www.wolframalpha.com/input?i=find+root+of+a*x%5E2+%2B+x%5E3+-+b ),
+	// where y= phi^2 and a& be are defined as:
 	double a = std::pow(this->mu,2) / this->lambda;
 	double b = rho_in*rho_in / (4.*this->lambda);
 
 	double inner_root = std::sqrt(27.*b*b - 4.*a*a*a*b); // helper variable
-	double long_term = std::cbrt( 3.*std::sqrt(3.)*inner_root -2.*a*a*a + 27.*b ) ; // another helber variable
+	double long_term = std::cbrt( 3.*std::sqrt(3.)*inner_root -2.*a*a*a + 27.*b ) ; // another helper variable
 	// calc the effective Phi:
 	double y = ( long_term/std::cbrt(2.) + std::cbrt(2.)*a*a / long_term - a ) / 3.;	// cubic formula
 	double Phi_eff = std::sqrt(y);

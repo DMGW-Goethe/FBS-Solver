@@ -1053,6 +1053,39 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 	// obtain radius from corresponding index
 	double R_1 = results[i_R_1].first, R_2 = results[i_R_2].first;
 
+	// compute the fermion/boson number using the conserved Noether current
+    /*  N_B, N_F i.e. N_1 and N_2
+     *  We need to integrate the particle number densities to obtain N_B, N_F */
+    std::vector<double> r(last_index), N_B_integrand(last_index), N_F_integrand(last_index);
+    vector v;
+    double rho, eps;
+
+    for(unsigned int i = 0; i < results.size(); i++) {
+        r[i] = results[i].first;
+        v = results[i].second;
+		// calc values for 1st fluid: P1 = v[3]
+        if (v[3] < P_ns_min || v[3] < this->EOS->min_P()) {rho = 0.;}
+        else {this->EOS->callEOS(rho, eps, v[3]);}
+		double sqrt_g_rr = std::sqrt( 1./( 1. - 2.*(v[1]+v[2])/r[i] ) );	// calculate the metric component sqrt(g_rr) = sqrt( 1 - 2m(r)/r  )^-1
+        N_F_integrand[i] = 4.*M_PI * sqrt_g_rr * rho * r[i] * r[i];   // get fermionic mass (paricle number) for each r
+
+		// do the same for the 2nd fluid: P2 = v[4]
+		if (v[4] < P_ns_min || v[4] < this->EOS_fluid2->min_P()) {rho = 0.;}
+        else {this->EOS->callEOS(rho, eps, v[4]);}
+		// sqrt_g_rr is the same for both fluids, so no need to compute it again
+		N_B_integrand[i] = 4.*M_PI * sqrt_g_rr * rho * r[i] * r[i]; // get bosonic mass (paricle number) for each r
+    }
+
+    // Integrate
+    std::vector<double> N_F_integrated, N_B_integrated;
+    integrator::cumtrapz(r, N_F_integrand, N_F_integrated);
+    integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
+
+    // Compute the conserved Noether charges (i.e. fermion number and boson number)
+    double N_F =  N_F_integrated[i_R1_0],
+           N_B =  N_B_integrated[i_R2_0];
+	// ---------------------------------------------------------------------------------
+
 	// compute the tidal deformability:
 	// it is defined at the point where both fluids reach zero density (i.e. the surface of the combined star)
 	double maxR = std::max(R_1_0, R_2_0);
@@ -1082,6 +1115,8 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 	this->C = C;	// compactness
 	this->k2 = k2;
 	this->lambda_tidal = lambda_tidal;
+	this->N_1 = N_F;
+	this->N_2 = N_B;
 }
 
 void TwoFluidFBS::evaluate_model()
@@ -1128,10 +1163,13 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 			  << fbs.R_1 * 1.476625061 << " "	// radius (99% matter included) of 1st fluid
 			  << fbs.R_1_0 * 1.476625061 << " " // radius where P(r)=0 of 1st fluid
 			  << fbs.M_1 << " "					// total mass of 1st fluid
+			  << fbs.N_1 << " "					// total particle number of 1st fluid
 			  << fbs.R_2 * 1.476625061 << " "	// radius (99% matter included) of 2nd fluid
 			  << fbs.R_2_0 * 1.476625061 << " " // radius where P(r)=0 of 2nd fluid
 			  << fbs.M_2 << " "					// total mass of 2nd fluid
+			  << fbs.N_2 << " "					// total particle number of 2nd fluid
 			  << fbs.M_2 / fbs.M_1 << " "		// mass ratio M_2 / M_1
+			  << fbs.N_2 / fbs.N_1 << " "		// particle number ratio N_2 / N_1
 			  << fbs.C << " "					// Compactness
 			  << fbs.k2 << " "
 			  << fbs.lambda_tidal;
@@ -1140,9 +1178,9 @@ std::ostream &operator<<(std::ostream &os, const TwoFluidFBS &fbs)
 std::vector<std::string> TwoFluidFBS::labels()
 {
 	// labels for the effective bosonic EOS case:
-	return std::vector<std::string>({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "C", "k2", "lambda_tidal"});
+	return std::vector<std::string>({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "M_F", "N_F", "R_B", "R_B_0", "M_B", "N_B", "M_B/M_F", "N_B/N_F", "C", "k2", "lambda_tidal"});
 	// labels for the pure two-fluid case:
-	//return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "R_2", "R_2_0", "M_2", "M_2/M_1", "C", "k2", "lambda_tidal"});
+	//return std::vector<std::string>({"M_T", "rho1_0", "rho2_0", "R_1", "R_1_0", "M_1", "N_1", "R_2", "R_2_0", "M_2", "N_2", "M_2/M_1", "N_2/N_1", "C", "k2", "lambda_tidal"});
 	
 }
 
