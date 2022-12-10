@@ -60,7 +60,7 @@ int test_FBSTLN() {
 void test_effectiveEOS_pure_boson_star() {
 
 	double mu = 1.0;
-	double lambda = 10.0*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
+	double lambda = 100.0*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
 
 	// create the phi_c-grid:
 	const unsigned NstarsPhi = 100;
@@ -77,7 +77,7 @@ void test_effectiveEOS_pure_boson_star() {
 	*/
 
 	// part to vary only rho_c:
-	const unsigned NstarsRho = 100;
+	const unsigned NstarsRho = 10;
 	rho_cmin = 4e-5 / 2680.;	// we want to consider a pure neutron matter star
 	double rho_cmax = 10. / 2680.;	// in units of nuclear saturation density
 	phi_cmin = 1e-40;
@@ -103,7 +103,7 @@ void test_effectiveEOS_pure_boson_star() {
 	//calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
 	std::string plotname = "colpi-comparison_fullsys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
-	plotname = "test_fullsys_model_pureEOS";
+	plotname = "test_fullsys_model_newfunctions";
 	write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
 	// write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/" + plotname + ".txt");
 
@@ -111,7 +111,7 @@ void test_effectiveEOS_pure_boson_star() {
 	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
 	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
 	plotname = "colpi-comparison_effectivesys-mu_" + std::to_string(mu) + "_" + std::to_string(lambda);
-	plotname = "test_twofluid_model_pureEOS";
+	plotname = "test_twofluid_newfunctions";
 	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/" + plotname + ".txt");
 }
 

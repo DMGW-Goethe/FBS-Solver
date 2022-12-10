@@ -1056,7 +1056,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 	// compute the fermion/boson number using the conserved Noether current
     /*  N_B, N_F i.e. N_1 and N_2
      *  We need to integrate the particle number densities to obtain N_B, N_F */
-    std::vector<double> r(last_index), N_B_integrand(last_index), N_F_integrand(last_index);
+    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
     vector v;
     double rho, eps;
 
