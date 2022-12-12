@@ -1071,7 +1071,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
 
 		// do the same for the 2nd fluid: P2 = v[4]
 		if (v[4] < P_ns_min || v[4] < this->EOS_fluid2->min_P()) {rho = 0.;}
-        else {this->EOS->callEOS(rho, eps, v[4]);}
+        else {this->EOS_fluid2->callEOS(rho, eps, v[4]);}
 		// sqrt_g_rr is the same for both fluids, so no need to compute it again
 		N_B_integrand[i] = 4.*M_PI * sqrt_g_rr * rho * r[i] * r[i]; // get bosonic mass (paricle number) for each r
     }
