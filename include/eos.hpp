@@ -109,7 +109,8 @@ public:
 
     /* Constructor expects link to file */
     EoStable(const std::string filename) : rho_table({}), P_table({}), e_table({})
-        {  load_from_file(filename);  }
+        { if(! load_from_file(filename))
+                throw std::runtime_error("File '" + filename + "' could not be loaded") ;  }
 
     /* This function loads an EoS from file, the first one with rigid column indices, the second one with arbitrary indices*/
     bool load_from_file(const std::string filename);
