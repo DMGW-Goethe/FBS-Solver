@@ -7,31 +7,46 @@
 #include <sstream>	// string stream used for reading the EOS table
 #include <iostream>
 #include <stdexcept> // for std::runtime_error
+#include <map>
 
 // a class to contain tabulated EOS
 // reads in a EOS table in the constructor.
 // Then it serves as a look-up table for the EOS (p=p(rho,epsilon,...)) to use in the integrator.
 
-/* an abstract class to model what an equation of state should contain
+/* Equation of State
+ *  an abstract class to model what an equation of state should contain
+ *
+ *  min_P, min_rho describe minimal P, minimal rho where the EoS is valid
  * */
 class EquationOfState
 {
 public:
-    virtual double get_P_from_rho(const double rho_in, const double epsilon)  = 0;
-	virtual double get_P_from_etot(const double etot_in)  = 0;
-	virtual double get_etot_from_P(const double P_in)  = 0;
+    virtual double get_P_from_rho(const double rho, const double epsilon)  = 0;
+	virtual double get_P_from_e(const double e)  = 0;
+	virtual double get_e_from_P(const double P)  = 0;
     virtual double dP_drho(const double rho, double epsilon) = 0;
-	virtual double dP_detot(const double etot) = 0;
+	virtual double dP_de(const double e) = 0;
 
+    /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
+    virtual double dP_de(const double rho, double epsilon) 
+	{  return dP_de(rho*(1. + epsilon));  }
+
+    /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
 	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
 
+	/* Functions giving minimal P and minimal rho for the EoS to be valid */
     virtual double min_P() = 0;		// minimal value of pressure
     virtual double min_rho() = 0;	// minimal value of restmass density
-	virtual double min_etot() = 0;	// minimal value of total energy density e:=rho(1+epsilon)
+	virtual double min_e() = 0;	// minimal value of total energy density e:=rho(1+epsilon)
 
 };
 
-/* a class modeling a Polytropic equation of state */
+/* PolytropicEoS
+ * a class modeling a Polytropic equation of state
+ * with the parameters Kappa, Gamma
+ * such that
+ *  P = Kappa * rho^{Gamma}
+ * */
 class PolytropicEoS : public EquationOfState
 {
 protected:
@@ -40,21 +55,32 @@ protected:
 public:
     PolytropicEoS(const double kappa=100., const double Gamma =2.) : kappa(kappa), Gamma(Gamma) {}
 
+    /* This gives the pressure P depending on the matter density rho. The internal energy density is ignored */
     double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_etot(const double etot_in);
-	double get_etot_from_P(const double P_in);
-	void callEOS(double& myrho, double& epsilon, const double P);
-    double dP_drho(const double rho, double epsilon);
-	double dP_detot(const double etot);
+	double get_P_from_e(const double etot_in);
+	double get_e_from_P(const double P_in);
+    
+	double dP_drho(const double rho, double epsilon);
 
+    /* This gives the derivative dP/de depending on the matter density rho. The internal energy density is ignored */
+    double dP_de(const double e);
+    /* This gives the matter density rho and internal energy density depending on the pressure P */
+	void callEOS(double& myrho, double& epsilon, const double P);
+
+    /* Functions giving minimal P and minimal rho. For the polytrope both are 0. */
     double min_P();
     double min_rho();
-	double min_etot();
+	double min_e();
 
 };
 
 
-/* a class modeling a Causal equation of state */
+/* CausalEoS
+ * a class modeling a causal equation of state
+ * with parameters eps_f, P_F,
+ * such that
+ *  P = P_f + rho(1+eps) - eps_f
+ * */
 class CausalEoS : public EquationOfState
 {
 protected:
@@ -63,13 +89,19 @@ protected:
 public:
     CausalEoS(const double eps_f, const double P_f =0.) : eps_f(eps_f), P_f(P_f) {}
 
+    /* This gives the pressure P depending on the matter density rho and internal energy epsilon */
     double get_P_from_rho(const double rho_in, const double epsilon);
-    double dP_drho(const double rho, double epsilon);
+
+    /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
+    double dP_de(const double rho, double epsilon);
+
+    /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
 	void callEOS(double& myrho, double& epsilon, const double P);
 
+    /* Functions giving minimal P and minimal rho. For the causal EoS both are 0. */
     double min_P();
     double min_rho();
-	double min_etot();
+	double min_e();
 };
 
 
@@ -86,46 +118,60 @@ public:
     EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (2.* lambda)), mu(mu), lambda(lambda) {}
 
     double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_etot(const double etot_in);
-	double get_etot_from_P(const double P_in);
+	double get_P_from_e(const double etot_in);
+	double get_e_from_P(const double P_in);
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
-	double dP_detot(const double etot);
+	double dP_de(const double etot);
 
 	double get_mu();
 	double get_lambda();
 
     double min_P();
     double min_rho();
-	double min_etot();
+	double min_e();
 };
 
 
-/* a class modeling a tabulated equation of state */
+/* EoStable
+ * a class representing a tabulated equation of state
+ * On construction, the tabulated EoS has to be loaded into the
+ *  vectors rho, Pres, e_tot,   the mass density, Pressure, and energy density respectively
+ * On call, the values are interpolated linearly from the table
+ * */
 class EoStable : public EquationOfState
 {
+protected:
+	std::vector<double> rho_table, P_table, e_table;
+
 public:
-    EoStable(const std::string filename);
-	// call EOS lookup-table (including interpolation):
+    EoStable(const std::vector<double>& rho_table, const std::vector<double>& P_table, const std::vector<double>& e_table)
+        : rho_table(rho_table), P_table(P_table), e_table(e_table) {}
+
+    /* Constructor expects link to file */
+    EoStable(const std::string filename) : rho_table({}), P_table({}), e_table({})
+        { if(! load_from_file(filename))
+                throw std::runtime_error("File '" + filename + "' could not be loaded") ;  }
+
+    /* This function loads an EoS from file, the first one with rigid column indices, the second one with arbitrary indices*/
+    bool load_from_file(const std::string filename);
+    bool load_from_file(const std::string filename, std::map<std::string, int> indices);
+
+    /* This gives the pressure P depending on the matter density rho and internal energy epsilon by linear interpolation of the table*/
 	void callEOS(double& myrho, double& epsilon, const double P);
     double dP_drho(const double rho, double epsilon);
-	double dP_detot(const double etot);
-    double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_etot(const double etot_in);
-	double get_etot_from_P(const double P_in);
+	double dP_de(const double e);
+    /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon by linear interpolation */
+    /* This gives the matter density rho and internal energy epsilon depending on the pressure P by linear interpolation*/
+    double get_P_from_rho(const double rho, const double epsilon);
+	double get_P_from_e(const double e);
+	double get_e_from_P(const double P);
 
+    /* Functions giving minimal P and minimal rho. These depend on the lowest values in the tables */
     double min_P();
     double min_rho();
-	double min_etot();
+	double min_e();
 
-private:
-	// vectors to hold the tabulated EOS values:
-	std::vector<double> rho;	// restmass density
-	std::vector<double> Pres;	// pressure
-	std::vector<double> e_tot;	// total energy density e:=rho(1+epsilon)
-	// helper variables:
-	unsigned current_index;		// saves position in look up table
-	std::string eos_table_name; // name of EOS/table to use (filename of txt file)
 };
 
 #endif

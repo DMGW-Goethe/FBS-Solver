@@ -1,17 +1,18 @@
 #include "eos.hpp"
 
-/* PolytropicEoS */
-double PolytropicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
-
-	return this->kappa*std::pow(rho_in, this->Gamma);	// p = k*rho^gamma
+/******************
+ * PolytropicEoS *
+ ******************/
+double PolytropicEoS::get_P_from_rho(const double rho, const double epsilon) {
+	return this->kappa*std::pow(rho, this->Gamma);
 }
 
-double PolytropicEoS::get_P_from_etot(const double etot_in) {
+double PolytropicEoS::get_P_from_e(const double etot_in) {
 	// todo, maybe have to do root finding?
 	return 0.0;
 }
 
-double PolytropicEoS::get_etot_from_P(const double P_in) {
+double PolytropicEoS::get_e_from_P(const double P_in) {
 	// etot = rho*(1+epsilon)
 	double myrho = std::pow(P_in / this->kappa, 1./this->Gamma);
     double epsilon = this->kappa*std::pow(myrho, this->Gamma - 1.) / (this->Gamma - 1.);
@@ -23,16 +24,19 @@ double PolytropicEoS::dP_drho(const double rho_in, const double epsilon) {
 	return this->kappa*this->Gamma*std::pow(rho_in, this->Gamma-1.);
 }
 
-double PolytropicEoS::dP_detot(const double etot_in) {
-
+double PolytropicEoS::dP_de(const double e) {
+	throw std::runtime_error("not implemented");
 	return 0.0;	// TBD
 }
 
-void PolytropicEoS::callEOS(double& myrho, double& epsilon, const double P) {
-	// update restmass density (rho) and specific energy (epsilon) according to polytropic EOS
-    	myrho = std::pow(P / this->kappa, 1./this->Gamma);
-    	epsilon = this->kappa*std::pow(myrho, this->Gamma - 1.) / (this->Gamma - 1.);
-		return;
+
+/* This expects as input P and will give rho, epsilon as output through reference
+ * according to the polytropic EoS
+ * TODO : update restmass density (rho) and specific energy (epsilon) according to polytropic EOS */
+void PolytropicEoS::callEOS(double& rho, double& epsilon, const double P) {
+    rho = std::pow(P / this->kappa, 1./this->Gamma);
+    epsilon = this->kappa*std::pow(rho, this->Gamma - 1.) / (this->Gamma - 1.);
+    return;
 }
 
 double PolytropicEoS::min_P() {
@@ -41,25 +45,29 @@ double PolytropicEoS::min_P() {
 double PolytropicEoS::min_rho() {
     return 0.;
 }
-double PolytropicEoS::min_etot() {
+double PolytropicEoS::min_e() {
     return 0.;
 }
 
 
-/* CausalEoS */
-double CausalEoS::get_P_from_rho(const double rho_in, const double epsilon) {
+/******************
+ *  CausalEoS *
+ ******************/
+double CausalEoS::get_P_from_rho(const double rho, const double epsilon) {
 
-	return this->P_f + rho_in*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
+	return this->P_f + rho*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
 }
 
-double CausalEoS::dP_drho(const double rho_in, const double epsilon) {
+double CausalEoS::dP_de(const double rho, const double epsilon) {
 
-	return (1. + epsilon);   // p = P_f + eps - eps_f
+	return 1.;   // p = P_f + eps - eps_f
 }
 
-void CausalEoS::callEOS(double& myrho, double& epsilon, const double P) {
-	// update restmass density (rho) and specific energy (epsilon) according to causal EOS
-        myrho = P - this->P_f + this->eps_f;
+/* This expects as input P and will give rho, epsilon as output through reference
+ * according to the causal EoS
+ * TODO : update restmass density (rho) and specific energy (epsilon) according to causal EOS */
+void CausalEoS::callEOS(double& rho, double& epsilon, const double P) {
+        rho = P - this->P_f + this->eps_f;
         epsilon = 0.;
 }
 
@@ -69,7 +77,7 @@ double CausalEoS::min_P() {
 double CausalEoS::min_rho() {
     return 0.;
 }
-double CausalEoS::min_etot() {
+double CausalEoS::min_e() {
     return 0.;
 }
 
@@ -93,21 +101,21 @@ double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double eps
 	// compute energy density from the effective Phi-field:
 	double e_tot = 2.* std::pow(mu ,2)* std::pow(Phi_eff,2) + 1.5*lambda*std::pow(Phi_eff,4);
 
-	// return the pressure P(e) = P(e(Phi)) = P(e(Phi(rho))) => P(rho)
-	return ( get_P_from_etot(e_tot));
+	// return the P_tablesure P(e) = P(e(Phi)) = P(e(Phi(rho))) => P(rho)
+	return ( get_P_from_e(e_tot));
 }
 
-double EffectiveBosonicEoS::get_P_from_etot(const double etot_in) {
+double EffectiveBosonicEoS::get_P_from_e(const double etot_in) {
 	// etot is the total energy density of the fluid
 	return ( (4./9.)*this->rho0*std::pow( std::sqrt(1.+ (3./4.)*(etot_in/this->rho0) )-1.0, 2) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
 }
 
-double EffectiveBosonicEoS::get_etot_from_P(const double P_in) {
+double EffectiveBosonicEoS::get_e_from_P(const double P_in) {
 	// etot is the total energy density of the fluid
 	return ( 3.*P_in + 4.* std::sqrt( P_in * this->rho0) );	// positive root taken fron rho= 3*P +/- 4* sqrt(P*rho0) );	// p = 4/9 * rho0 * ( sqrt(1 + 3/4 * rho/rho0) -1 )^2
 }
 
-double EffectiveBosonicEoS::dP_detot(const double etot_in) {
+double EffectiveBosonicEoS::dP_de(const double etot_in) {
 	// etot is actually the total energy density of the fluid
 	return ( 1./3. - std::pow(1.+ (3./4.)*(etot_in/this->rho0) , -0.5) / 3.0 );
 }
@@ -144,7 +152,7 @@ double EffectiveBosonicEoS::min_P() {
 double EffectiveBosonicEoS::min_rho() {
     return 0.;
 }
-double EffectiveBosonicEoS::min_etot() {
+double EffectiveBosonicEoS::min_e() {
     return 0.;
 }
 
@@ -155,197 +163,226 @@ double EffectiveBosonicEoS::get_lambda() {
 	return this->lambda;
 }
 
-/* EoStable */
-EoStable::EoStable(const std::string filename) {
-    // load in the tabulated EOS data and convert it to code units directly
+/******************
+ *  EoStable *
+ ******************/
 
-    eos_table_name = filename;
+
+/* This function expects a filename to a table.
+ * The table has to contain the rest mass density rho, P_tablesure P, energy density e
+ * The indices of these values is given by the std::map such that
+ *       indices["rho"] corresponds to the column of rho [1/fm^3]
+ *       indices["e"] corresponds to the column of energy density [MeV/fm^3]
+ *       indices["P"] corresponds to the column of P_tablesure [MeV/fm^3]
+ *
+ * Columns are counted starting from 0
+ * Lines containing # are ignored
+ */
+bool EoStable::load_from_file(const std::string filename, std::map<std::string, int> indices) {
+
     const double MeV_fm3_to_codeunits =	2.886376934e-6; // unit conversion from Mev/fm^3 to code units M_s*c^2/ (G*M_s/c^2)^3
     const double neutron_mass = 939.565379;	 // nuclear density in MeV
 
-    std::ifstream infile;	// declare input file stream
-    infile.open(eos_table_name);
-
+    std::ifstream infile;
+    infile.open(filename);
     if(!infile.is_open())
-        throw std::runtime_error("File not open");
+        return false;
+
+    rho_table.clear(); P_table.clear(); e_table.clear();
+    int max_index = 0.;
+    max_index = std::max( std::max(indices.at("rho"), indices.at("P")), indices.at("e"));
+
+    std::cout << "loading EoS table " << filename << std::endl; // TODO: Check error that arises when this is commented out xD
     std::string line;
-
     while (std::getline(infile, line)) {
-
         double temp;
         std::stringstream ss(line);
 
 		// ignore lines with '#' in it (to make comment in the table)
 		if (line.find('#') != std::string::npos)
-    		continue; // '#' found, therefore we skip this line
+    		continue;
 
-		// ---------------------------------------
-		// read in the EOS format from the CompOSE code. Format is:
-		// n_b[1/fm^3]  Y_e[dimensionless]  energy density[MeV/fm^3]  p[MeV/fm^3]
-
-        ss >> temp; // column 1 -> restmass density
-        rho.push_back(temp*MeV_fm3_to_codeunits*neutron_mass);	// write the 1nd column -> restmass density and convert to code units
-
-        ss >> temp; // column 2 -> electron (lepton) fraction (we don't need it, skip this column)
-		ss >> temp; // column 3 -> energy density
-        e_tot.push_back(temp*MeV_fm3_to_codeunits);	// write the 3nd column -> energy density e=rho*(1+epsilon) and convert to code units
-
-        ss >> temp; // column 4 -> pressure
-        Pres.push_back(temp*MeV_fm3_to_codeunits);	// write the 4nd column -> pressure and convert to code units
-
+        for(int i = 0; i < max_index+1; i++) {
+            ss >> temp;
+            if( i == indices.at("rho"))
+                rho_table.push_back(temp * MeV_fm3_to_codeunits * neutron_mass);
+            if( i ==  indices.at("P"))
+                P_table.push_back(temp * MeV_fm3_to_codeunits);
+            if( i == indices.at("e"))
+                e_table.push_back(temp * MeV_fm3_to_codeunits);
+        }
     }
-    infile.close();	// close file after reading from it
-
+    infile.close();
+    return true;
 }
 
-// call EOS to obtain rho and e from input P:
-void EoStable::callEOS(double& myrho, double& epsilon, const double P) {
+/* This function expects a filename to a table with the following structure
+ *
+ * | restmass density rho [1/fm^3] |  (skipped)  | energy density[MeV/fm^3]  |  P_tablesure[MeV/fm^3] |
+ *
+ * and calls load_from_file with these indices
+ */
+bool EoStable::load_from_file(const std::string filename) {
+    std::map<std::string, int> indices;
+    indices["rho"] = 0;
+    indices["e"] = 2;
+    indices["P"] = 3;
+    return load_from_file(filename, indices);
+}
 
-	// use P to scan the EOS table (iterate from the top first because we start at high pressures):
-	unsigned int table_len = Pres.size();
+/* This expects as input P and will give rho, epsilon as output through reference
+ * according to the tabulated EoS
+ * If we are below or above the P_tablesures in P_table, 0. is returned
+ *  otherwise simple linear interpolation is used to obtain rho, epsilon */
+void EoStable::callEOS(double& rho, double& epsilon, const double P) {
+
+	// use P to scan the EOS table (iterate from the top first because we start at high P_tablesures):
+	unsigned int table_len = P_table.size();
 	double e_tot_tmp = 0.0;
 
 
-	if (P < Pres[0]) { // we are close to vacuum and don't need to search the table. Interpolate with zero
-		myrho = 0.0 + (rho[0] / Pres[0]) * P;
-		e_tot_tmp = 0.0 + (e_tot[0] / Pres[0]) * P;
-		epsilon = e_tot_tmp/myrho - 1.0;	// re-arrange to get epsilon. e=rho*(1+epsilon)
+	if (P < P_table[0]) { // we are outside the validity range of the table. Return zero
+		rho = 0.;
+		epsilon = 0.;
 		return;
 	}
 
 	// search the table from the smaller values on first
 	for (unsigned int i = 1; i<table_len; i++) {
-		if (Pres[i] > P) {
+		if (P_table[i] > P) {
 			// the correct value is between the i-1th index and the ith index:
 			// interpolate linearily between them:
-			myrho = rho[i-1] + (rho[i] - rho[i-1]) / (Pres[i] - Pres[i-1]) * (P - Pres[i-1]);
-			e_tot_tmp = e_tot[i-1] + (e_tot[i] - e_tot[i-1]) / (Pres[i] - Pres[i-1]) * (P - Pres[i-1]);
-			epsilon = e_tot_tmp/myrho - 1.0;	// re-arrange to get epsilon. e=rho*(1+epsilon)
+			rho = rho_table[i-1] + (rho_table[i] - rho_table[i-1]) / (P_table[i] - P_table[i-1]) * (P - P_table[i-1]);
+			e_tot_tmp = e_table[i-1] + (e_table[i] - e_table[i-1]) / (P_table[i] - P_table[i-1]) * (P - P_table[i-1]);
+			epsilon = e_tot_tmp/rho - 1.0;	// re-arrange to get epsilon. e=rho*(1+epsilon)
 			return;
 		}
 	}
-	// extrapolate linearly
-	myrho = rho[table_len-2] + (rho[table_len-1] - rho[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P - Pres[table_len-2]);
-	e_tot_tmp = e_tot[table_len-2] + (e_tot[table_len-1] - e_tot[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P - Pres[table_len-2]);
-	epsilon = e_tot_tmp/myrho - 1.0;
+	// return 0. outside the validity
+    rho = 0.;
+    epsilon = 0.;
 }
 
-// obtain P from a rho input
-double EoStable::get_P_from_rho(const double rho_in, const double epsilon) {
-	unsigned int table_len = rho.size();
+/* This expects as input rho and returns P (epsilon is ignored)
+ * according to the tabulated EoS
+ * If we are below or above the densities in rho, 0. is returned
+ *  otherwise simple linear interpolation is used to obtain P from rho */
+double EoStable::get_P_from_rho(const double rho, const double epsilon) {
+	unsigned int table_len = rho_table.size();
 
-    // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
-    if (rho_in <= rho[0]) {
-        return 0. + (Pres[0]-0.) / (rho[0]-0.) * (rho_in-0.);
-    }
+    // if we are below the table return 0.
+    if (rho < rho_table[0])
+        return 0.;
 
 	// search the table for the correct value
 	for (unsigned int i = 1; i<table_len; i++) {
-		if (rho[i] > rho_in) {
+		if (rho_table[i] > rho) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
-			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (rho[i] - rho[i-1]) * (rho_in - rho[i-1]);
+			return P_table[i-1] + (P_table[i] - P_table[i-1]) / (rho_table[i] - rho_table[i-1]) * (rho - rho_table[i-1]);
 		}
 	}
     // if no value was found extrapolate linearly
-	return Pres[table_len-2] + (Pres[table_len-1] - Pres[table_len-2]) / (rho[table_len-1] - rho[table_len-2]) * (rho_in - rho[table_len-2]);
+	return P_table[table_len-2] + (P_table[table_len-1] - P_table[table_len-2]) / (rho_table[table_len-1] - rho_table[table_len-2]) * (rho - rho_table[table_len-2]);
 }
 
 // obtain P from an e_tot input
-double EoStable::get_P_from_etot(const double etot_in) {
-	unsigned int table_len = e_tot.size();
+double EoStable::get_P_from_e(const double e) {
+	unsigned int table_len = e_table.size();
 
     // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
-    if (etot_in <= e_tot[0]) {
-        return 0. + (Pres[0]-0.) / (e_tot[0]-0.) * (etot_in-0.);
+    if (e <= e_table[0]) {
+        return 0. + (P_table[0]-0.) / (e_table[0]-0.) * (e-0.);
     }
 
 	// search the table for the correct value
 	for (unsigned int i = 1; i<table_len; i++) {
-		if (rho[i] > etot_in) {
+		if (e_table[i] > e) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
-			return Pres[i-1] + (Pres[i] - Pres[i-1]) / (e_tot[i] - e_tot[i-1]) * (etot_in - e_tot[i-1]);
+			return P_table[i-1] + (P_table[i] - P_table[i-1]) / (e_table[i] - e_table[i-1]) * (e - e_table[i-1]);
 		}
 	}
     // if no value was found extrapolate linearly
-	return Pres[table_len-2] + (Pres[table_len-1] - Pres[table_len-2]) / (e_tot[table_len-1] - e_tot[table_len-2]) * (etot_in - e_tot[table_len-2]);
+	return P_table[table_len-2] + (P_table[table_len-1] - P_table[table_len-2]) / (e_table[table_len-1] - e_table[table_len-2]) * (e- e_table[table_len-2]);
 }
 
 // obtain P from an e-tot input
-double EoStable::get_etot_from_P(const double P_in) {
-	unsigned int table_len = Pres.size();
+double EoStable::get_e_from_P(const double P) {
+	unsigned int table_len = P_table.size();
 
     // if we are below the table interpolate between (0.,0.) and (rho[0], P[0])
-    if (P_in <= Pres[0]) {
-        return 0. + (e_tot[0]-0.) / (Pres[0]-0.) * (P_in-0.);
+    if (P <= P_table[0]) {
+        return 0. + (e_table[0]-0.) / (P_table[0]-0.) * (P-0.);
     }
 
 	// search the table for the correct value
 	for (unsigned int i = 1; i<table_len; i++) {
-		if (Pres[i] > P_in) {
+		if (P_table[i] > P) {
 			// the correct value is between the ith index and the i+1th index:
 			// interpolate linearily between them:
-			return e_tot[i-1] + (e_tot[i] - e_tot[i-1]) / (Pres[i] - Pres[i-1]) * (P_in - Pres[i-1]);
+			return e_table[i-1] + (e_table[i] - e_table[i-1]) / (P_table[i] - P_table[i-1]) * (P - P_table[i-1]);
 		}
 	}
     // if no value was found extrapolate linearly
-	return e_tot[table_len-2] + (e_tot[table_len-1] - e_tot[table_len-2]) / (Pres[table_len-1] - Pres[table_len-2]) * (P_in - Pres[table_len-2]);
+	return e_table[table_len-2] + (e_table[table_len-1] - e_table[table_len-2]) / (P_table[table_len-1] - P_table[table_len-2]) * (P - P_table[table_len-2]);
 }
 
 // obtain dP/drho from a rho input
-double EoStable::dP_drho(const double rho_in, const double epsilon) {
+double EoStable::dP_drho(const double rho, const double epsilon) {
 	// search the table for the correct value:
-	unsigned int table_len = rho.size();
+	unsigned int table_len = rho_table.size();
 
     //assert(rho_in < rho[table_len-2]); // out of range will return 0.
-    if(rho_in < rho[1]) {
-        double dP1 = (Pres[2]-Pres[1])/(rho[2]-rho[1])/2. + (Pres[1] - Pres[0])/(rho[1]-rho[0])/2.;
-        return 0. + dP1 / (rho[1] - 0.) * (rho_in - 0.);
+    if(rho < rho_table[1]) {
+        double dP1 = (P_table[2]-P_table[1])/(rho_table[2]-rho_table[1])/2. + (P_table[1] - P_table[0])/(rho_table[1]-rho_table[0])/2.;
+        return 0. + dP1 / (rho_table[1] - 0.) * (rho - 0.);
     }
 
 	for (unsigned int i = 2; i<table_len; i++) {
 		// scan for the first matching rho
-		if (rho[i] > rho_in) {
+		if (rho_table[i] > rho) {
             // estimate derivative at point i-1 and i
-            double dP1 = (Pres[i]-Pres[i-1])/(rho[i]-rho[i-1])/2. + (Pres[i-1] - Pres[i-2])/(rho[i-1]-rho[i-2])/2.;
-            double dP2 = (Pres[i+1]-Pres[i])/(rho[i+1]-rho[i])/2. + (Pres[i] - Pres[i-1])/(rho[i]-rho[i-1])/2.;
-            return dP1 + (dP2-dP1)/(rho[i]- rho[i-1]) * (rho_in - rho[i-1]);
+            double dP1 = (P_table[i]-P_table[i-1])/(rho_table[i]-rho_table[i-1])/2. + (P_table[i-1] - P_table[i-2])/(rho_table[i-1]-rho_table[i-2])/2.;
+            double dP2 = (P_table[i+1]-P_table[i])/(rho_table[i+1]-rho_table[i])/2. + (P_table[i] - P_table[i-1])/(rho_table[i]-rho_table[i-1])/2.;
+            return dP1 + (dP2-dP1)/(rho_table[i]- rho_table[i-1]) * (rho - rho_table[i-1]);
 		}
 	}
+    // if no value was found return 0.
 	return 0.;
 }
 
-double EoStable::dP_detot(const double etot_in) {
-	// search the table for the correct value:
-	unsigned int table_len = e_tot.size();
+/* This expects as input rho, epsilon and returns dP/de
+ * according to the tabulated EoS
+ * If we are below or above the energies in e, 0. is returned
+ *  otherwise simple linear interpolation is used to obtain P from e */
+double EoStable::dP_de(const double e) {
+    // search the table for the correct value:
+    unsigned int table_len = e_table.size();
 
-    //assert(rho_in < rho[table_len-2]); // out of range will return 0.
-    if(etot_in < e_tot[1]) {
-        double dP1 = (Pres[2]-Pres[1])/(e_tot[2]-e_tot[1])/2. + (Pres[1] - Pres[0])/(e_tot[1]-e_tot[0])/2.;
-        return 0. + dP1 / (e_tot[1] - 0.) * (etot_in - 0.);
-    }
+    if(e < e_table[1])
+        return 0.;
 
-	for (unsigned int i = 2; i<table_len; i++) {
-		// scan for the first matching rho
-		if (e_tot[i] > etot_in) {
+    for (unsigned int i = 2; i<table_len; i++) {
+        // scan for the first matching e
+        if (e_table[i] > e) {
             // estimate derivative at point i-1 and i
-            double dP1 = (Pres[i]-Pres[i-1])/(e_tot[i]-e_tot[i-1])/2. + (Pres[i-1] - Pres[i-2])/(e_tot[i-1]-e_tot[i-2])/2.;
-            double dP2 = (Pres[i+1]-Pres[i])/(e_tot[i+1]-e_tot[i])/2. + (Pres[i] - Pres[i-1])/(e_tot[i]-e_tot[i-1])/2.;
-            return dP1 + (dP2-dP1)/(e_tot[i]- e_tot[i-1]) * (etot_in - e_tot[i-1]);
-		}
-	}
-	return 0.;
+            double dP1 = (P_table[i]-P_table[i-1])/(e_table[i]-e_table[i-1])/2. + (P_table[i-1] - P_table[i-2])/(e_table[i-1]-e_table[i-2])/2.;
+            double dP2 = (P_table[i+1]-P_table[i])/(e_table[i+1]-e_table[i])/2. + (P_table[i] - P_table[i-1])/(e_table[i]-e_table[i-1])/2.;
+            return dP1 + (dP2-dP1)/(e_table[i]- e_table[i-1]) * (e - e_table[i-1]);
+        }
+    }
+    return 0.;
 }
 
 double EoStable::min_P() {
-    return this->Pres.at(0);
+    return this->P_table.at(0);
 }
 double EoStable::min_rho() {
-    return this->rho.at(0);
+    return this->rho_table.at(0);
 }
-double EoStable::min_etot() {
-    return this->e_tot.at(0);
+double EoStable::min_e() {
+    return this->e_table.at(0);
 }
 
 /*
