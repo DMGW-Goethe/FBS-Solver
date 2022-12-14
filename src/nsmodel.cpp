@@ -353,6 +353,8 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     // iterate until the upper and lower omega produce results with one root difference
     while(n_roots_1 - n_roots_0 > 1 && i < max_steps) {
         omega_mid = (omega_0 + omega_1)/2.;
+        if (omega_mid == this->omega) // if this happens we reached floting point accuracy limits
+            break;
         this->omega = omega_mid;
         res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
@@ -862,7 +864,7 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    intOpts.verbose = verbose;
+    intOpts.verbose = verbose - 1;
     std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};
     std::vector<integrator::step> results_0, results_1, results_mid;
 
