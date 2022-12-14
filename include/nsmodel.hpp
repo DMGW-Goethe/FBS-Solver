@@ -34,12 +34,14 @@ public:
 
     /* This is a static wrapper function, that calls the dy_dr function */
     static vector dy_dr_static(const double r, const vector& y, const void* params);
+    /*static vector dy_dr_static_scaled(const double r, const vector& y, const void* params);*/
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
     virtual vector get_initial_conditions(const double r_init=R_INIT) const = 0;
 
     /* This function calls the integrator and returns the results of the integration */
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
+    /* int scaled_integration(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;*/
 
     /* For easy output the class should define an << operator */
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);

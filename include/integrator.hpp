@@ -5,6 +5,7 @@
 #include <vector>   // for std::vector
 #include <utility>  // for std::pair
 #include <stdexcept> // for std::runtime_error
+// #include <functional> // for std::function
 
 #include "vector.hpp"
 
@@ -19,6 +20,7 @@ namespace integrator
 
     /* function pointer to event conditions, tests whether a condition is fulfilled */
     typedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params);
+    /* typedef std::function<bool(const double r, const double dr, const vector& y, const vector& dy, const void*params)> event_condition;*/
 
     /* Event
      * describes an integration "event" which can be checked during integration (e.g. a stopping condition)
