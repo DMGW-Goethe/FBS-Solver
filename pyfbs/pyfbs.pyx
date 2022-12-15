@@ -264,7 +264,7 @@ cdef class PyMRcurve:
         for fbs in pMRphi_curve:
             MRphi_curve.push_back(deref( fbs.fbs))
 
-        calc_MRphik2_curve(MRphi_curve, tln_curve)
+        calc_MRphik2_curve(MRphi_curve, tln_curve, 2)
 
         if(not f.empty()):
             write_MRphi_curve(tln_curve, f)
