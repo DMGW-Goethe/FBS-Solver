@@ -18,7 +18,7 @@ vector NSmodel::dy_dr_static(const double r, const vector& y, const void* params
  * The return value is the one given by the integrator, compare integrator::return_reason
  * */
 int NSmodel::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
-    return integrator::RKF45(&(this->dy_dr_static), r_init, initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+    return integrator::RKF45(&(this->dy_dr_static), (r_init < 0. ? this->r_init : r_init), initial_conditions, (r_end < 0. ? this->r_end : r_end), (void*) this,  result,  events, intOpts);
     /*return scaled_integration(result, events, initial_conditions, intOpts, r_init, r_end);*/
 }
 /*
@@ -158,7 +158,7 @@ const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](c
 /* This function gives the initial conditions for the FBS integration
  * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, and P_0 = EOS(rho_0)
  * at the position r_init (which is assumed to be small enough for this to be valid) */
-vector FermionBosonStar::get_initial_conditions(const double r_init) const {
+vector FermionBosonStar::get_initial_conditions(double r_init) const {
     return vector( {1.0, 1.0, this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.});
 }
 
@@ -292,6 +292,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     // values/parameters for bisection
     double omega_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in Phi(r) (number of roots corresponds to the modes of the scalar field)
+    int res, res_1;
     int i = 0; // count the steps for comparison with max_step
 
     // variables for integration
@@ -311,7 +312,7 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
 
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
-    int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper omega and integrate the ODEs:
@@ -398,15 +399,16 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
     n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
 
     this->omega = omega_1;
-    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
+    res_1 = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
     n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;
     if (verbose > 0)
         std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
-    // optional test if the event triggers for later integration
-    integrator::Event phi_converged = FermionBosonStar::phi_converged;
-    phi_converged.stopping_condition = false;
-    events.push_back(phi_converged);
+    if(res == integrator::endpoint_reached || res_1 == integrator::endpoint_reached) { // in this case psi didn't diverge, so we are probably not integrating to large enough r
+        this->r_end *= 1.5;
+        // std::cout << "increased r_end to " << this->r_end << " and going deeper" <<  std::endl;
+        return bisection(omega_0, omega_1, n_mode, max_steps-i, delta_omega, verbose);
+    }
 
     i = 0;
     while((omega_1 - omega_0)/omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
@@ -713,7 +715,8 @@ std::vector<std::string> FermionBosonStar::labels() {
  * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, P_0 = EOS(rho_0)
  *  H_0 = H_0 * r_0^2,  dH_0 = 2 H_0 r , phi_1_0 = phi_0 r_0^3,  dphi_1_0 = phi_0 3 r_0^2
  * at the position r_0=r_init */
-vector FermionBosonStarTLN::get_initial_conditions(const double r_init) const {
+vector FermionBosonStarTLN::get_initial_conditions(double r_init) const {
+    r_init = (r_init < 0. ? this->r_init : r_init);
     return vector( {1.0, 1.0, this->phi_0, 0., this->rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.,
                                                              this->H_0*r_init*r_init, 2.*this->H_0*r_init, this->phi_1_0*pow(r_init,3), 3.*this->phi_1_0*pow(r_init,2)});
 }
