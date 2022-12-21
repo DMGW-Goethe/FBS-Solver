@@ -804,7 +804,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
 
 
     if(phi_converged) {
-        int index_ext;
+        int index_ext = 0;
         R_ext = std::max(this->R_B_0, this->R_F);
         while(results[index_ext].first < R_ext && index_ext < step_number-2)
             index_ext++;
@@ -861,7 +861,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     double C = M_ext / R_ext; // the compactness at the extraction point
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
-    double lambda_tidal = 16./15./*pow(this->M_T, 5)*/ * pow(M_ext, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
+    double lambda_tidal = 16./15.*pow(this->M_T, 5)* /* pow(M_ext, 5) */ pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
                         + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
