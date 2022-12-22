@@ -98,13 +98,13 @@ protected:
 
     /* This function requires mu, lambda, rho_0, phi_0 to be set. It finds the corresponding eigenfrequency omega for the nth mode.
      * omega_0, and omega_1 describe a range in which omega is expected, but the function can extend that range if found to be insufficient*/
-    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15, int verbose=0);
+    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16, int verbose=0);
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
     virtual vector get_initial_conditions(double r_init=-1.) const;
 
     /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/N_F = NbNf_ratio */
-    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
+    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16);
 
     /* Integrates the DE while avoiding the phi divergence and calculates the FBS properties
      * Returns the results and optionally ouputs them into a file*/
