@@ -149,7 +149,7 @@ const integrator::Event FermionBosonStar::phi_converged = integrator::Event([](c
 
 /* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
 const integrator::Event FermionBosonStar::integration_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
-                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < INT_converged; }, false, "integration_converged");
+                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < INT_converged; }, true, "integration_converged");
 
 /* This event triggers when the neutron has has converged  */
 const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
@@ -867,7 +867,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     double lambda_tidal = 16./15.*pow(this->M_T, 5)* /* pow(M_ext, 5) */ pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
-                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
+                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*  log(1.-2.*C)   );
     double k2 = 3./2. * lambda_tidal / pow(R_ext, 5);
 
     /*std::cout << "C = " << C << ", y = " << y  << ", k2 = " << k2
