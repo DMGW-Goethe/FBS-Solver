@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 # loads the custum FBS data values (but only the numbers and not the letters):
 def load_MRPhi_data(myfilename):
