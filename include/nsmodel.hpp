@@ -219,7 +219,10 @@ public:
     TwoFluidFBS(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, double mu, double lambda)
             : NSmodel(EOS1), EOS_fluid2(EOS2), rho1_0(0.), rho2_0(0.), M_T(0.), M_1(0.), M_2(0.), R_1(0.), R_1_0(0.), R_2(0.), R_2_0(0.), k2(0.), lambda_tidal(0.), N_1(0.), N_2(0.), mu(mu), lambda(lambda), use_effective_bosonicEoS(true) {}
 
-    vector dy_dr(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
+    //vector dy_dr(const double r, const vector& vars);  // holds the system of ODEs for the Fermion Boson Star
+	/* The differential equations describing the two-fluid FBS. The quantities are nu, m1, m2, P1, P2 and y as described in PHYS. REV. D 105, 123010 (2022) */
+    vector dy_dr(const double r, const vector& vars) const;
+
     vector get_initial_conditions(const double r_init=R_INIT) const; // holds the FBS init conditions
    // void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, int max_step=500);
     void evaluate_model(std::vector<integrator::step>& results, std::string filename="");

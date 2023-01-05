@@ -1160,7 +1160,7 @@ vector TwoFluidFBS::get_initial_conditions(const double r_init) const {
 
 }
 
-vector TwoFluidFBS::dy_dr(const double r, const vector &vars) {
+vector TwoFluidFBS::dy_dr(const double r, const vector &vars) const {
 
     const double nu = vars[0], m1 = vars[1], m2 = vars[2];
     double P1 = vars[3], P2 = vars[4];
