@@ -5,6 +5,7 @@
 #include <vector>   // for std::vector
 #include <utility>  // for std::pair
 #include <stdexcept> // for std::runtime_error
+// #include <functional> // for std::function
 
 #include "vector.hpp"
 
@@ -19,6 +20,7 @@ namespace integrator
 
     /* function pointer to event conditions, tests whether a condition is fulfilled */
     typedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params);
+    /* typedef std::function<bool(const double r, const double dr, const vector& y, const vector& dy, const void*params)> event_condition;*/
 
     /* Event
      * describes an integration "event" which can be checked during integration (e.g. a stopping condition)
@@ -62,7 +64,7 @@ namespace integrator
         bool save_intermediate;
         int verbose;
         bool clean_events;
-        IntegrationOptions(const int max_step=1000000, const double target_error=1e-12, const double min_stepsize=1e-16, const double max_stepsize=1e-2, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
+        IntegrationOptions(const int max_step=1000000, const double target_error=1e-14, const double min_stepsize=1e-16, const double max_stepsize=1e-2, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
                             : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), save_intermediate(save_intermediate), verbose(verbose), clean_events(clean_events) {}
     };
 

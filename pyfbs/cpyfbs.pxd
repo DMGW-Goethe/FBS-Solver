@@ -113,5 +113,5 @@ cdef extern from "mr_curves.hpp":
 
     void calc_NbNf_curves(double mu, double lam, shared_ptr[EquationOfState] EOS, const stdvector[double]& rho_c_grid, const stdvector[double]& NbNf_grid, stdvector[FermionBosonStar]& MRphi_curve);
 
-    void calc_MRphik2_curve(const stdvector[FermionBosonStar]& MRphi_curve,  stdvector[FermionBosonStarTLN]& MRphik2_curve);
+    void calc_MRphik2_curve(const stdvector[FermionBosonStar]& MRphi_curve,  stdvector[FermionBosonStarTLN]& MRphik2_curve, int verbose);
 

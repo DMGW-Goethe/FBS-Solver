@@ -15,7 +15,7 @@ void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose)
     unsigned int done = 0;
 
     time_point start3{clock_type::now()};
-    #pragma omp parallel for schedule(dynamic, 10)
+    #pragma omp parallel for schedule(dynamic)
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
         int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
 		if (bisection_success == -1)
@@ -93,7 +93,7 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 
 // compute the tidal love number for curves of constant rho_c and phi_c:
 // the calculation of the unperturbed solution must be performed before, and only then this function can be called because it uses the equilibrium results from calc_rhophi_curves()
-void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve) {
+void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, int verbose) {
 
 	MRphik2_curve.clear();  MRphik2_curve.reserve(MRphi_curve.size());
 
@@ -121,12 +121,15 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
         #pragma omp atomic
         done++;
 
-        std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
+        if(verbose >1)
+            std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
     }
 
     time_point end3{clock_type::now()};
-    std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
-    std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
+    if(verbose > 0) {
+        std::cout << "evaluation of "<< MRphik2_curve.size() <<" TLN stars took " << std::chrono::duration_cast<second_type>(end3-start3).count() << "s" << std::endl;
+        std::cout << "average time per evaluation: " << (std::chrono::duration_cast<second_type>(end3-start3).count()/(MRphi_curve.size())) << "s" << std::endl;
+    }
 }
 
 void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu, double lambda, bool use_effective_EOS) {

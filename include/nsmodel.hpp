@@ -11,7 +11,7 @@
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the maximum integration radius
 #define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
-#define PHI_converged 1e-6
+#define PHI_converged 1e-4
 #define INT_converged 1e-7
 #define M_T_converged 1e-15
 
@@ -22,24 +22,28 @@
  *  describing the neutron star
  * */
 class NSmodel {
+protected:
+    double r_init, r_end;
 public:
     /* A pointer to the Equation of State describing the neutron star matter */
     std::shared_ptr<EquationOfState> EOS;
 
     /* Constructor */
-    NSmodel(std::shared_ptr<EquationOfState> EOS) : EOS(EOS) {}
+    NSmodel(std::shared_ptr<EquationOfState> EOS) : r_init(R_INIT), r_end(R_MAX), EOS(EOS) {}
 
     /* This function gives the derivatives for the differential equations */
-    virtual vector dy_dr(const double r, const vector& vars) = 0;
+    virtual vector dy_dr(const double r, const vector& vars) const = 0;
 
     /* This is a static wrapper function, that calls the dy_dr function */
     static vector dy_dr_static(const double r, const vector& y, const void* params);
+    /*static vector dy_dr_static_scaled(const double r, const vector& y, const void* params);*/
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
-    virtual vector get_initial_conditions(const double r_init=R_INIT) const = 0;
+    virtual vector get_initial_conditions(double r_init=R_INIT) const = 0;
 
     /* This function calls the integrator and returns the results of the integration */
-    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;
+    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=-1., double r_end=-1.) const;
+    /* int scaled_integration(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;*/
 
     /* For easy output the class should define an << operator */
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);
@@ -75,10 +79,10 @@ protected:
     /* Calculates the parameters M_T, N_B, N_F, R_B, R_F_0 for a given integration contained in results,events */
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
-    int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, double& R_B_0, double r_init, double r_end) const;
+    int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, double& R_B_0, bool force=false, double r_init=-1., double r_end=-1.) const;
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. Only call when omega is found after the bisection! */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), std::vector<int> additional_zero_indices={}, double r_init=R_INIT, double r_end=R_MAX);
+    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), bool force = false, std::vector<int> additional_zero_indices={}, double r_init=-1., double r_end=-1.);
 
     public:
     double mu, lambda, omega;
@@ -90,17 +94,17 @@ protected:
             : NSmodel(EOS), mu(mu), lambda(lambda), omega(omega), rho_0(rho_0), phi_0(phi_0), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_B_0(0.), R_F(0.), R_F_0(0.) {}
 
     /* The differential equations describing the FBS. The quantities are a, alpha, P, phi, and Psi, as described in https://arxiv.org/pdf/2110.11997.pdf */
-    vector dy_dr(const double r, const vector& vars);
+    vector dy_dr(const double r, const vector& vars) const;
 
     /* This function requires mu, lambda, rho_0, phi_0 to be set. It finds the corresponding eigenfrequency omega for the nth mode.
      * omega_0, and omega_1 describe a range in which omega is expected, but the function can extend that range if found to be insufficient*/
-    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15, int verbose=0);
+    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16, int verbose=0);
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
-    virtual vector get_initial_conditions(const double r_init=R_INIT) const;
+    virtual vector get_initial_conditions(double r_init=-1.) const;
 
     /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/N_F = NbNf_ratio */
-    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15);
+    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16);
 
     /* Integrates the DE while avoiding the phi divergence and calculates the FBS properties
      * Returns the results and optionally ouputs them into a file*/
@@ -160,10 +164,10 @@ public:
     FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs), H_0(1.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.), R_ext(0.) {  }
 
     /* The differential equations describing the FBS + TLN. The quantities are a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1 */
-    vector dy_dr(const double r, const vector& vars);
+    vector dy_dr(const double r, const vector& vars) const;
 
     /* The initial conditions for a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1*/
-    vector get_initial_conditions(const double r_init=R_INIT) const;
+    vector get_initial_conditions(double r_init=R_INIT) const;
 
     /* This function requires the FBS parameters and H_0 to be set. It finds the corresponding phi_1_0 */
     int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12, int verbose = 0);

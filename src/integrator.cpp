@@ -156,6 +156,9 @@ int integrator::RKF45(ODE_system dy_dr, const double r0, const vector y0, const 
         results.push_back(current_step);
     }
 
+    if(options.verbose > 0)
+        std::cout << "starting integration at r=" << current_step.first << std::endl;
+
     // begin integration
     int i = 0, stop = 0;
     while(true) {

@@ -125,6 +125,7 @@ cdef class PyFermionBosonStar:
                 "R_F_0":deref(self.fbs).R_F_0,
                 "rho_0":deref(self.fbs).rho_0,
                 "phi_0":deref(self.fbs).phi_0,
+                "mu":deref(self.fbs).mu,
                 "omega":deref(self.fbs).omega,
                 }
 
@@ -263,7 +264,7 @@ cdef class PyMRcurve:
         for fbs in pMRphi_curve:
             MRphi_curve.push_back(deref( fbs.fbs))
 
-        calc_MRphik2_curve(MRphi_curve, tln_curve)
+        calc_MRphik2_curve(MRphi_curve, tln_curve, 2)
 
         if(not f.empty()):
             write_MRphi_curve(tln_curve, f)
