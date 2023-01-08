@@ -1252,7 +1252,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
     // in this case the below iteration will return the initialization value for R_1_0, i_R1_0 etc.
     for (unsigned i = 1; i < results.size(); i++)
     {
-        if (results[i].second[3] < P_ns_min)
+        if (results[i].second[3] < P_ns_min || results[i].second[3] < this->EOS->min_P())
         {
             R_1_0 = results[i].first; // 1st fluid
             i_R1_0 = i;
@@ -1261,7 +1261,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
     }
     for (unsigned i = 1; i < results.size(); i++)
     {
-        if (results[i].second[4] < P_ns_min)
+        if (results[i].second[4] < P_ns_min || results[i].second[4] < this->EOS_fluid2->min_P())
         {
             R_2_0 = results[i].first; // 2nd fluid
             i_R2_0 = i;
@@ -1332,7 +1332,7 @@ void TwoFluidFBS::calculate_star_parameters(const std::vector<integrator::step> 
     // Note: in this model it is possible that some configurations will have a compactness >0.5, meaning that these objects are Black Holes
     // The Buchdal-limit actually allows only stable compact objects with compactness > 4/9 ~ 0.4444. Higher compactness means that the object is not stable and will collapse to a BH
     double k2 = (8. / 5.) * std::pow(C, 5) * std::pow(1. - 2. * C, 2) * (2. - y_R + 2. * C * (y_R - 1.)) /
-                (2. * C * (6. - 3. * y_R + 3. * C * (5. * y_R - 8.)) + 4. * std::pow(C, 3) * (13. - 11. * y_R + C * (3. * y_R - 2.) + 2. * C * C * (1. + y_R)) + 3. * std::pow(1. - 2. * C, 2) * (2. - y_R + 2. * C * (y_R - 1.) * std::log(1. - 2. * C)));
+                (2. * C * (6. - 3. * y_R + 3. * C * (5. * y_R - 8.)) + 4. * std::pow(C, 3) * (13. - 11. * y_R + C * (3. * y_R - 2.) + 2. * C * C * (1. + y_R)) + 3. * std::pow(1. - 2. * C, 2) * (2. - y_R + 2. * C * (y_R - 1.) )* std::log(1. - 2. * C));
 
     double lambda_tidal = (2. / 3.) * k2 * std::pow(maxR, 5);
 
