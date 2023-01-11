@@ -5,6 +5,7 @@ import numpy as np
 #from scipy.interpolate import griddata
 import matplotlib.tri as tri # to create a mask for a concarve shape
 from matplotlib import lines
+import pandas as pd
 
 import stability_curve_calc as scc # import custom python file which computes the stability curve
 
@@ -334,14 +335,11 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 	if stabCurve == None and plotStabCurve == True:
 		stabCurve = scc.calc_stability_curve(df, indices)
 
-	allPlotArray = df[:,indices[index]]
+	data_frame = pd.DataFrame(df[:, [indices[index], indices['rho_0'], indices['phi_0']]], columns=[index, 'rho_0', 'phi_0'])
+	plotArray = data_frame.pivot_table(values=index, columns='rho_0', index='phi_0')
 	if scale == "log":
-		allPlotArray = np.log(allPlotArray)
+		plotArray = np.log(plotArray)
 
-	plotArray = scc.refactorList(allPlotArray, numStarsRho)
-	if(df[0, indices["rho_0"]] == df[1, indices["rho_0"]]):
-		plotArray = np.transpose(plotArray)
-	
 	if contourLevels == None and autoContour == True:
 		minVal = min(allPlotArray)
 		maxVal = max(allPlotArray)

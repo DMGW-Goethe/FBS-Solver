@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.path as mplPath # to check if a point is inside a polygon
 import matplotlib.pyplot as plt	# for the contour plot
+import pandas as pd
 
 
 # find the nearest point in the rho_c-phi_c diagram to a given input point
@@ -32,21 +33,13 @@ def calc_stability_curve(df, indices, debug = False):
 	numStarsRho = len(np.unique(df[:,indices['rho_0']]))
 	numStarsPhi = len(np.unique(df[:,indices['phi_0']]))
 
-	allMasses = df[:,indices["M_T"]]
-	allFermionNumbers = df[:,indices["N_F"]]
-
 	rhoVals = np.unique(df[:,indices["rho_0"]])
 	phiVals = np.unique(df[:,indices["phi_0"]])
 
-	# refactor the lists of masses and ferm numbers. Instead of one long list with all numbers we then have a 2d grid with
-	# each cell corresponding to a coordinate in the rho-phi plane
-	factoredMasses = refactorList(allMasses, numStarsRho)
-	factoredFermionNumbers = refactorList(allFermionNumbers, numStarsRho)
-
-	# depending on how the values are sorted in df, we might have to trannspose the table, so that the x axis really corresponds to the rho values
-	if(df[0, indices["rho_0"]] == df[1, indices["rho_0"]]):
-		factoredMasses = np.transpose(factoredMasses)
-		factoredFermionNumbers = np.transpose(factoredFermionNumbers)
+	data_frame = pd.DataFrame(df[:, [indices['M_T'], indices['N_F'], indices['rho_0'], indices['phi_0']]], columns=['M_T', 'N_F', 'rho_0', 'phi_0'])
+	#print(data_frame.pivot_table(values='M_T', index='rho_0', columns='phi_0'))
+	factoredMasses = data_frame.pivot_table(values='M_T', columns='rho_0', index='phi_0')
+	factoredFermionNumbers = data_frame.pivot_table(values='N_F', columns='rho_0', index='phi_0')
 
 	# use the np.gradient function to calculate all gradient values at once
 	massesGradient = np.gradient(factoredMasses, phiVals, rhoVals, edge_order=2)
