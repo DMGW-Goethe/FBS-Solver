@@ -53,7 +53,7 @@ def searchPureBS(df, indices):
 # cmap -> cmap that is used for the scatter plot
 # xlim and ylim define the axis limits for all individual cells
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
-def plotGrid(dfs, indices, plotFunc, figHeight = None, figWidth = None, nrows = 2, ncols = 2, s = 0.3, plotPureNS = True, plotPureBS = False, filterData = True, cmap = "viridis", xlim = [0, 2.7], ylim = [1, 5e6], tickFontSize = 13):
+def plotGrid(dfs, indices, plotFunc, ylabel="", xlabel="", figHeight = None, figWidth = None, nrows = 2, ncols = 2, s = 0.3, plotPureNS = True, plotPureBS = False, filterData = True, cmap = "viridis", xlim = [0, 2.7], ylim = [1, 5e6], tickFontSize = 13, stabCurves=None):
 	
 	# create a grid of plots
 	fig = plt.figure()
@@ -81,15 +81,15 @@ def plotGrid(dfs, indices, plotFunc, figHeight = None, figWidth = None, nrows = 
 
 	# iterate over all dfs and fill the individual cells of the grid according the provided plotFunc
 	for i, ax in enumerate(axs.flatten()):
-		plotFunc(dfs[i], indices, filterData = filterData, pltAxs = ax, cmap=cmap, xlim=xlim, ylim=ylim, s=s, plotPureBS=plotPureBS, plotPureNS=plotPureNS)
+		plotFunc(dfs[i], indices, filterData = filterData, pltAxs = ax, cmap=cmap, xlim=xlim, ylim=ylim, s=s, plotPureBS=plotPureBS, plotPureNS=plotPureNS, stabCurve=stabCurves[i] if not stabCurves is None else None)
 		ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
 
 	fig.add_subplot(111, frame_on=False)
 	plt.tick_params(labelcolor="none", bottom=False, left=False)
 
 	# add labels
-	plt.xlabel(r"Total Gravitational Mass [M$_\odot$]", fontsize = 22, labelpad=18)
-	plt.ylabel(r"Tidal Deformability $\Lambda$", fontsize = 22, labelpad=18)
+	plt.xlabel(xlabel, fontsize = 22, labelpad=18)
+	plt.ylabel(ylabel, fontsize = 22, labelpad=18)
 
 	# the inset label should be in the upper right cell (I just think that looks nice)
 	if ncols == 1 and nrows != 1:
@@ -125,7 +125,7 @@ def plotGrid(dfs, indices, plotFunc, figHeight = None, figWidth = None, nrows = 
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
 def plotTidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS = False, cmap = "viridis", clim = [0, 1], ylim = [1, 1e6], xlim = [0, 3], pltAxs = plt, tickFontSize = 13):
 	# calculate the stability curve and filter the data, if needed
-	if stabCurve == None and filterData:
+	if stabCurve is None and filterData:
 		stabCurve = scc.calc_stability_curve(df, indices)
 
 	filteredData = df
@@ -202,7 +202,7 @@ def plotTidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPur
 # pltAxs -> specifies the axs object in which the data is to be plotted. If none is provided, then plt is being used
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
 def plotMR(df, indices, s = 0.3, filterData = True, plotPureNS = True, plotPureBS = None, stabCurve = None, xlim = [0, 20], ylim = [0, 3], clim = [0, 1], cmap = "viridis", pltAxs = plt, tickFontSize = 13):
-	if stabCurve == None and filterData:
+	if stabCurve is None and filterData:
 		stabCurve = scc.calc_stability_curve(df, indices)
 
 	filteredData = df
@@ -332,15 +332,16 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 	rhoVals = np.unique(df[:,indices["rho_0"]])
 	phiVals = np.unique(df[:,indices["phi_0"]])
 
-	if stabCurve == None and plotStabCurve == True:
+	if stabCurve is None and plotStabCurve:
 		stabCurve = scc.calc_stability_curve(df, indices)
 
 	data_frame = pd.DataFrame(df[:, [indices[index], indices['rho_0'], indices['phi_0']]], columns=[index, 'rho_0', 'phi_0'])
 	plotArray = data_frame.pivot_table(values=index, columns='rho_0', index='phi_0')
+	
 	if scale == "log":
 		plotArray = np.log(plotArray)
 
-	if contourLevels == None and autoContour == True:
+	if contourLevels is None and autoContour:
 		minVal = min(allPlotArray)
 		maxVal = max(allPlotArray)
 		contourLevels = np.linspace(minVal, maxVal, 7)[1:-1]
@@ -350,12 +351,12 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 
 	xx, yy = np.meshgrid(rhoVals, phiVals)
 	plt.pcolormesh(xx, yy, plotArray, cmap = cmap)
-	if clim != None:
+	if not clim is None:
 		plt.clim(clim)
 
-	if xlim != None:
+	if not xlim is None:
 		plt.xlim(xlim)
-	if ylim != None:
+	if not ylim is None:
 		plt.ylim(ylim)
 
 	plt.xlabel(r"$\rho_c$ [Code Units]", fontsize = 15)

@@ -28,13 +28,13 @@ def refactorList(list, n):
 	return [list[i:i+n] for i in range(0, len(list), n)]
 	
 # Calculates the stability curve according to the paper by Henriques et al. "Stabiliy of Boson-Fermion Stars"
-def calc_stability_curve(df, indices, debug = False):
+def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	# first, get some useful quantities from the list of all values
-	numStarsRho = len(np.unique(df[:,indices['rho_0']]))
-	numStarsPhi = len(np.unique(df[:,indices['phi_0']]))
+	rhoVals = sorted(np.unique(df[:,indices["rho_0"]]))
+	phiVals = sorted(np.unique(df[:,indices["phi_0"]]))
 
-	rhoVals = np.unique(df[:,indices["rho_0"]])
-	phiVals = np.unique(df[:,indices["phi_0"]])
+	numStarsRho = len(rhoVals)
+	numStarsPhi = len(phiVals)
 
 	data_frame = pd.DataFrame(df[:, [indices['M_T'], indices['N_F'], indices['rho_0'], indices['phi_0']]], columns=['M_T', 'N_F', 'rho_0', 'phi_0'])
 	#print(data_frame.pivot_table(values='M_T', index='rho_0', columns='phi_0'))
@@ -90,6 +90,7 @@ def calc_stability_curve(df, indices, debug = False):
 		lines.append(line.vertices)
 
 	# select only the longest line (this is the one that we want):
+	'''
 	longestindex = 0
 	maxlen = 0
 	for k in range(len(lines)):
@@ -97,9 +98,12 @@ def calc_stability_curve(df, indices, debug = False):
 		if len(lines[k]) > maxlen:
 			maxlen = len(lines[k])
 			longestindex = k
+	'''
+	lines = sorted(lines, key=len, reverse=True)
+	stab_curve = lines[curve_index]
 
 	# the wanted stability curve is the line which has the longest length (in case there would be multiple lines)
-	stab_curve = lines[longestindex]
+	#stab_curve = lines[longestindex]
 
 	ax.clear()
 	plt.close(fig)
