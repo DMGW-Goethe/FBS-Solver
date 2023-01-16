@@ -163,6 +163,10 @@ vector FermionBosonStar::get_initial_conditions(double r_init) const {
 }
 
 
+/* This function performs an integration and tries to find R_B_0 while integrating, where the bosonic component has sufficiently converged
+ *  and we can set it to zero. The convergence criterion is given by the phi_converged event. The function returns R_B_0 by reference.
+ * If the condition is not fulfilled, the "convergence" can be forced (with the force boolean) by finding the last minimum of the phi field.
+ * */
 int FermionBosonStar::find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double& R_B_0, bool force, double r_init, double r_end) const {
 
     if(this->phi_0 <= 0.)
@@ -171,7 +175,7 @@ int FermionBosonStar::find_bosonic_convergence(std::vector<integrator::step>& re
     integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
     integrator::Event phi_converged = FermionBosonStar::phi_converged;
     phi_converged.stopping_condition = true;
-    events.push_back(Psi_positive);
+    events.push_back(Psi_positive); // the presence of this event increases the accuracy around zero crossings
     events.push_back(phi_converged);
 
     int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
@@ -228,8 +232,12 @@ int FermionBosonStar::find_bosonic_convergence(std::vector<integrator::step>& re
 }
 
 /* This function integrates the FBS system of equations and stops when phi is sufficiently converged (via the phi_converged event)
- * It then restarts the integration after artifically setting phi = Psi = 0 at that point
- * This allows to integrate the neutron matter and metric components until they converge
+ * This convergence is first found with the find_bosonic_convergence function, then R_B_0 is set so that subsequent calls don't have
+ *  to find it again.
+ * It then restarts the integration after artifically setting phi = Psi = 0 at that point. Additional values
+ *  can be set to zero with the additional_zero_indices vector, i.e. phi_1 and dphi_1.
+ * This allows to integrate the neutron matter and metric components until they converge as well.
+ * If the convergence criterion cannot be fulfilled, it can be forced with the force flag, see find_bosonic_convergence
  *
  * Only call after omega is set to the corresponding value, otherwise this function is not useful.
  * */
@@ -246,7 +254,7 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
     // integrate to R_B_0
     if(this->R_B_0 == 0.) { // find it first
         res = this->find_bosonic_convergence(results, events, intOpts, this->R_B_0, force, r_init, r_end);
-        if (this->R_B_0 == 0.) // the algorithm returned without finding R_B_0
+        if (this->R_B_0 == 0.) // the algorithm returned without finding R_B_0 so stop integration here (either divergence or other event triggered)
             return res;
         // std::cout << "found R_B_0=" << R_B_0 << std::endl;
     }
@@ -259,7 +267,7 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
     // now we can restart the integration
     vector initial_conditions = results[results.size()-1].second;
     initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
-    for (auto it = additional_zero_indices.begin(); it != additional_zero_indices.end(); ++it)  // and any other specified
+    for (auto it = additional_zero_indices.begin(); it != additional_zero_indices.end(); ++it)  // and any other specified, i.e. phi_1, dphi_1
         initial_conditions[*it] = 0.;
 
     std::vector<integrator::step> additional_results;
@@ -269,6 +277,7 @@ int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
 
     res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
 
+    // add the results together into one vector
     results.reserve(results.size() + additional_results.size());
     for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
         results.push_back(additional_results[i]);
@@ -582,15 +591,11 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
         for (int i=results.size()-3; i > index_phi_converged; i--) {
             if(dM_func(index_dM_global_minimum) != dM_func(index_dM_global_minimum)) // NaN prevention
                 index_dM_global_minimum = i;
-            if(dM_func(i) < dM_func(index_dM_global_minimum)) // and find the global one
+            if(dM_func(i) < dM_func(index_dM_global_minimum)) // find the global minimum
                 index_dM_global_minimum = i;
         }
-        // calculate M_T where the last local minimum of M_T is, if it doesn't exist use the global one:
-        int min_index_dMdr;
-            min_index_dMdr = index_dM_global_minimum;
-        //std::cout << "chose " << min_index_dMdr << " with global minimum " << index_dM_global_minimum << ": " << dM_func(index_dM_global_minimum) << " with step_num " << step_number << std::endl;
 
-        M_T = M_func(min_index_dMdr);
+        M_T = M_func(index_dM_global_minimum);
     }
 
     // std::cout << "min_index_a: " << min_index_a << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
@@ -619,12 +624,11 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
 
     // Find where 99% of N_B,N_F are reached to get the radii
     double N_F =  N_F_integrated[step_number-1],
-           N_B =  N_B_integrated[index_phi_converged /*step_number-1*/];
+           N_B =  N_B_integrated[index_phi_converged];
 
     // first find the index in array where 99% is contained
-    // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
     int i_B = 0, i_F = 0;
-    unsigned int max_index = /*std::max(min_index_phi, min_index_a)*/ step_number;
+    unsigned int max_index = step_number;
     for(unsigned int i = 1; i < max_index; i++) {
         if(N_B_integrated[i] < 0.99*N_B)
             i_B++;
@@ -793,7 +797,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     bool phi_converged = this->phi_0 <= 0.;
 
     if (this->phi_0 > 0.) {
-        if(this->R_B_0 >  0.) // we artifically set phi to 0 at some point which makes our lifes much easier
+        if(this->R_B_0 >  0.) // we have artifically set phi to 0 at some point which makes our lifes much easier
             phi_converged = true;
     }
     // std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
@@ -817,7 +821,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
         R_ext = results[index_ext].first;
     }
     else {
-        if(this->R_F > 100.*this->R_B) {
+        if(this->R_F > 100.*this->R_B) { // in this case, the fermionic part dominates the bosonic part, so we can read out the TLN where the fermionic part vanishes
             int index_R_F = 0;
             while ( results[index_R_F].first < this->R_F && index_R_F < step_number-1)
                 index_R_F++;
@@ -827,7 +831,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
             R_ext = R_F;
             //std::cout << "R_F > R_B:  at R_F=" << R_F << " y = " << y << std::endl;
         }
-        else {
+        else { // implement procedure from Sennet 2017 (https://arxiv.org/pdf/1704.08651.pdf)
             // to find the starting point see where y actually has a minimum
             int index_bs_radius = 1;
             while(results[index_bs_radius].first < this->R_B/1e3  && index_bs_radius < step_number-2)
@@ -897,11 +901,6 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
 
     std::vector<int> additional_zero_indices = {7,8};
     int res = this->integrate_and_avoid_phi_divergence(results, events,  intOpts, force_phi_to_0, additional_zero_indices);
-    /*std::cout << "M_con " << events[0].active << ", Psi_div " << events[1].active << ", dphi_1_div " << events[2].active << std::endl;
-    for(auto it = events[0].steps.begin(); it != events[0].steps.end(); ++it) {
-        using namespace integrator;
-        std::cout << (integrator::step)*it;
-    }*/
 
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     if(!filename.empty()) {

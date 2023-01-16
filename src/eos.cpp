@@ -160,22 +160,22 @@ void EoStable::callEOS(double& rho, double& epsilon, const double P) {
  * If we are below or above the densities in rho, 0. is returned
  *  otherwise simple linear interpolation is used to obtain P from rho */
 double EoStable::get_P_from_rho(const double rho, const double epsilon) {
-	unsigned int table_len = rho_table.size();
+    unsigned int table_len = rho_table.size();
 
     // if we are below the table return 0.
     if (rho < rho_table[0])
         return 0.;
 
-	// search the table for the correct value
-	for (unsigned int i = 1; i<table_len; i++) {
-		if (rho_table[i] > rho) {
-			// the correct value is between the ith index and the i+1th index:
-			// interpolate linearily between them:
-			return P_table[i-1] + (P_table[i] - P_table[i-1]) / (rho_table[i] - rho_table[i-1]) * (rho - rho_table[i-1]);
-		}
-	}
+    // search the table for the correct value
+    for (unsigned int i = 1; i<table_len; i++) {
+        if (rho_table[i] > rho) {
+            // the correct value is between the ith index and the i+1th index:
+            // interpolate linearily between them:
+            return P_table[i-1] + (P_table[i] - P_table[i-1]) / (rho_table[i] - rho_table[i-1]) * (rho - rho_table[i-1]);
+        }
+    }
     // if no value was found return 0.
-	return 0.;
+    return 0.;
 }
 
 /* This expects as input rho, epsilon and returns dP/de
