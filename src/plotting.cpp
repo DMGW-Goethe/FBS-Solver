@@ -34,47 +34,25 @@ void plotting::plot_evolution(const std::vector<integrator::step>& results, cons
 
 void plotting::save_integration_data(const std::vector<integrator::step>& results, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename) {
 
-	std::ofstream img;
-    if(filename.empty())
-        return;
-	img.open(filename);
-
-	if(img.is_open()) {
-        img << "# r";
-        for(int i = 0; i < plot_components.size(); i++)
-            img << "\t" << labels[i];
-		img << std::endl;
-
-        for(auto it = results.begin(); it != results.end(); ++it) {
-			img << std::fixed << std::setprecision(10) << it->first;    // radius
-            for(int i = 0; i < plot_components.size(); i++)
-                img << std::scientific << std::setprecision(10) <<  " " << it->second[plot_components[i]]; // the other variables
-            img << std::endl;
-		}
-	}
-	img.close();
-}
-
-
-void plotting::save_MR_data(std::vector<std::vector<double>> &array, std::vector<int> plot_components, std::vector<std::string> labels, std::string filename) {
-
     std::ofstream img;
     if(filename.empty())
         return;
-	img.open(filename);
+    img.open(filename);
 
-	if(img.is_open()) {
-        // print the labels in line 1:
+    if(img.is_open()) {
+        img << "# r";
         for(int i = 0; i < plot_components.size(); i++)
-            {img << labels[i] << "\t";}
-		img << std::endl;
+            img << "\t" << labels[i];
+        img << std::endl;
 
-        // print all the data:
-        for(unsigned i = 0; i < array.size(); ++i) {
-            for(int j = 0; j < plot_components.size(); j++)
-                {img << array[i][j] << " ";} // write the variables line by line
+        for(auto it = results.begin(); it != results.end(); ++it) {
+            img << std::fixed << std::setprecision(10) << it->first;    // radius
+            for(int i = 0; i < plot_components.size(); i++)
+                img << std::scientific << std::setprecision(10) <<  " " << it->second[plot_components[i]]; // the other variables
             img << std::endl;
-		}
-	}
-	img.close();
+        }
+    }
+    img.close();
 }
+
+

@@ -3,32 +3,51 @@
 using std::exp;
 using std::abs;
 
-vector NSmodel::dy_dt_static(const double r, const vector& y, const void* params) {
+/* This wrapper function allows to call the class member function dy_dr
+ * if the params pointer points to the class instance
+ * */
+vector NSmodel::dy_dr_static(const double r, const vector& y, const void* params) {
     NSmodel* m = (NSmodel*)params;
-    return m->dy_dt(r, y);
+    return m->dy_dr(r, y);
 }
 
-// define the system of coupled ODEs for a Fermion-Boson Star:
-vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
+/* This function calls the integrator for the NSmodel class
+ * The dy_dr function is automatically called through the wrapper dy_dr_static class
+ * The results are saved in result (only the initial and last step, unless intOpts.save_intermediate=true)
+ * A list of events to be tracked during the integration can be passed, but this is optional
+ * The initial conditions have to be specified - usually given by NSmodel::get_initial_conditions - but they can be modified
+ * The IntegrationOptions will be passed to the integrator
+ * The integration starts at r_init and tries to reach r_end
+ * The return value is the one given by the integrator, compare integrator::return_reason
+ * */
+int NSmodel::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
+    return integrator::RKF45(&(this->dy_dr_static), (r_init < 0. ? this->r_init : r_init), initial_conditions, (r_end < 0. ? this->r_end : r_end), (void*) this,  result,  events, intOpts);
+}
 
-    // rename input & class variables for simpler use:
+/* This function gives the system of ODEs for the FBS star
+ *  for the variables a, alpha, phi, Psi, and P
+ *  taken from https://arxiv.org/pdf/2110.11997.pdf
+ *
+ *  This function is called by the integrator during the integration
+ * */
+vector FermionBosonStar::dy_dr(const double r, const vector& vars) const {
+
+    // rename input & class variables for simpler use
     const double v = vars[0]; const double u = vars[1]; const double phi = vars[2]; const double Psi = vars[3]; double P = vars[4];
-    EquationOfState& myEOS = *(this->EOS);
+    EquationOfState& EoS = *(this->EOS);
     const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
 
-    // define hydrodynamic quantities:
-    double rho = 1.;      // restmass density, must be set using EOS
-    double epsilon = 1.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
-    // epsilon is related to the total energy density "e" by: e = rho*(1+epsilon)
+    // define hydrodynamic quantities
+    double rho = 0.;      // restmass density, must be set using EOS
+    double epsilon = 0.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
+    // define potential of the bosonic field
     const double V = mu*mu*phi*phi + lambda/2.*pow(phi, 4);
     const double dV_deps = mu*mu + lambda*phi*phi;
-    //const double ddV_deps2 = lambda;
 
-    // apply the EOS:
-    if(P <= 0. || P < myEOS.min_P() || P < P_ns_min)  {
+    if(P <= 0. || P < EoS.min_P() || P < P_ns_min)  {
         P = 0.; rho = 0.; epsilon = 0.;
     } else {
-        myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by reference using EOS member function
+        EoS.callEOS(rho, epsilon, P);
     }
 
     // compute the ODEs:
@@ -43,70 +62,229 @@ vector FermionBosonStar::dy_dt(const double r, const vector& vars) {
 }
 
 
+/* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged
+ *  (not in use anymore) */
 const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
                                                                                                         const double dM_dr = (1.-exp(-y[1]))/2. + r/2. *exp(-y[1])*dy[1];
-                                                                                                        return  dM_dr < 1e-18 ; },true);
+                                                                                                        return  dM_dr < M_T_converged ; }, true, "M_converged");
 
-const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[3]) > 1.0); }, true);
+/* This event triggers when Psi starts to diverge, i.e. Psi > 1. */
+const integrator::Event FermionBosonStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (std::abs(y[3]) > 1.0); }, true, "Psi_diverging");
 
-const integrator::Event FermionBosonStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] < 0.; });
-const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[2] > 0.; });
+/* This event triggers when Psi becomes positive - why is this here? to force an accurate resolution wherever Psi becomes positive, so that phi_converged might trigger */
+const integrator::Event FermionBosonStar::Psi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (y[3] > 0.0); }, false, "Psi_positive", 1e-8);
 
-void FermionBosonStar::set_initial_conditions(const double rho_0, const double phi_0) {
-    this->rho_0 = rho_0;
-    this->phi_0 = phi_0;
-    this->initial_conditions =  vector( {0., 0., phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho_0, 0.) : 0.});
+/* This event triggers when phi becomes negative, it is used to count the zero crossings of phi */
+const integrator::Event FermionBosonStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return y[2] < 0.; }, false, "phi_negative");
+/* This event triggers when phi becomes positive */
+const integrator::Event FermionBosonStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return y[2] > 0.; }, false, "phi_positive");
+
+/* This event triggers when phi is sufficiently converged, i.e. phi < PHI_converged and dphi < PHI_converged */
+const integrator::Event FermionBosonStar::phi_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (std::abs(y[2])/((FermionBosonStar*)params)->phi_0 < PHI_converged &&
+                                                                                                            std::abs(y[3])/((FermionBosonStar*)params)->phi_0/r < PHI_converged); }, true, "phi_converged");
+                                                                                                /*{ return (std::abs(y[2])/((FermionBosonStar*)params)->phi_0 < PHI_converged && y[3] > 0. && dy[3] > 0.); }, true, "phi_converged");*/
+
+/* This event triggers when the whole integration (the first five variables - specifically to exclude H, dH in TLN integration) is sufficiently converged */
+const integrator::Event FermionBosonStar::integration_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return ublas::norm_inf( dy.sub_range(0, 4))/dr/r < INT_converged; }, true, "integration_converged");
+
+/* This event triggers when the neutron has has converged  */
+const integrator::Event FermionBosonStar::P_min_reached = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (y[4] <= std::max(P_ns_min, ((FermionBosonStar*)params)->EOS->min_P())); }, false, "P_min_reached", 1e-5);
+
+/* This function gives the initial conditions for the FBS integration
+ * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, and P_0 = EOS(rho_0)
+ * at the position r_init (which is assumed to be small enough for this to be valid) */
+vector FermionBosonStar::get_initial_conditions(double r_init) const {
+    return vector( {0., 0., this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.});
 }
 
+/* This function performs an integration and tries to find R_B_0 while integrating, where the bosonic component has sufficiently converged
+ *  and we can set it to zero. The convergence criterion is given by the phi_converged event. The function returns R_B_0 by reference.
+ * If the condition is not fulfilled, the "convergence" can be forced (with the force boolean) by finding the last minimum of the phi field.
+ * */
+int FermionBosonStar::find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double& R_B_0, bool force, double r_init, double r_end) const {
 
-int FermionBosonStar::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
-    return integrator::RKF45(&(this->dy_dt_static), r_init, this->initial_conditions, r_end, (void*) this,  result,  events, intOpts);
+    if(this->phi_0 <= 0.)
+        return -1;
+
+    integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
+    integrator::Event phi_converged = FermionBosonStar::phi_converged;
+    phi_converged.stopping_condition = true;
+    events.push_back(Psi_positive); // the presence of this event increases the accuracy around zero crossings
+    events.push_back(phi_converged);
+
+    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+
+    phi_converged = events[events.size()-1];
+    events.pop_back(); // Remove events that we added
+    events.pop_back();
+
+    if (res == integrator::event_stopping_condition && !phi_converged.active) // in this case another event triggered the stop so just return
+        return res;
+
+    if (!phi_converged.active ) { // the integrator didn't catch the convergence so we have to find it ourselves
+
+        if (!intOpts.save_intermediate) { // can't find it if we don't have the steps
+            results.clear();
+            intOpts.save_intermediate = true;
+            res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+            intOpts.save_intermediate = false;
+        }
+        // find the minimum in the phi field before it diverges
+        int index_phi_converged = 1;
+
+        auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
+        std::vector<int> abs_phi_minima({});
+        int index_phi_global_min = 0;
+        for (unsigned int i=1; i < results.size()-1; i++) {
+            if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
+                abs_phi_minima.push_back(i);
+            if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
+                index_phi_global_min = i;
+        }
+        index_phi_converged = index_phi_global_min;
+        if(abs_phi_minima.size() > 0)
+            index_phi_converged = abs_phi_minima[abs_phi_minima.size()-1];
+
+        // maybe the event didn't trigger because psi was too large?
+        if(!force) {
+            auto y_at_phi_converged = results[index_phi_converged].second;
+            vector dy_at_phi_converged = this->dy_dr(results[index_phi_converged].first, y_at_phi_converged);
+            y_at_phi_converged[3] =0.;
+            if (!phi_converged.condition(results[index_phi_converged].first, 0., y_at_phi_converged, dy_at_phi_converged, (const void*)this)) {
+                return res; // no, phi doesn't get close to zero so we shouldn't artifically set it so
+            }
+        }
+        // found a convergence for phi so restart at that point
+        results.erase(results.begin()+index_phi_converged, results.end()); // remove elements from integration
+
+        for (auto it = events.begin(); it != events.end(); ++it) // set events to active so that they don't trigger again in case they were active at the point of convergence
+            it->active = true;
+    }
+
+    R_B_0 = results[results.size()-1].first;
+    return res;
 }
 
-// find the correct omega-value for a given FBS using bisection in the range [omega_0,omega_1]
-// args: FermionBosonStar, vector, min omega, max omega
-int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega) {
+/* This function integrates the FBS system of equations and stops when phi is sufficiently converged (via the phi_converged event)
+ * This convergence is first found with the find_bosonic_convergence function, then R_B_0 is set so that subsequent calls don't have
+ *  to find it again.
+ * It then restarts the integration after artifically setting phi = Psi = 0 at that point. Additional values
+ *  can be set to zero with the additional_zero_indices vector, i.e. phi_1 and dphi_1.
+ * This allows to integrate the neutron matter and metric components until they converge as well.
+ * If the convergence criterion cannot be fulfilled, it can be forced with the force flag, see find_bosonic_convergence
+ *
+ * Only call after omega is set to the corresponding value, otherwise this function is not useful.
+ * */
+int FermionBosonStar::integrate_and_avoid_phi_divergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, bool force, std::vector<int> additional_zero_indices, double r_init, double r_end)  {
+
+    results.clear();
+    int res;
+
+    if(this->phi_0 <= 0.) { // no divergence, so easy peasy return
+        res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+        return res;
+    }
+
+    // integrate to R_B_0
+    if(this->R_B_0 == 0.) { // find it first
+        res = this->find_bosonic_convergence(results, events, intOpts, this->R_B_0, force, r_init, r_end);
+        if (this->R_B_0 == 0.) // the algorithm returned without finding R_B_0 so stop integration here (either divergence or other event triggered)
+            return res;
+        // std::cout << "found R_B_0=" << R_B_0 << std::endl;
+    }
+    else  {
+        res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, this->R_B_0);
+        if(res != integrator::endpoint_reached) // e.g. if some other event triggered
+            return res;
+    }
+
+    // now we can restart the integration
+    vector initial_conditions = results[results.size()-1].second;
+    initial_conditions[2] = 0.; initial_conditions[3] = 0.; // artificially set phi = Psi = 0
+    for (auto it = additional_zero_indices.begin(); it != additional_zero_indices.end(); ++it)  // and any other specified, i.e. phi_1, dphi_1
+        initial_conditions[*it] = 0.;
+
+    std::vector<integrator::step> additional_results;
+    events.push_back(FermionBosonStar::integration_converged);
+    double last_r = results[results.size()-1].first;
+    intOpts.clean_events = false;  // to stop the integrator from clearing the events
+
+    res = this->integrate(additional_results, events, initial_conditions, intOpts, last_r, r_end);
+
+    // add the results together into one vector
+    results.reserve(results.size() + additional_results.size());
+    for(unsigned int i = 1; i < additional_results.size(); i++)     // skip the first element to avoid duplicates
+        results.push_back(additional_results[i]);
+
+    events.pop_back();
+    return res;
+}
+
+/* This function tries to find the corresponding omega for a given mu, lambda, rho_0, phi_0
+ * such that it is an eigenfrequency with a bisection algorithm.
+ * The initial range is given by (omega_0, omega_1). First, the right number of zero crossings for (n_mode) is found
+ * with the bisection criterion. Then the algorithm tries to hone in on the value of omega such that phi->0 at infty.
+ * This is numerically impossible, as phi always diverges at finite r. This can be used as a bisection criterion, checking
+ *  whether phi diverges to positive or negative infty. In this way we converge on an omega such that the integration diverges
+ *  as late as possible, within max_steps or until a desired accuracy of delta_omega is reached.
+ * If the initial range is insufficient, the function tries to extend it
+ * The resulting omega is saved in the class
+ * */
+int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega, int verbose) {
 
     // values/parameters for bisection
     double omega_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in Phi(r) (number of roots corresponds to the modes of the scalar field)
-    //int n_mode = 0;         // number of the mode we want to compute. (mode n has n roots in the scalar field Phi(r))
-    int i = 0;
+    int res, res_1;
+    int i = 0; // count the steps for comparison with max_step
 
-    // variables regarding the integration
+    // variables for integration
     integrator::IntegrationOptions intOpts;
-    // define events to check for during integration and put them inside of a std::vector:
-    // stop integration if solution diverges:
-    std::vector<integrator::Event> events = {phi_negative, phi_positive, Psi_diverging};     // put the events into the event array
-    // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) omega
+    intOpts.verbose = verbose - 1;
+    std::vector<integrator::Event> events = {phi_negative, phi_positive, Psi_diverging};
     std::vector<integrator::step> results_0, results_1, results_mid;
 
-    // find initial values for omega min and omega max
     if( omega_1 < omega_0)
         std::swap(omega_0, omega_1);
 
+    // if phi_0 = 0 then we don't need a bisection
+    if (this->phi_0 == 0.) {
+        this->omega = 0.;
+        return 0;
+    }
+
     // set the lower omega and integrate the ODEs:
     this->omega = omega_0;
-    int res = this->integrate(results_0, events, intOpts);
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper omega and integrate the ODEs:
     this->omega = omega_1;
-    res = this->integrate(results_1, events, intOpts);
-    n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
+    res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
+    n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;
 
+    // if the desired number of roots is not given by the initial range adjust the range
     if(n_roots_0 == n_roots_1 || n_roots_0 > n_mode || n_mode > n_roots_1) {
         const int max_tries = 20;
         int tries = 0;
-        std::cout << "omega range insufficient. adjusting range..." << "\n"
+        if (verbose > 0)
+            std::cout << "omega range insufficient. adjusting range..." << "\n"
                         << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
         // adjust omega_0 if it is too large:
         while (n_roots_0 > n_mode) {
             // set the new lower omega and integrate the ODEs:
-            omega_0 *= 0.333;
+            omega_0 *= 0.5;
             this->omega = omega_0;
-            std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
-            int res = this->integrate(results_0, events, intOpts);
+            if (verbose > 1)
+                std::cout << tries << ": omega_0 now= " << this->omega << std::endl;
+            int res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
             n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
             if(tries > max_tries)
                 return -1;
@@ -115,30 +293,36 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         // adjust omega_1 if it is too small:
         while (n_mode >= n_roots_1) {
             // set the new upper omega and integrate the ODEs:
-            omega_1 *= 3.0;
+            omega_1 *= 2.0;
             this->omega = omega_1;
-            std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
-            res = this->integrate(results_1, events, intOpts);
+            if (verbose > 1)
+                std::cout << tries << ": omega_1 now= " << this->omega << std::endl;
+            res = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
             n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1; // number of roots is number of - to + crossings plus + to - crossings
             if(tries > max_tries)
                 return -1;
             tries++;
         }
-        std::cout << "adjusted omega range successfully with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+        if (verbose > 0)
+            std::cout << "adjusted omega range successfully with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
     }
 
-    //std::cout << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+    if (verbose > 0)
+        std::cout << "start with omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
 
     // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
     // iterate until the upper and lower omega produce results with one root difference
-    while(n_roots_1 - n_roots_0 > 1) {
+    while(n_roots_1 - n_roots_0 > 1 && i < max_steps) {
         omega_mid = (omega_0 + omega_1)/2.;
-        //std::cout << "omega_mid = " << omega_mid << " ->";
+        if (omega_mid == this->omega) // if this happens we reached floting point accuracy limits
+            break;
         this->omega = omega_mid;
-        res = this->integrate(results_mid, events, intOpts);
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
-        //std::cout << " with n_roots = " << n_roots_mid << std::endl;
 
+        if (verbose> 1)
+            std::cout << "i=" << i << ": omega_mid = " << omega_mid  << " with n_roots = " << n_roots_mid << std::endl;
+        i++;
         if(n_roots_mid == n_roots_0 || n_roots_mid <= n_mode) {
             n_roots_0 = n_roots_mid;
             omega_0 = omega_mid;
@@ -150,27 +334,41 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
             continue;
         }
     }
-    //std::cout << "found omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
+    if(abs(n_roots_1 - n_roots_0) != 1) { // number of roots does no match, we can't continue
+        if (verbose > 0)
+            std::cout << "no suitable pair of omegas found  omega_0 = " << omega_0 << " with n_roots_0 = " << n_roots_0 << " and omega_1 = " << omega_1 << " with n_roots_1 = " << n_roots_1 << std::endl;
+        return -1;
+    }
+    if (verbose > 0)
+        std::cout << "found omega_0 =" << omega_0 << " with n_roots=" << n_roots_0 << " and omega_1=" << omega_1 << " with n_roots=" << n_roots_1 << std::endl;
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
     int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
-    this->omega = omega_0; // intOpts.save_intermediate=true;
-    res = this->integrate(results_0, events, intOpts);
+    this->omega = omega_0;
+    res = this->integrate(results_0, events, this->get_initial_conditions(), intOpts);
     n_inft_0 = results_0[results_0.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
 
     this->omega = omega_1;
-    res = this->integrate(results_1, events, intOpts);
-    n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;    // save if sign(Phi(inf)) is positive or negative
-    //std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
+    res_1 = this->integrate(results_1, events, this->get_initial_conditions(), intOpts);
+    n_inft_1 = results_1[results_1.size()-1].second[2] > 0.;
+    if (verbose > 0)
+        std::cout << "start with omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
 
-    intOpts.save_intermediate=false;
-    while(omega_1 - omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
+    if(res == integrator::endpoint_reached || res_1 == integrator::endpoint_reached) { // in this case psi didn't diverge, so we are probably not integrating to large enough r
+        this->r_end *= 1.5;
+        // std::cout << "increased r_end to " << this->r_end << " and going deeper" <<  std::endl;
+        return bisection(omega_0, omega_1, n_mode, max_steps-i, delta_omega, verbose);
+    }
+
+    i = 0;
+    while((omega_1 - omega_0)/omega_0 > delta_omega && i < max_steps) { // iterate until accuracy in omega was reached or max number of steps exceeded
         omega_mid = (omega_0 + omega_1)/2.;
-        //std::cout << "omega_mid = " << omega_mid << " ->";
         this->omega = omega_mid;
-        res = this->integrate(results_mid, events, intOpts);
+        res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_inft_mid = results_mid[results_mid.size()-1].second[2] > 0.;  // save if sign(Phi(inf)) is positive or negative
-        //std::cout << " with n_inft= " << n_inft_mid << std::endl;
+
+        if (verbose > 1)
+            std::cout << "omega_mid = " << omega_mid  << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
         // compare the signs of Phi at infinity of the omega-upper, -middle and -lower solution
@@ -188,8 +386,13 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
         }
     }
 
-    //std::cout << "found omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << " and omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
-    this->omega = omega_0;
+    if (n_inft_1 > 0.)
+        this->omega = omega_1;
+    else
+        this->omega = omega_0;
+    if (verbose > 0)
+        std::cout << "After " << i << " steps, chose " << omega << " out of omega_0 =" << omega_0 << " with n_inft=" << n_inft_0 << ", omega_1=" << omega_1 << " with n_inft=" << n_inft_1 << std::endl;
+
     return 0;
 }
 
@@ -200,7 +403,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
     // calc the FBS solution once using an initial Phi value
     double my_NbNf;
-    double phi_c_init = this->initial_conditions[2];
+    double phi_c_init = this->phi_0;
 
     while (true) {
 
@@ -223,7 +426,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
             phi_c_init = phi_c_init*100.;
         }
 
-        this->set_initial_conditions(this->rho_0, phi_c_init);
+        this->phi_0 = phi_c_init;
         continue;
     }
 
@@ -239,7 +442,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
     //double my_omega;
 
-    this->set_initial_conditions(this->rho_0, phi_c_0);
+    this->phi_0 = phi_c_0;
     this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
     this->evaluate_model();
     NbNf_0 = this->N_B / this->N_F;
@@ -251,7 +454,7 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
         phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
 
-        this->set_initial_conditions(this->rho_0, phi_c_mid);
+        this->phi_0 = phi_c_mid;
         this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
         //my_omega = this->omega;
         this->evaluate_model();
@@ -276,85 +479,84 @@ void FermionBosonStar::shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accura
 
 }
 
-
+/* This function takes the result of an integration of the FBS system
+ * and calculates the star properties
+ * M_T, N_B, N_F, R_B, R_F
+ * */
 void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
-    // obtain estimate for the total mass:
-    // find the minimum in the g_tt component and then compute the total mass M_T at the corresponding index:
-    // start iterating through the solution array backwards:
-    int min_index_u = results.size()-1;
-    auto u_func = [&results](int index) {return results[index].second[1]; };
-    double curr_u_min = u_func(results.size()-1);  // last value for the metric component a at r=0
 
-    // find the index of the minimum of the g_rr metric component:
-    for (unsigned int i=results.size()-2; i > 0; i--) {
-        if (abs(u_func(i)) < curr_u_min) {
-            curr_u_min = abs(u_func(i)); // update current minimum
-            min_index_u = i;  // update min_index
+    const int step_number = results.size();
+
+    /* find the index where the phi field converged (to accurately compute the bosonic radius component later)
+     *  */
+    bool phi_converged = this->phi_0 <= 0.;
+    int index_phi_converged = 1;
+
+    if (this->phi_0 > 0.) {
+        if(this->R_B_0 >  0.) { // we artifically set phi to 0 at some point which makes our lifes much easier
+            phi_converged = true;
+            while(results[index_phi_converged].first < this->R_B_0 && index_phi_converged < step_number-2)
+                index_phi_converged++;
         }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
+        else { // we couldn't successfully set phi to 0 so find the closest thing
+            auto abs_phi_func = [&results] (int index) { return std::abs(results[index].second[2]); };
+            std::vector<int> abs_phi_minima({});
+            int index_phi_global_min = 0;
+            for (unsigned int i=1; i < results.size()-1; i++) {
+                if ( abs_phi_func(i) <= abs_phi_func(i-1) && abs_phi_func(i) < abs_phi_func(i+1) )
+                    abs_phi_minima.push_back(i);
+                if (abs_phi_func(i) < abs_phi_func(index_phi_global_min) )
+                    index_phi_global_min = i;
+            }
+            index_phi_converged = index_phi_global_min;
+            if(abs_phi_minima.size() > 0)
+                index_phi_converged = abs_phi_minima[abs_phi_minima.size()-1];
         }
     }
 
-    // find the index of the optimum of the total mass M_T (before it diverges).
-    // M_T := r/2 * ( 1 - 1/(a^2) )
-    // M_T(r) should i theory be a monotonically increasing function and should therefore have no local minima. Only a global one at r=0
-    // Note that this optimum might be at a different position in r than the minimum of the g_rr metric component
-    // the optimum can be found at the point where the derivative of M_t with respect to r is minimal:
+    // std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
 
-    // last value of the total mass M_T:
+    /*   M_T
+     *   Calculate the ADM mass, since we always have convergence, read it from the end
+     * M_T := r/2 * ( 1 - 1/(a^2) )
+     * */
+    double M_T = 0.;
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - exp(-results[index].second[1])); };
     auto dM_func = [&results, &M_func](int i) { return  (M_func(i+1) - M_func(i))/(results[i+1].first - results[i].first)/ 2.
                                                         + (M_func(i) - M_func(i-1))/(results[i].first - results[i-1].first)/2.; };
 
-    std::vector<int> dM_minima;
-    int index_dM_global_minimum = results.size()-3;
-    for (unsigned int i=results.size()-3; i > 2; i--) {
-        // std::cout << "i=" << i << ", r= " << results[i].first << ", M = " << M_func(i) << ", dM = " << dM_func(i) << std::endl;
-        if(dM_func(i) < dM_func(i-1) && dM_func(i) <= dM_func(i+1)) // search for (true) local minima of dM/dr
-            dM_minima.push_back(i);
-        if(dM_func(i) < dM_func(index_dM_global_minimum)) // and finde the global one
-            index_dM_global_minimum = i;
+    if(phi_converged) { // no divergence -> read M_T out at the end
+        M_T = M_func(step_number-1);
     }
-    // calculate M_T in where the last local minimum of M_T is, if it doesn't exist use the global one:
-    int min_index_dMdr;
-    if(dM_minima.size() > 0) {
-        min_index_dMdr = dM_minima[0];	// use the first local minimum in the list as it is the one at the largest radius
-        min_index_dMdr = min_index_dMdr < index_dM_global_minimum ? index_dM_global_minimum : min_index_dMdr; // the global minimum is actually to the right of the local one, so it should be better
-    }
-    else
-        min_index_dMdr = index_dM_global_minimum;
+    else {
+        int index_dM_global_minimum = results.size()-3;
+        for (int i=results.size()-3; i > index_phi_converged; i--) {
+            if(dM_func(index_dM_global_minimum) != dM_func(index_dM_global_minimum)) // NaN prevention
+                index_dM_global_minimum = i;
+            if(dM_func(i) < dM_func(index_dM_global_minimum)) // find the global minimum
+                index_dM_global_minimum = i;
+        }
 
-    double M_T = M_func(min_index_dMdr);
+        M_T = M_func(index_dM_global_minimum);
+    }
 
     // std::cout << "min_index_nu: " << min_index_nu << " min_index_M: " << min_index_dMdr << " min_index_phi: " << min_index_phi << " res_size:" << results.size() << std::endl;
 
-    // find the minimum in the phi field before it diverges (to accurately compute the bosonic radius component later):
-    // Note: this method will maybe not work well if we consider higher modes of phi!
-    int min_index_phi = results.size()-1;
-    auto phi_func = [&results](int index) { return results[index].second[2]; };
-    double curr_phi_min = abs(phi_func(results.size()-1));  // last value for the phi field a at r=0
-    for (unsigned int i=results.size()-2; i >= 0; i--) {
-        if (abs(phi_func(i)) < curr_phi_min) {
-            curr_phi_min = abs(phi_func(i)); // update current minimum
-            min_index_phi = i;  // update min_index
-        }
-        else {
-            break; // the component is increasing again. that means we have found out minimum
-        }
-    }
-
-    // Extract the results and put them into a usable form to calculate N_B, N_F
-    std::vector<double> r(results.size()), N_B_integrand(results.size()), N_F_integrand(results.size());
+    /*  N_B, N_F
+     *  We need to integrate the particle number densities to obtain N_B, N_F */
+    std::vector<double> r(step_number), N_B_integrand(step_number), N_F_integrand(step_number);
     vector v;
     double rho, eps;
 
     for(unsigned int i = 0; i < results.size(); i++) {
         r[i] = results[i].first;
         v = results[i].second;
-        N_B_integrand[i] = exp(v[1]/2.) * this->omega *  v[2] * v[2] * r[i] * r[i] * exp(-v[0]/2.);  // get bosonic mass (paricle number) for each r
-        this->EOS->callEOS(rho, eps, std::max(0., v[4]));
-        N_F_integrand[i] = exp(v[1]/2.) * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
+        N_B_integrand[i] = 8.*M_PI * exp(v[1]/2.) * this->omega *  v[2] * v[2] * r[i] * r[i] * exp(-v[0]/2.);  // get bosonic mass (paricle number) for each r
+        if (v[4] < P_ns_min || v[4] < this->EOS->min_P())
+            rho = 0.;
+        else
+            this->EOS->callEOS(rho, eps, v[4]);
+        N_F_integrand[i] = 4.*M_PI *  exp(v[1]/2.) * rho * r[i] * r[i] ;   // get fermionic mass (paricle number) for each r
     }
 
     // Integrate
@@ -363,15 +565,12 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     integrator::cumtrapz(r, N_B_integrand, N_B_integrated);
 
     // Find where 99% of N_B,N_F are reached to get the radii
-    // we must take the value of the integral *before* the solution diverges! Therefore we cannot just take the last array element
-    // but we take the index of the minimum of the metrig g_tt component and the scalar field Phi respectively! This is given by "min_index_*" (see above)
-    double N_F = 4.*M_PI* N_F_integrated[min_index_u],
-           N_B = 8.*M_PI* N_B_integrated[min_index_phi];
+    double N_F =  N_F_integrated[step_number-1],
+           N_B =  N_B_integrated[index_phi_converged];
 
     // first find the index in array where 99% is contained
-    // only iterate until the position where the minimum of the metrig g_tt component is (min_index)
     int i_B = 0, i_F = 0;
-    unsigned int max_index = std::max(min_index_phi, min_index_u);
+    unsigned int max_index = step_number;
     for(unsigned int i = 1; i < max_index; i++) {
         if(N_B_integrated[i] < 0.99*N_B)
             i_B++;
@@ -379,39 +578,46 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
             i_F++;
     }
     // obtain radius from corresponding index
-    double R_B = r[i_B], R_F = r[i_F];
+    double R_B = r[i_B], R_F_0 = r[i_F];
 
-    // compute the fermionic radius R_f using the definition where P(R_f)==0:
-    // iterate the Pressure-array until we find the first point where the pressure is zero:
-    double R_F_0 = 0.0; // fermionic radius where pressure is zero
+    /*  R_F
+     * compute the fermionic radius R_f using the definition where P(R_f)==0
+     * iterate the Pressure-array until we find the first point where the pressure is zero */
+    double R_F = 0.;
+    int index_R_F = 0;
+    auto P_func = [&results] (int index) {return results[index].second[4];};
 
-    // find the first point where the pressure is (approx) zero and take this as the fermionic radius
-    for (unsigned i = 1; i < results.size(); i++) {
-        if (results[i].second[4] < P_ns_min) {
-            R_F_0 = r[i];
-            N_F = 4.*M_PI* N_F_integrated[i];
-            break;
-        }
-    }
+    while( P_func(index_R_F) > std::max(P_ns_min, EOS->min_P())  && index_R_F < step_number-1)
+        index_R_F++;
+    R_F = r[index_R_F];
+    N_F = N_F_integrated[index_R_F];
 
     //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
     this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
 }
 
+/* Simple wrapper function if the results of the integration are not needed for the user */
 void FermionBosonStar::evaluate_model() {
     std::vector<integrator::step> results;
     this->evaluate_model(results);
 }
 
+/* This function integrates over the ODE system while avoiding the phi divergence
+ *  and then calculates the star properties
+ *  Optionally, the output of the integration is saved in the file
+ *  Only call if omega is the corresponding eigenfrequency of mu, lambda, rho_0, phi_0 */
 void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
-    // integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
+    intOpts.verbose = 0;
 
-    std::vector<integrator::Event> events = {/*FermionBosonStar::M_converged,*/ FermionBosonStar::Psi_diverging};
-    results.clear();
+    std::vector<integrator::Event> events;
 
-    int res = this->integrate(results, events, intOpts);
+    integrator::Event P_min_reached = FermionBosonStar::P_min_reached; // the presence of this event will increase the accuracy around R_F
+    if(this->rho_0 > 0.)
+        events.push_back(P_min_reached);
+
+    int res = this->integrate_and_avoid_phi_divergence(results, events, intOpts, false);
 
     if(!filename.empty()) {
         plotting::save_integration_data(results, {0,1,2,3,4}, {"v", "u", "phi", "Psi", "P"}, filename);
@@ -426,22 +632,24 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
     this->calculate_star_parameters(results, events);
 }
 
+/* Outputs the star parameters and properties */
 std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
     return os   << fbs.M_T                   << " "   // total gravitational mass
                 << fbs.rho_0                 << " "   // central density
                 << fbs.phi_0                 << " "   // central scalar field
                 << fbs.R_F*1.476625061       << " "   // fermionic radius
-                << fbs.R_F_0*1.476625061     << " "   // fermionic radius where P(r)=0
                 << fbs.N_F                   << " "   // number of fermions
                 << fbs.R_B*1.476625061       << " "   // bosonic radius
+                << fbs.R_B_0*1.476625061     << " "   // phi converged
                 << fbs.N_B                   << " "   // number of bosons
-                //<< fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
+                << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
                 << fbs.omega                 << " "   // omega
                 << fbs.mu                    << " "   // mass mu
                 << fbs.lambda;      // self-interaction parameter lambda
 }
+/* Gives the labels of the values from the output */
 std::vector<std::string> FermionBosonStar::labels() {
-    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "N_F", "R_B", "N_B", /*"N_B/N_F",*/ "omega", "mu", "lambda"});
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
 }
 
 
@@ -449,34 +657,42 @@ std::vector<std::string> FermionBosonStar::labels() {
  * FermionBosonStarTLN *
  ***********************/
 
-void FermionBosonStarTLN::set_initial_conditions(const double phi_1_0, const double H_0, const double r_init) {
-    this->H_0 = H_0;
-    this->phi_1_0 = phi_1_0;
-    this->initial_conditions =  vector( {0., 0., this->phi_0, 0., rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.,
-                                                            H_0*r_init*r_init, 2.*H_0*r_init, phi_1_0*pow(r_init,3), 3.*phi_1_0*pow(r_init,2)});
+
+/* This function gives the initial conditions for the FBS integration
+ * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, P_0 = EOS(rho_0)
+ *  H_0 = H_0 * r_0^2,  dH_0 = 2 H_0 r , phi_1_0 = phi_0 r_0^3,  dphi_1_0 = phi_0 3 r_0^2
+ * at the position r_0=r_init */
+vector FermionBosonStarTLN::get_initial_conditions(double r_init) const {
+    r_init = (r_init < 0. ? this->r_init : r_init);
+    return vector( {0., 0., this->phi_0, 0., this->rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.,
+                                                             this->H_0*r_init*r_init, 2.*this->H_0*r_init, this->phi_1_0*pow(r_init,3), 3.*this->phi_1_0*pow(r_init,2)});
 }
 
-vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
+/* This function gives the system of ODEs for the FBS + TLN star
+ *  for the variables a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1
+ *
+ *  This function is called by the integrator during the integration
+ * */
+vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) const {
     const double v = vars[0], u = vars[1], phi = vars[2], Psi = vars[3];
     double P = vars[4];
     const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
 
     EquationOfState& myEOS = *(this->EOS);
-    const double mu = this->mu; const double lambda = this->lambda; const double omega = this->omega;
 
     double rho, epsilon, drho_dP, dP_drho;
     if(P <= 0. || P < myEOS.min_P() || P < P_ns_min)  {
         P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
     } else {
         myEOS.callEOS(rho, epsilon, P); // change rho and epsilon by reference using EOS member function
-        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_drho(rho, epsilon) : 0.;
-        dP_drho = myEOS.dP_drho(rho, epsilon);
+        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_de(rho, epsilon) : 0.;
         drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
     }
 
-    vector dy_dr = FermionBosonStar::dy_dt(r, vars); // use equations as given in parent class
+    vector dy_dr = FermionBosonStar::dy_dr(r, vars); // use equations as given in parent class
     const double dv_dr = dy_dr[0],  du_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
 
+    // The equations for the bosonic field potential
     const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
     const double dV_deps = mu*mu + lambda*phi*phi;
     const double ddV_deps2 = lambda;
@@ -508,81 +724,99 @@ vector FermionBosonStarTLN::dy_dt(const double r, const vector& vars) {
     return vector({dy_dr[0], dy_dr[1], dy_dr[2], dy_dr[3], dy_dr[4], dH_dr, ddH_dr2, dphi_1_dr, ddphi_1_dr2});
 }
 
+/* This function takes the result of an integration of the FBS+TLN system
+ * and calculates the star properties
+ * lambda_tidal, k2, y_max, R_ext
+ * */
 void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events) {
 
+    const int step_number = results.size();
     // calculate parameters for unperturbed star
-    //FermionBosonStar::calculate_star_parameters(results, events);
+    //FermionBosonStar::calculate_star_parameters(results, events); // TODO: Check if can be uncommented
+    bool phi_converged = this->phi_0 <= 0.;
 
-    // add TLN calculation
-    // The quantity to compute is y = r H' / H
-    // if the fermionic radius larger than the bosonic one, take y = y(R_F_0)
-    // if the bosonic radius is larger, find the maxiumum going from the back to the front
+    if (this->phi_0 > 0.) {
+        if(this->R_B_0 >  0.) // we have artifically set phi to 0 at some point which makes our lifes much easier
+            phi_converged = true;
+    }
+    // std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
+
+    /* The quantity to compute is y = r H' / H
+     * at the point where both components have converged */
     auto M_func = [&results](int index) { return results[index].first / 2. * (1. - exp(-results[index].second[1])); };
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
     double y = 0., R_ext = 0., M_ext = 0.;
 
-    if(this->R_F_0 > 100.*this->R_B) {
-        int index_R_F = 0;
-        while ( results[index_R_F].first < this->R_F_0 ) index_R_F++;
-        // approximate y, M_ext at R_F_0
-        y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F_0 - results[index_R_F-1].first);
-        R_ext = R_F_0;
-        //std::cout << "R_F_0 > R_B:  at R_F_0=" << R_F_0 << " y = " << y << std::endl;
+    if(phi_converged) {
+        int index_ext = 0;
+        R_ext = std::max(this->R_B_0, this->R_F);
+        while(results[index_ext].first < R_ext && index_ext < step_number-2)
+            index_ext++;
+
+        y = y_func(index_ext);
+        M_ext = M_func(index_ext);
+        R_ext = results[index_ext].first;
     }
     else {
-        // to find the starting point see where y actually has a minimum
-        int index_bs_radius = 1;
-        while(results[index_bs_radius].first < this->R_B/1e3  && (unsigned int)index_bs_radius < results.size()-1)
-            index_bs_radius++;
-        int index_y_min = index_bs_radius;
-        while(y_func(index_y_min) < y_func(index_y_min-1) && (unsigned int)index_y_min < results.size()-1)
-            index_y_min++;
-
-        // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
-        std::vector<int> indices_maxima;
-        int i = index_y_min + 1;
-        for( unsigned int i = index_y_min + 1; i < results.size()-2; i++) {
-            //std::cout << "i=" << i << ", r= " << results[i].first << ", y = " << y_func(i) << ", dy = " << dy_func(i) << std::endl;
-            if(   (y_func(i) > y_func(i -1) && y_func(i) > y_func(i+1) )
-                    ||  ( y_func(i) > y_func(i-1) && dy_func(i) < dy_func(i-1) && dy_func(i) < dy_func(i+1)) ) {
-                indices_maxima.push_back(i); /*std::cout << "max/saddle found^ " << std::endl;*/
-            }
-            if(y_func(i) < 0.) // here something funky is happening so stop
-                break;
+        if(this->R_F > 100.*this->R_B) { // in this case, the fermionic part dominates the bosonic part, so we can read out the TLN where the fermionic part vanishes
+            int index_R_F = 0;
+            while ( results[index_R_F].first < this->R_F && index_R_F < step_number-1)
+                index_R_F++;
+            // approximate y, M_ext at R_F
+            y = y_func(index_R_F-1) +  (y_func(index_R_F) - y_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
+            M_ext = M_func(index_R_F-1) +  (M_func(index_R_F) - M_func(index_R_F-1)) / (results[index_R_F].first - results[index_R_F-1].first) * (this->R_F - results[index_R_F-1].first);
+            R_ext = R_F;
+            //std::cout << "R_F > R_B:  at R_F=" << R_F << " y = " << y << std::endl;
         }
-        int index_y;
-        if(indices_maxima.size() == 0) // if nothing was found just take the last point
-            index_y = results.size() - 1;
-        else
-            index_y = indices_maxima.at(indices_maxima.size()-1);
-        y = y_func(index_y);
-        R_ext = results[index_y].first;
-        M_ext = M_func(index_y); // extract M_ext at the same radius
-        //std::cout << "R_B> R_F_0: found max y = " << y << " at " << index_y << ", R_ext=" << R_ext << std::endl;
+        else { // implement procedure from Sennet 2017 (https://arxiv.org/pdf/1704.08651.pdf)
+            // to find the starting point see where y actually has a minimum
+            int index_bs_radius = 1;
+            while(results[index_bs_radius].first < this->R_B/1e3  && index_bs_radius < step_number-2)
+                index_bs_radius++;
+            int index_y_min = index_bs_radius;
+            while(y_func(index_y_min) < y_func(index_y_min-1) && index_y_min < step_number-2)
+                index_y_min++;
 
+            // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
+            std::vector<int> indices_maxima;
+            int i = index_y_min + 1;
+            for( unsigned int i = index_y_min + 1; i < results.size()-2; i++) {
+                //std::cout << "i=" << i << ", r= " << results[i].first << ", y = " << y_func(i) << ", dy = " << dy_func(i) << std::endl;
+                if(   (y_func(i) > y_func(i -1) && y_func(i) > y_func(i+1) )
+                        ||  ( y_func(i) > y_func(i-1) && dy_func(i) < dy_func(i-1) && dy_func(i) < dy_func(i+1)) ) {
+                    indices_maxima.push_back(i);
+                }
+                if(y_func(i) < 0.) // here something funky is happening so stop
+                    break;
+            }
+            int index_y;
+            if(indices_maxima.size() == 0) // if nothing was found just take the last point
+                index_y = results.size() - 1;
+            else
+                index_y = indices_maxima.at(indices_maxima.size()-1);
+            y = y_func(index_y);
+            R_ext = results[index_y].first;
+            M_ext = M_func(index_y); // extract M_ext at the same radius
+        }
     }
+    // std::cout << "R_F=" << R_F <<", R_B=" <<  R_B << ", R_ext = " << R_ext << ", y = " << y << std::endl;
 
     // now that we found y, calculate k2
-    // double R_ext = std::max(this->R_F_0, this->R_B);
     double C = M_ext / R_ext; // the compactness at the extraction point
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
-    double lambda_tidal = 16./15.*pow(this->M_T, 5) * pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
+    double lambda_tidal = 16./15.*pow(this->M_T, 5)* /* pow(M_ext, 5) */ pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
                     / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
                         + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
-                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*log(1.-2.*C));
+                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*  log(1.-2.*C)   );
     double k2 = 3./2. * lambda_tidal / pow(R_ext, 5);
 
     /*std::cout << "C = " << C << ", y = " << y  << ", k2 = " << k2
                 << ", a= " << (2. + 2.*C*(y-1.) - y)
             << std::endl;*/
 
-    this->lambda_tidal = lambda_tidal;
-    this->k2 = k2;
-    this->y_max = y;
-
+    this->lambda_tidal = lambda_tidal; this->k2 = k2; this->y_max = y; this->R_ext= R_ext;
 }
 
 void FermionBosonStarTLN::evaluate_model() {
@@ -590,17 +824,21 @@ void FermionBosonStarTLN::evaluate_model() {
     this->evaluate_model(results);
 }
 
+/* This function integrates over the ODE system while avoiding the phi divergence
+ *  and then calculates the star properties
+ *  Optionally, the output of the integration is saved in the file
+ *  Additionally, y is calculated at every point for debugging purposes */
 void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results, std::string filename) {
 
     integrator::IntegrationOptions intOpts;
     intOpts.save_intermediate = true;
+    const bool force_phi_to_0 = true;
 
-    integrator::Event M_converged(FermionBosonStar::M_converged);
-    M_converged.stopping_condition = false;   // TODO: check why M_converged triggers on first point
-    std::vector<integrator::Event> events = {M_converged, FermionBosonStar::Psi_diverging, FermionBosonStarTLN::dphi_1_diverging};
+    std::vector<integrator::Event> events;
     results.clear();
 
-    int res = this->integrate(results, events, intOpts);
+    std::vector<int> additional_zero_indices = {7,8};
+    int res = this->integrate_and_avoid_phi_divergence(results, events,  intOpts, force_phi_to_0, additional_zero_indices);
 
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
     if(!filename.empty()) {
@@ -622,6 +860,7 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
     this->calculate_star_parameters(results, events);
 }
 
+/* This calls the parent class output and adds additional values */
 std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
     return os   << (FermionBosonStar)fbs   << " "   // parent class parameters
                 << fbs.k2                  << " "   // tidal love number
@@ -637,48 +876,55 @@ std::vector<std::string> FermionBosonStarTLN::labels() {
     return l;
 }
 
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true);
+/* This event triggers when dphi_1 is diverging i.e. dphi_1 > 1e6 */
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true, "dphi_1_diverging");
 
-const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; });
-const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; });
+/* This event triggers when phi_1 is negative, used for zero counting */
+const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; }, false, "phi_1_negative");
+/* This event triggers when phi_1 is positive  */
+const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; }, false, "phi_1_positive");
 
 
-// find the correct phi_1-value for a given FBS using bisection in the range [phi_1_0, phi_1_1]
-int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode, int max_steps, double delta_phi_1) {
-    // values/parameters for bisection
-    double phi_1_mid;
+/* This function finds the corresponding phi_1_0 inside the range (phi_1_0_l, phi_1_0_r)
+ *  such that phi_1 adheres to the boundary conditions phi_1->0 at infty
+ *  via a bisection algorithm, similarly to omega
+ * This algorithm does not adjust the range
+ * The result depends on H_0, do not change afterwards */
+int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int n_mode, int max_steps, double delta_phi_1, int verbose) {
+
+    double phi_1_0_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
     int i = 0;
     const int index_phi_1 = 7;
-
-    // evaluate model without TLN and calculate values such that we can check consistency at the end
-    // FermionBosonStar::evaluate_model();
+    const bool force_phi_to_0 = true;
 
     // variables regarding the integration
     integrator::IntegrationOptions intOpts;
-    intOpts.verbose = 0;
-    // define events to check for during integration and put them inside of a std::vector:
-    // stop integration if solution diverges:
-    std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};     // put the events into the event array
-    // declare containers to hold the solution of the integration for the upper- (1), lower- (0) and middle (mid) phi_1
+    intOpts.verbose = verbose - 1;
+    std::vector<integrator::Event> events = {phi_1_negative, phi_1_positive, dphi_1_diverging};
     std::vector<integrator::step> results_0, results_1, results_mid;
 
-    // find initial values for phi_1 min and phi_1 max
-    if(phi_1_1 < phi_1_1)
-        std::swap(phi_1_0, phi_1_1);
+    if(phi_1_0_r < phi_1_0_l)
+        std::swap(phi_1_0_l, phi_1_0_r);
+
+    // if phi_0 = 0 then we don't need a bisection
+    if (this->phi_0 == 0.) {
+        this->phi_1_0 = 0.;
+        return 0;
+    }
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate = true;
     #endif
 
     // set the lower phi_1 and integrate the ODEs:
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    int res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    int res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts, force_phi_to_0);
     n_roots_0 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     // set the upper phi_1 and integrate the ODEs:
-    this->set_initial_conditions(phi_1_1, this->H_0);
-    res = this->integrate(results_1, events, intOpts);
+    this->phi_1_0 = phi_1_0_r;
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_1, events, intOpts, force_phi_to_0);
     n_roots_1 = events[0].steps.size() + events[1].steps.size() - 1;    // number of roots is number of - to + crossings plus + to - crossings
 
     #ifdef DEBUG_PLOTTING
@@ -693,48 +939,52 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
     if(n_roots_0 == n_roots_1 || n_roots_1 > n_mode || n_mode > n_roots_0)
         return -1;
 
-    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
+    if (verbose > 0)
+        std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_roots=" << n_roots_0 << " and phi_1_r=" << phi_1_0_r << " with n_roots=" << n_roots_1 << std::endl;
     intOpts.save_intermediate = false;
 
-    // find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
-    // iterate until the upper and lower phi_1 produce results with one root difference
+    /* find right number of zero crossings (roots) cossesponding to the number of modes (n-th mode => n roots)
+     * iterate until the upper and lower phi_1 produce results with one root difference */
     while(n_roots_0 - n_roots_1 > 1 && i < max_steps) {
-        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "i=" << i << ": phi_1_mid = " << phi_1_mid << " ->";
-        this->set_initial_conditions(phi_1_mid, this->H_0);
-        res = this->integrate(results_mid, events, intOpts);
+        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
+        this->phi_1_0 = phi_1_0_mid;
+        res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_mid, events, intOpts, force_phi_to_0);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
-        //std::cout << " with n_roots = " << n_roots_mid << std::endl;
+        if (verbose > 1)
+            std::cout << "i=" << i << ": phi_1_0_mid = " << phi_1_0_mid << " with n_roots = " << n_roots_mid << std::endl;
         i++;
         if(n_roots_mid == n_roots_1 || n_roots_mid <= n_mode) {
             n_roots_1 = n_roots_mid;
-            phi_1_1 = phi_1_mid;
+            phi_1_0_r = phi_1_0_mid;
             continue;
         }
         if(n_roots_mid == n_roots_0 || n_roots_mid >= n_mode) {
             n_roots_0 = n_roots_mid;
-            phi_1_0 = phi_1_mid;
+            phi_1_0_l = phi_1_0_mid;
             continue;
         }
     }
-    //std::cout << "after i=" << i << ": found phi_1_0 =" << phi_1_0 << " with n_roots=" << n_roots_0 << " and phi_1_1=" << phi_1_1 << " with n_roots=" << n_roots_1 << std::endl;
-    if(abs(n_roots_1 - n_roots_0) != 1)
+    if (verbose > 0)
+        std::cout << "after i=" << i << ": found phi_1_0_l =" << phi_1_0_l << " with n_roots=" << n_roots_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_roots=" << n_roots_1 << std::endl;
+    if(abs(n_roots_1 - n_roots_0) != 1) // number of roots does no match, we can't continue
         return -1;
 
     // find right behavior at infty ( Phi(r->infty) = 0 )
-    int n_inft_0, n_inft_1, n_inft_mid; // store the sign of Phi at infinity (or at the last r-value)
+    int n_inft_0, n_inft_1, n_inft_mid;
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate=true;
     #endif
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts, force_phi_to_0);
     n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
 
-    this->set_initial_conditions(phi_1_1, this->H_0);
-    res = this->integrate(results_1, events, intOpts);
-    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
-    //std::cout << "start with phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1 << std::endl;
+    this->phi_1_0 = phi_1_0_r;
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_1, events, intOpts, force_phi_to_0);
+    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;
+
+    if (verbose > 0)
+        std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_inft=" << n_inft_1 << std::endl;
 
     #ifdef DEBUG_PLOTTING
     plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
@@ -756,49 +1006,49 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0, double phi_1_1, int n_m
 
     intOpts.save_intermediate=false;
     i =0;
-    while( (phi_1_1 - phi_1_0)/phi_1_0 > delta_phi_1 && i < max_steps) { // iterate until accuracy in phi_1 was reached or max number of steps exceeded
-        phi_1_mid = (phi_1_0 + phi_1_1)/2.;
-        //std::cout << "i=" << i << ", phi_1_mid = " << phi_1_mid << " ->";
-        this->set_initial_conditions(phi_1_mid, this->H_0);
-        res = this->integrate(results_mid, events, intOpts);
+    /* iterate until accuracy in phi_1 was reached or max number of steps exceeded */
+
+    while( (phi_1_0_r - phi_1_0_l)/phi_1_0_l > delta_phi_1 && i < max_steps) {
+        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
+        this->phi_1_0 = phi_1_0_mid;
+        res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_mid, events, intOpts, force_phi_to_0);
         n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
-        //std::cout << " with n_inft= " << n_inft_mid << std::endl;
+        if (verbose > 1)
+            std::cout << "i=" << i << ", phi_1_0_mid = " << phi_1_0_mid << " with n_inft= " << n_inft_mid << std::endl;
 
         i++;
         // compare the signs of Phi at infinity of the phi_1-upper, -middle and -lower solution
-        // when middle and lower sign are equal, we can move phi_1_0 to phi_1_mid
+        // when middle and lower sign are equal, we can move phi_1_0_l to phi_1_0_mid
         if(n_inft_mid == n_inft_0) {
             n_inft_0 = n_inft_mid;
-            phi_1_0 = phi_1_mid;
+            phi_1_0_l = phi_1_0_mid;
             continue;
         }
-        // when middle and upper sign are equal, we can move phi_1_1 to phi_1_mid
+        // when middle and upper sign are equal, we can move phi_1_0_r to phi_1_0_mid
         if(n_inft_mid == n_inft_1) {
             n_inft_1 = n_inft_mid;
-            phi_1_1 = phi_1_mid;
+            phi_1_0_r = phi_1_0_mid;
             continue;
         }
     }
 
     #ifdef DEBUG_PLOTTING
     intOpts.save_intermediate=true;
-    this->set_initial_conditions(phi_1_0, this->H_0);
-    res = this->integrate(results_0, events, intOpts);
+    this->phi_1_0 = phi_1_0_l;
+    res = FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts, force_phi_to_0);
 
     plotting::plot_evolution(results_0, events, {2,3,4,5,6,7,8}, {"Phi", "Psi", "P", "H", "dH", "phi_1", "dphi_1"});
     matplotlibcpp::legend(); matplotlibcpp::yscale("log"); matplotlibcpp::xscale("log");
     matplotlibcpp::save("test/final.png"); matplotlibcpp::close();
     #endif
 
-    // check for consistency with main equations  // TODO: first improve R_B calculations
-    /*
     double last_r = results_mid[results_mid.size()-1].first;
-    std::cout << "after " << i << " steps found phi_1_0 =" << phi_1_0 << " with n_inft=" << n_inft_0 << " and phi_1_1=" << phi_1_1 << " with n_inft=" << n_inft_1
-                    << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl;*/
+    if (verbose > 0)
+        std::cout << "after " << i << " steps found phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r=" << phi_1_0_r << " with n_inft=" << n_inft_1
+                    << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl;
     //assert(last_r > this->R_F_0  && last_r > this->R_B);
 
-
-    this->set_initial_conditions(phi_1_0, this->H_0);
+    this->phi_1_0 = phi_1_0_l;
     return 0;
 }
 

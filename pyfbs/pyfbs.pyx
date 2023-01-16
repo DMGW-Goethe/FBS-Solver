@@ -22,31 +22,36 @@ cdef class PyEoS:
     def get_P_from_rho(self, rho_in, epsilon=0.):
         return deref(self.eos).get_P_from_rho(rho_in, epsilon)
 
+    def min_P(self):
+        return deref(self.eos).min_P()
+
+    def min_rho(self):
+        return deref(self.eos).min_rho()
+
 cdef class PyEoStable(PyEoS):
 #    cdef shared_ptr[EoStable] eos
 
     def __cinit__(self, str filename):
         cdef string f = <string> filename.encode('utf-8')
         cdef shared_ptr[EoStable] ptr =  make_shared[EoStable](f)
-        self.eos = ptr
-        # see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
+        self.eos = ptr # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 
 cdef class PyPolytropicEoS(PyEoS):
 
     def __cinit__(self, double kappa, double Gamma):
-        self.eos = make_shared[PolytropicEoS](kappa, Gamma)
+        self.eos = make_shared[PolytropicEoS](kappa, Gamma) # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 cdef class PyCausalEoS(PyEoS):
 
     def __cinit__(self, double eps_f, double P_f=0.):
-        self.eos = make_shared[CausalEoS](eps_f, P_f)
+        self.eos = make_shared[CausalEoS](eps_f, P_f) # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 
 cdef class PyIntegrationOptions:
     cdef shared_ptr[IntegrationOptions] io
 
-    def __cinit__(self, int max_step=1000000, double target_error=1e-10, double min_stepsize=1e-18, double max_stepsize=1e-2, bool save_intermediate=False, int verbose=0):
+    def __cinit__(self, int max_step=1000000, double target_error=1e-12, double min_stepsize=1e-16, double max_stepsize=1e-2, bool save_intermediate=False, int verbose=0):
         self.io = make_shared[IntegrationOptions](max_step, target_error, min_stepsize, max_stepsize, save_intermediate, verbose)
 
 
@@ -60,9 +65,9 @@ cdef class PyFermionBosonStar:
         self.evaluated=False
 
     @staticmethod
-    def FromParameters(PyEoS pyEoS, mu, lambda_=0., omega=0.):
+    def FromParameters(PyEoS pyEoS, mu, lambda_=0., omega=0., rho_0 = 0., phi_0 = 0.):
         cdef PyFermionBosonStar pfbs = PyFermionBosonStar.__new__(PyFermionBosonStar)
-        pfbs.fbs = make_shared[FermionBosonStar](pyEoS.eos, <double>mu, <double>lambda_, <double>omega)
+        pfbs.fbs = make_shared[FermionBosonStar](pyEoS.eos, <double>mu, <double>lambda_, <double>omega, <double>rho_0, <double>phi_0)
         return pfbs
 
     @staticmethod
@@ -76,10 +81,6 @@ cdef class PyFermionBosonStar:
         cdef PyFermionBosonStar pfbs = PyFermionBosonStar.__new__(PyFermionBosonStar)
         pfbs.fbs = make_shared[FermionBosonStar](fbs)
         return pfbs
-
-    def set_initial_conditions(self, rho_0, phi_0):
-        deref(self.fbs).set_initial_conditions(rho_0, phi_0)
-        self.evaluated=False
 
     def bisection(self, omega_0, omega_1, n_mode=0, max_step=500, delta_omega=1e-15):
         deref(self.fbs).bisection(omega_0, omega_1, n_mode, max_step, delta_omega)
@@ -118,10 +119,12 @@ cdef class PyFermionBosonStar:
                 "N_B":deref(self.fbs).N_B,
                 "N_F":deref(self.fbs).N_F,
                 "R_B":deref(self.fbs).R_B,
+                "R_B_0":deref(self.fbs).R_B_0,
                 "R_F":deref(self.fbs).R_F,
                 "R_F_0":deref(self.fbs).R_F_0,
                 "rho_0":deref(self.fbs).rho_0,
                 "phi_0":deref(self.fbs).phi_0,
+                "mu":deref(self.fbs).mu,
                 "omega":deref(self.fbs).omega,
                 }
 
@@ -133,25 +136,27 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
     def FromFBS(PyFermionBosonStar pfbs_notln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = make_shared[FermionBosonStarTLN](deref(pfbs_notln.fbs))
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     @staticmethod
     cdef PyFermionBosonStarTLN FromPointer(shared_ptr[FermionBosonStarTLN] fbstln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = fbstln
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     @staticmethod
     cdef PyFermionBosonStarTLN FromObject(FermionBosonStarTLN fbstln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = make_shared[FermionBosonStarTLN](fbstln)
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     def set_initial_conditions(self, phi_1_0, H_0):
-        deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
+        #deref(self.fbstln).set_initial_conditions(phi_1_0, H_0)
+        deref(self.fbstln).phi_1_0 = phi_1_0
+        deref(self.fbstln).H_0 = H_0
         self.evaluated=False
 
     def bisection_phi_1(self, phi_1_0, phi_1_1, n_mode = 0, max_step = 200, delta_phi_1=1e-10):
@@ -183,13 +188,35 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
         d['phi_1_0'] = deref(self.fbstln).phi_1_0
         d['H_0'] = deref(self.fbstln).H_0
         d['y_max'] = deref(self.fbstln).y_max
+        d['R_ext'] = deref(self.fbstln).R_ext
         return d
 
 
 cdef class PyMRcurve:
 
     @staticmethod
-    def from_rhophi_curve(mu, lam, PyEoS eos, np.ndarray rho_c_grid, np.ndarray phi_c_grid, str filename=""):
+    def from_list(pMRphi_curve, str filename=""):
+        cdef string f = <string> filename.encode('utf-8')
+        cdef stdvector[FermionBosonStar] MRphi_curve
+        cdef PyFermionBosonStar fbs
+
+        for fbs in pMRphi_curve:
+            MRphi_curve.push_back(deref( fbs.fbs))
+
+        calc_rhophi_curves(MRphi_curve, 2);
+
+        if(not f.empty()):
+            write_MRphi_curve(MRphi_curve, f)
+
+        pMRphi_curve = []
+        for i in range(MRphi_curve.size()):
+            pMRphi_curve.append(PyFermionBosonStar.FromObject(MRphi_curve[i]))
+
+        return pMRphi_curve
+
+
+    @staticmethod
+    def from_rhophi_list(mu, lam, PyEoS eos, np.ndarray rho_c_grid, np.ndarray phi_c_grid, str filename=""):
         cdef stdvector[double] crho_c_grid
         cdef stdvector[double] cphi_c_grid
         cdef stdvector[FermionBosonStar] MRphi_curve
@@ -200,7 +227,7 @@ cdef class PyMRcurve:
         for i in range(len(phi_c_grid)):
             cphi_c_grid.push_back(phi_c_grid[i])
 
-        calc_rhophi_curves(mu, lam, eos.eos, crho_c_grid, cphi_c_grid, MRphi_curve)
+        calc_rhophi_curves(mu, lam, eos.eos, crho_c_grid, cphi_c_grid, MRphi_curve, 2)
         if(not f.empty()):
             write_MRphi_curve(MRphi_curve, f)
 
@@ -227,15 +254,19 @@ cdef class PyMRcurve:
             write_MRphi_curve(MRphi_curve, f)
 
     @staticmethod
-    def calc_TLN_curve(pMRphi_curve):
+    def calc_TLN_curve(pMRphi_curve, str filename=""):
         cdef stdvector[FermionBosonStar] MRphi_curve
         cdef stdvector[FermionBosonStarTLN] tln_curve
         cdef PyFermionBosonStar fbs
+        cdef string f = <string> filename.encode('utf-8')
 
         for fbs in pMRphi_curve:
             MRphi_curve.push_back(deref( fbs.fbs))
 
-        calc_MRphik2_curve(MRphi_curve, tln_curve)
+        calc_MRphik2_curve(MRphi_curve, tln_curve, 2)
+
+        if(not f.empty()):
+            write_MRphi_curve(tln_curve, f)
 
         pTLN_curve = []
         for i in range(tln_curve.size()):

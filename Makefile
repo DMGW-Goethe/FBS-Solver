@@ -5,6 +5,9 @@ AR := ar rv
 # Comment to remove OMP support
 OMP:=1
 
+# Uncomment to allow for plotting at runtime - incompatible with pyfbs!
+# DEBUG_PLOTTING:=1
+
 OBJ_DIR := build
 INC_DIR := include
 SRC_DIR := src
@@ -41,13 +44,12 @@ all: libfbs.a fbs pyfbs
 fbs: $(OBJ)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $^ main.cpp -o main.out $(LDFLAGS) $(LDLIBS)
 
-archive: libfbs.a
-
-pyfbs: archive $(PYFBS_FILES)
-	cd $(PYFBS_DIR); $(PYTHON) setup.py build_ext --inplace
-
 libfbs.a: $(OBJ)
 	$(AR)  $@ $^
+
+pyfbs: libfbs.a $(PYFBS_FILES)
+	cd $(PYFBS_DIR); $(PYTHON) setup.py build_ext --inplace
+
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(INC_DIR)/%.hpp | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
