@@ -19,70 +19,7 @@ vector NSmodel::dy_dr_static(const double r, const vector& y, const void* params
  * */
 int NSmodel::integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
     return integrator::RKF45(&(this->dy_dr_static), (r_init < 0. ? this->r_init : r_init), initial_conditions, (r_end < 0. ? this->r_end : r_end), (void*) this,  result,  events, intOpts);
-    /*return scaled_integration(result, events, initial_conditions, intOpts, r_init, r_end);*/
 }
-/*
-struct scaled_integration_params {
-    NSmodel* m;
-    vector scale;
-};
-
-vector NSmodel::dy_dr_static_scaled(const double r, const vector& y, const void* params) {
-    scaled_integration_params* si = (scaled_integration_params*) params;
-    vector y_s = y;
-    for(int i = 0; i < y.size(); i++)
-        y_s[i] *= si->scale[i];
-    vector  dy_s_dr = NSmodel::dy_dr_static(r, y_s, (void*) (si->m));
-    for(int i = 0; i < y.size(); i++)
-        dy_s_dr[i] /= si->scale[i];
-    return dy_s_dr;
-}
-
-int NSmodel::scaled_integration(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts, double r_init, double r_end) const {
-    scaled_integration_params si;
-    si.m = (NSmodel*) this;
-
-    // find the right scale and initial conditions
-    si.scale = initial_conditions;
-    for(int i = 0; i < si.scale.size(); i++)
-        if(si.scale[i] == 0.)
-            si.scale[i] = 1.;
-    vector initial_conditions_s = initial_conditions;
-    for(int i = 0; i < initial_conditions.size(); i++)
-        initial_conditions_s[i] = (initial_conditions[i] != 0. ? 1. : 0.);
-
-    // make new events that call the original ones with the non-rescaled values
-    std::vector<integrator::Event> events_s;
-    for(auto it = events.begin(); it != events.end(); ++it) {
-        integrator::Event e_s = *it;
-        // make event function point to original event with rescaled y
-        integrator::event_condition e_c = it->condition;
-        e_s.condition = [e_c](const double r, const double dr, const vector& y, const vector& dy, const void* params)
-        {
-            scaled_integration_params* si = (scaled_integration_params*) params;
-            vector y_s = y, dy_s = dy;
-            for(int i = 0; i < y.size(); i++) {
-                y_s[i] *= si->scale[i];
-                dy_s[i] *= si->scale[i];
-            }
-            return e_c(r, dr, y_s, dy_s, (void*)(si->m));
-        };
-        events_s.push_back(e_s);
-    }
-    //integrate
-    int res = integrator::RKF45(&(this->dy_dr_static_scaled), r_init, initial_conditions_s, r_end, (void*) &si,  result,  events_s, intOpts);
-    // rescale events and output
-    for(auto it = result.begin(); it != result.end(); ++it){
-        for(int i = 0; i < it->second.size(); i++)
-            it->second[i] *= si.scale[i];
-    }
-    for(int i = 0; i < events.size(); i++) {
-        events.at(i).steps = events_s.at(i).steps;
-        events[i].active = events_s[i].active;
-    }
-    return res;
-}
-*/
 
 /* This function gives the system of ODEs for the FBS star
  *  for the variables a, alpha, phi, Psi, and P
@@ -121,7 +58,8 @@ vector FermionBosonStar::dy_dr(const double r, const vector& vars) const {
     return vector({da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dP_dr});
 }
 
-/* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged */
+/* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged
+ *  (not in use anymore) */
 const integrator::Event FermionBosonStar::M_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void *params) {
                                                                                                         const double dM_dr = ((1. - 1./y[0]/y[0])/2. + r*dy[0]/y[0]/y[0]/y[0]);
                                                                                                         return  dM_dr < M_T_converged ; }, true, "M_converged");
