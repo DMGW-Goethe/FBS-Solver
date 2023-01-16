@@ -4,7 +4,8 @@ AR := ar rv
 
 # Comment to remove OMP support
 OMP:=1
-# Uncomment to allow for plotting at runtime
+
+# Uncomment to allow for plotting at runtime - incompatible with pyfbs!
 # DEBUG_PLOTTING:=1
 
 OBJ_DIR := build
