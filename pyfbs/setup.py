@@ -14,7 +14,7 @@ pyfbs_folder = os.path.join(root_folder, "pyfbs")
 liblist = ["fbs"]
 
 
-pyfbs_ext = Extension("pyfbs",
+pyfbs_ext = Extension("pyfbs_cython",
                         [os.path.join(pyfbs_folder, pyfbs_file)],
                         include_dirs=[np.get_include(), include_folder],
                         language="c++",

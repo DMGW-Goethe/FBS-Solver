@@ -7,7 +7,7 @@ import matplotlib.tri as tri # to create a mask for a concarve shape
 from matplotlib import lines
 import pandas as pd
 
-import stability_curve_calc as scc # import custom python file which computes the stability curve
+from . import stability_curve as scc # import custom python file which computes the stability curve
 
 
 # Function that returns all solutions in df that have condition(df, indices) == True
@@ -58,23 +58,22 @@ def plotGrid(dfs, indices, plotFunc, ylabel="", xlabel="", figHeight = None, fig
 	# create a grid of plots
 	fig = plt.figure()
 	gs = fig.add_gridspec(nrows, ncols, hspace=0, wspace=0)
-	axs = gs.subplots(sharex=True, sharey=True)
+	axs = gs.subplots(sharex='col', sharey='row')
 	#fig.suptitle('Sharing both axes')
 	 
 	# if no figHeight and width are specified, then use these values that seem to work nice for quadratic grids
+	# if the grid is not quadratic, then try to adjust the default width and height to make it look nicer
 	if figHeight == None:
 		figHeight = 13
+		if nrows > ncols:
+		    figHeight /= ncols
+		    figHeight *= nrows
 	if figWidth == None:
 		figWidth = figHeight * 1.3
+		if nrows > ncols:
+		    figWidth /= nrows
+		    figWidth *= ncols
 
-	# if the grid is not quadratic, then try to adjust the default width and height to make it look nicer
-	if nrows > ncols:
-		figHeight /= ncols
-		figHeight *= nrows
-
-	if nrows > ncols:
-		figWidth /= nrows
-		figWidth *= ncols
 
 	fig.set_figheight(figHeight)
 	fig.set_figwidth(figWidth)
@@ -111,6 +110,8 @@ def plotGrid(dfs, indices, plotFunc, ylabel="", xlabel="", figHeight = None, fig
 	
 	cbar.set_ticks(np.linspace(0, 1.0, 6, endpoint=True))
 	cbar.ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
+	
+	return axs
 
 
 # makes a scatter plot of the dimensionless tidal deformabiility. Parameters are:
@@ -142,6 +143,13 @@ def plotTidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPur
 
 	allTlns = filteredData[:,indices["lambda_tidal"]]
 	allDimlessTlns = allTlns / allMasses**5
+	
+	if plotPureBS:
+		pureBS = searchPureBS(filteredData, indices)
+
+		pureBSMasses = pureBS[:,indices["M_T"]]
+		pureBSTlns = pureBS[:,indices["lambda_tidal"]]
+		pltAxs.plot(pureBSMasses, pureBSTlns / pureBSMasses**5, label = "Pure BS", c = "yellow", linestyle = "-", linewidth = 2, alpha=0.5)
 
 	pltAxs.scatter(allMasses, allDimlessTlns, s = s, alpha=1, c=allRelativMassFractions, cmap=cmap)
 	pltAxs.scatter([], [], s = 20, c = "black", label="FBS Configurations") # I have to add this empty scatter plot, since otherwise no dot is being shown in the inset label for the "FBS Configurations"
@@ -178,13 +186,7 @@ def plotTidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPur
 		pureNSMasses = pureNS[:,indices["M_T"]]
 		pureNSTlns = pureNS[:,indices["lambda_tidal"]]
 		pltAxs.plot(pureNSMasses, pureNSTlns / pureNSMasses**5, label = "Pure DD2", c = "black", linestyle = "-", linewidth = 2)
-			
-	if plotPureBS:
-		pureBS = searchPureBS(filteredData, indices)
-
-		pureBSMasses = pureBS[:,indices["M_T"]]
-		pureBSTlns = pureBS[:,indices["lambda_tidal"]]
-		pltAxs.plot(pureBSMasses, pureBSTlns / pureBSMasses**5, label = "Pure BS", c = "darkred", linestyle = "-", linewidth = 2)
+		
 			
 	# add the final plot label (has to happen at the end because only now we know whether pure ns and/or bs was plotted)
 	if pltAxs == plt:
