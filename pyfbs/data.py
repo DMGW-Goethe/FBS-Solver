@@ -14,6 +14,12 @@ def load_file(filename):
     data = np.loadtxt(filename) #, delimeter = ' ')
     return data, indices
 
+def add_Lambda_int(df, indices):
+    if not 'Lambda_int' in indices or indices['Lambda_int'] >= np.shape(df)[1]:
+        df = np.append(df, np.transpose([ df[:,indices['lambda']]/df[:,indices['mu']]**2 / 8. / np.pi  ]), axis=1)
+        indices['Lambda_int'] = np.shape(df)[1]-1
+    return df, indices
+
 # Converts a curve of PyFermionBosonStar(TLN) elements into a numpy array
 def simplify_curve(PyMR_curve):
     data = []
