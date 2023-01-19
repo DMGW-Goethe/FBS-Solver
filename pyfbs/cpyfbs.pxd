@@ -76,6 +76,7 @@ cdef extern from "nsmodel.hpp":
         double R_B_0
         double R_F
         double R_F_0
+        double R_G
 
         const Event M_converged
         const Event Psi_diverging

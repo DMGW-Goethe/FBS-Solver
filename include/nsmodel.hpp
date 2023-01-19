@@ -87,7 +87,7 @@ protected:
     public:
     double mu, lambda, omega;
     double rho_0, phi_0;
-    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0;
+    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0, R_G;
 
     /* Constructor for the FBS class, just sets the relevant values of the class */
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0., double rho_0=0., double phi_0=0.)

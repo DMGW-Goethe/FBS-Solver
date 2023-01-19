@@ -565,16 +565,20 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
            N_B =  N_B_integrated[index_phi_converged];
 
     // first find the index in array where 99% is contained
-    int i_B = 0, i_F = 0;
+    int i_B = 0, i_F = 0, i_G = 0;
     unsigned int max_index = step_number;
     for(unsigned int i = 1; i < max_index; i++) {
         if(N_B_integrated[i] < 0.99*N_B)
             i_B++;
         if(N_F_integrated[i] < 0.99*N_F)
             i_F++;
+        if(N_F_integrated[i] + N_B_integrated[i] < 0.99*(N_B + N_F))
+            i_G++;
     }
     // obtain radius from corresponding index
-    double R_B = r[i_B], R_F_0 = r[i_F];
+    double R_B = r[i_B],
+           R_F_0 = r[i_F],
+           R_G = r[i_G];
 
     /*  R_F
      * compute the fermionic radius R_f using the definition where P(R_f)==0
@@ -589,7 +593,7 @@ void FermionBosonStar::calculate_star_parameters(const std::vector<integrator::s
     N_F = N_F_integrated[index_R_F];
 
     //std::cout << "M_T = " << M_T << ", N_B = " << N_B << ", R_B = " << R_B << ", N_F = " << N_F << ", R_F = " << R_F << ", R_F_0 = " << R_F_0 << ", N_B/N_F = " << N_B / N_F << std::endl;
-    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0;
+    this->M_T = M_T; this->N_B = N_B; this->N_F = N_F; this->R_B = R_B; this->R_F = R_F; this->R_F_0 = R_F_0; this->R_G = R_G;
 }
 
 /* Simple wrapper function if the results of the integration are not needed for the user */
@@ -641,11 +645,13 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.N_B / fbs.N_F         << " "   // ratio N_B / N_F
                 << fbs.omega                 << " "   // omega
                 << fbs.mu                    << " "   // mass mu
-                << fbs.lambda;      // self-interaction parameter lambda
+                << fbs.lambda                << " "   // self-interaction parameter lambda
+                << fbs.R_G                            // effective gravitational radius
+                            ;
 }
 /* Gives the labels of the values from the output */
 std::vector<std::string> FermionBosonStar::labels() {
-    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "omega", "mu", "lambda"});
+    return std::vector<std::string> ({"M_T", "rho_0", "phi_0", "R_F", "N_F", "R_B", "R_B_0", "N_B", "N_B/N_F", "omega", "mu", "lambda", "R_G"});
 }
 
 

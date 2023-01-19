@@ -25,7 +25,7 @@ def simplify_curve(PyMR_curve):
     data = []
     indices = {}
     labels = ['M_T', 'rho_0', 'phi_0', 'R_F', 'N_F', 
-                'R_B', 'R_B_0', 'N_B', 'omega', 'mu', ]
+                'R_B', 'R_B_0', 'N_B', 'omega', 'mu', 'R_G']
     if isinstance(PyMR_curve[0], PyFermionBosonStarTLN):
         labels.append('k2')
         labels.append('lambda_tidal')
