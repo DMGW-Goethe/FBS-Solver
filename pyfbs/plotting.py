@@ -5,9 +5,12 @@ import numpy as np
 #from scipy.interpolate import griddata
 import matplotlib.tri as tri # to create a mask for a concarve shape
 from matplotlib import lines
+from matplotlib import cm
+from matplotlib.offsetbox import AnchoredText
 import pandas as pd
 
 from . import stability_curve as scc # import custom python file which computes the stability curve
+from . import data
 
 
 # Function that returns all solutions in df that have condition(df, indices) == True
@@ -54,13 +57,16 @@ def searchPureBS(df, indices):
 # xlim and ylim define the axis limits for all individual cells
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
 def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = None, figWidth = None, nrows = 2, ncols = 2, stabCurves=None,
-                    s = 0.3, plotPureNS = True, plotPureBS = False, filterData = True, cmap = "viridis", xlim = [0, 2.7], ylim = [1, 5e6], tickFontSize = 13, 
-                    overlay_info=None):
-	
+                       overlay_info=None, overlay_loc=1, addColorbar = True, lockAxes = True, addLegend = True, tickFontSize=15, cmap='viridis',
+                       **kwargs):
+	#s = 0.3, plotPureNS = True, plotPureBS = False, filterData = True, cmap = "viridis", xlim = [0, 2.7], ylim = [1, 5e6], tickFontSize = 13, 
 	# create a grid of plots
 	fig = plt.figure()
 	gs = fig.add_gridspec(nrows, ncols, hspace=0, wspace=0)
-	axs = gs.subplots(sharex='col', sharey='row')
+	if lockAxes:
+		axs = gs.subplots(sharex='col', sharey='row')
+	else:
+		axs = gs.subplots()
 	 
 	# if no figHeight and width are specified, then use these values that seem to work nice for quadratic grids
 	# if the grid is not quadratic, then try to adjust the default width and height to make it look nicer
@@ -81,14 +87,18 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 
 	# iterate over all dfs and fill the individual cells of the grid according the provided plotFunc
 	for i, ax in enumerate(axs.flatten()):
-		scatterFunc(dfs[i], indices, filterData = filterData, pltAxs = ax, cmap=cmap, xlim=xlim, ylim=ylim, s=s, plotPureBS=plotPureBS, plotPureNS=plotPureNS, stabCurve=stabCurves[i] if not stabCurves is None else None)
+		scatterFunc(dfs[i], indices, **kwargs, pltAxs=ax, cmap=cmap, stabCurve=stabCurves[i] if not stabCurves is None else None)
 		ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
+		
 		if not overlay_info is None: #and i % np.shape(axs)[0] == 0:
 		    text = ''
 		    for k,v in zip(overlay_info.keys(), overlay_info.values()):
 		        text += f"${v} = {(dfs[i][0,indices[k]]):.0f} $\n"
 		    
-		    ax.text(0.1, 0.1, text.strip(), transform=ax.transAxes, alpha=0.5, bbox=dict(boxstyle='round', pad=0.2, edgecolor='black', facecolor=(0., 0., 0., 0.)), fontsize=18)
+		    text_box = AnchoredText(text.strip(), frameon=True, loc=overlay_loc, pad=0.1, prop={'fontsize':18}, alpha=1.)
+		    plt.setp(text_box.patch, boxstyle='round', edgecolor='black', facecolor=(0., 0., 0., 0.))
+		    ax.add_artist(text_box)
+		    #ax.text(0.1, 0.1, text.strip(), transform=ax.transAxes, alpha=0.5, bbox=dict(boxstyle='round', pad=0.2, edgecolor='black', facecolor=(0., 0., 0., 0.)), fontsize=18)
 
 	fig.add_subplot(111, frame_on=False)
 	plt.tick_params(labelcolor="none", bottom=False, left=False)
@@ -97,31 +107,22 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 	plt.xlabel(xlabel, fontsize = 22, labelpad=18)
 	plt.ylabel(ylabel, fontsize = 22, labelpad=18)
 
-	# the inset label should be in the upper right cell (I just think that looks nice)
-	'''
-	if ncols == 1 and nrows != 1:
-		axs[0].legend(loc = "upper right", fontsize = tickFontSize)
-	elif ncols != 1 and nrows == 1:
-		axs[-1].legend(loc = "upper right", fontsize = tickFontSize)
-	else:
-		axs[0, -1].legend(loc = "upper right", fontsize = tickFontSize)
-	'''
 
 	# add the color bar to the top of the grid
-	cb_ax = fig.add_axes([0.15, 0.91, 0.5, 0.014])
-	norm = mpl.colors.Normalize(vmin=0,vmax=1)
-	cbar = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cb_ax, cmap = "jet", orientation = "horizontal")
-	cbar.set_label(r"Dark Matter Mass Fraction", rotation=0, fontsize=22)
-	cbar.ax.get_yaxis().labelpad = 20
-
-	#cbar.ax.xaxis.set_ticks_position('top')
-	cbar.ax.xaxis.set_label_position('top')
+	if addColorbar:
+		cb_ax = fig.add_axes([0.15, 0.91, 0.5, 0.014])
+		norm = mpl.colors.Normalize(vmin=0,vmax=1)
+		cbar = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cb_ax, cmap = "jet", orientation = "horizontal")
+		cbar.set_label(r"Dark Matter Mass Fraction", rotation=0, fontsize=22)
+		cbar.ax.get_yaxis().labelpad = 20
+		#cbar.ax.xaxis.set_ticks_position('top')
+		cbar.ax.xaxis.set_label_position('top')
+		cbar.set_ticks(np.linspace(0, 1.0, 6, endpoint=True))
+		cbar.ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
 	
-	cbar.set_ticks(np.linspace(0, 1.0, 6, endpoint=True))
-	cbar.ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
-	
-	hand, lab = axs[0,0].get_legend_handles_labels() if nrows > 1 else axs[0].get_legend_handles_labels()
-	cb_ax.legend(hand, lab, loc=(1.05, -1.5), fontsize=tickFontSize)
+	if addLegend:
+		hand, lab = axs[0,0].get_legend_handles_labels() if nrows > 1 else axs[0].get_legend_handles_labels()
+		cb_ax.legend(hand, lab, loc=(1.05, -1.5), fontsize=tickFontSize)
 	
 	return axs
 
@@ -143,6 +144,9 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 	filteredData = df
 	if filterData:
 		filteredData = scc.filter_stab_curve_data(df, indices, stabCurve)
+	
+	if isinstance(cmap, str):
+		cmap = cm.get_cmap(cmap)
 
 	# extract some useful information from the data file
 	allNbs = filteredData[:,indices['N_B']]
@@ -153,7 +157,7 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 	allY = filteredData[:,indices[Y]]
 
 	pltAxs.scatter(allX, allY, s = s, alpha=1, c=allRelativMassFractions, cmap=cmap)
-	pltAxs.scatter([], [], s = 20, c = "black", label="FBS Configurations") # I have to add this empty scatter plot, since otherwise no dot is being shown in the inset label for the "FBS Configurations"
+	pltAxs.scatter([], [], s = 20, color = cmap(0.), label="FBS Configurations") # I have to add this empty scatter plot, since otherwise no dot is being shown in the inset label for the "FBS Configurations"
 	
 	# if pltAxs == plt, then finish up the plot with all labels and make it look nice
 	if pltAxs == plt:
@@ -188,14 +192,14 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 
 		pureNSX = pureNS[:,indices[X]]
 		pureNSY = pureNS[:,indices[Y]]
-		pltAxs.plot(pureNSX, pureNSY, label = "Pure DD2", c = "black", linestyle = "-", linewidth = 2)
+		pltAxs.plot(pureNSX, pureNSY, label = "Pure DD2", color = cmap(0.), linestyle = "-", linewidth = 2)
 		
 	if plotPureBS:
 		pureBS = searchPureBS(filteredData, indices)
 
 		pureBSX = pureBS[:,indices[X]]
 		pureBSY = pureBS[:,indices[Y]]
-		pltAxs.plot(pureBSX, pureBSY, label = "Pure BS", c = "yellow", linestyle = "-", linewidth = 2, alpha=0.5)
+		pltAxs.plot(pureBSX, pureBSY, label = "Pure BS", color = cmap(1.), linestyle = "-", linewidth = 2, alpha=0.5)
 	
 	# add the final plot label (has to happen at the end because only now we know whether pure ns and/or bs was plotted)
 	if pltAxs == plt:
@@ -203,9 +207,7 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 
 
 def scatter_Tidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 1e6], xlim = [0, 3], pltAxs = plt, tickFontSize = 13):
-	if not 'Lambda_tidal' in indices or indices['Lambda_tidal'] >= np.shape(df)[1]:
-		df = np.append(df, np.transpose([ df[:,indices['lambda_tidal']]/df[:,indices['M_T']]**5  ]), axis=1)
-		indices['Lambda_tidal'] = np.shape(df)[1]-1
+	df, indices = data.add_Lambda_tidal(df, indices)
 	
 	scatter_XY(df, indices, 'M_T', 'Lambda_tidal', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=plotPureBS, 
 				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Total Gravitational Mass [M$_\odot$]", ylabel=r"Tidal Deformability $\Lambda$", yscale='log')
@@ -216,12 +218,10 @@ def scatter_MR(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPu
 				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Fermionic Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]")
 
 
-def scatter_MRgrav(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 3], xlim = [0, 30], pltAxs = plt, tickFontSize = 13):
-	if not 'R_g' in indices or indices['R_g'] >= np.shape(df)[1]:
-		df = np.append(df, np.transpose([ np.maximum(df[:,indices['R_F']], df[:,indices['R_B']] ) ]), axis=1)
-		indices['R_g'] = np.shape(df)[1]-1
+def scatter_MRgrav(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS=True, cmap = "viridis", clim = [0, 1], ylim = [1, 3], xlim = [0, 30], pltAxs = plt, tickFontSize = 13):
+	df, indices = data.add_R_max(df, indices)
 	
-	scatter_XY(df, indices, 'R_g', 'M_T', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=False, 
+	scatter_XY(df, indices, 'R_m', 'M_T', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=plotPureBS, 
 				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Gravitational Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]")
 
 
