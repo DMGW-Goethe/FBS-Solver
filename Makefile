@@ -57,6 +57,7 @@ $(OBJ_DIR):
 
 clean:
 	@$(RM) -rv  $(OBJ_DIR)
-	@$(RM) main.out
-	@$(RM) libfbs.a
+	@$(RM) -v main.out
+	@$(RM) -v libfbs.a
 	@$(RM) -v $(PYFBS_DIR)/pyfbs.cp*
+	@$(RM) -v $(PYFBS_DIR)/pyfbs_cython.*.so

@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from . import data
-from .pyfbs_cython import PyFermionBosonStar, PyMRcurve
+try:
+    from .pyfbs_cython import PyFermionBosonStar, PyMRcurve
+except ImportError:
+    pass
 
 def generate_testset(filename):
     rho_cs = np.linspace(0., 1e-2, 5)**3

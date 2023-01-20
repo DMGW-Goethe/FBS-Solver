@@ -1,6 +1,9 @@
 import numpy as np
 import os
-from .pyfbs_cython import PyFermionBosonStarTLN, PyFermionBosonStar
+try:
+    from .pyfbs_cython import PyFermionBosonStarTLN, PyFermionBosonStar
+except ImportError:
+    pass
 
 ## This file is simply intented to convert the output of either the cpp code or the pyfbs into numpy arrays that are used for plotting
 
