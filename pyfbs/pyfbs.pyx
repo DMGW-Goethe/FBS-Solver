@@ -34,19 +34,18 @@ cdef class PyEoStable(PyEoS):
     def __cinit__(self, str filename):
         cdef string f = <string> filename.encode('utf-8')
         cdef shared_ptr[EoStable] ptr =  make_shared[EoStable](f)
-        self.eos = ptr
-        # see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
+        self.eos = ptr # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 
 cdef class PyPolytropicEoS(PyEoS):
 
     def __cinit__(self, double kappa, double Gamma):
-        self.eos = make_shared[PolytropicEoS](kappa, Gamma)
+        self.eos = make_shared[PolytropicEoS](kappa, Gamma) # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 cdef class PyCausalEoS(PyEoS):
 
     def __cinit__(self, double eps_f, double P_f=0.):
-        self.eos = make_shared[CausalEoS](eps_f, P_f)
+        self.eos = make_shared[CausalEoS](eps_f, P_f) # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
 
 
 cdef class PyIntegrationOptions:
@@ -127,6 +126,7 @@ cdef class PyFermionBosonStar:
                 "phi_0":deref(self.fbs).phi_0,
                 "mu":deref(self.fbs).mu,
                 "omega":deref(self.fbs).omega,
+                "R_G":deref(self.fbs).R_G,
                 }
 
 
@@ -137,21 +137,21 @@ cdef class PyFermionBosonStarTLN(PyFermionBosonStar):
     def FromFBS(PyFermionBosonStar pfbs_notln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = make_shared[FermionBosonStarTLN](deref(pfbs_notln.fbs))
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     @staticmethod
     cdef PyFermionBosonStarTLN FromPointer(shared_ptr[FermionBosonStarTLN] fbstln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = fbstln
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     @staticmethod
     cdef PyFermionBosonStarTLN FromObject(FermionBosonStarTLN fbstln):
         cdef PyFermionBosonStarTLN pfbs = PyFermionBosonStarTLN.__new__(PyFermionBosonStarTLN)
         pfbs.fbstln = make_shared[FermionBosonStarTLN](fbstln)
-        pfbs.fbs = pfbs.fbstln
+        pfbs.fbs = pfbs.fbstln # if this line fails, see https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython
         return pfbs
 
     def set_initial_conditions(self, phi_1_0, H_0):

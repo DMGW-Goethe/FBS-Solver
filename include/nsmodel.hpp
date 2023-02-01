@@ -9,17 +9,19 @@
 #include "plotting.hpp"
 
 #define R_INIT 1e-10    // the initial integration radius
-#define R_MAX 500.      // the maximum integration radius
+#define R_MAX 500.      // the general maximum integration radius (might be increased if not sufficient)
 #define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
-#define PHI_converged 1e-4
+#define PHI_converged 1e-4 // compared to phi / phi_0, when the bosonic component has converged sufficiently
 #define INT_converged 1e-7
-#define M_T_converged 1e-15
+#define M_T_converged 1e-15 // leftover from previous attempts to characterize convergence
 
 /*  NSmodel
  * this is an abstract class that is supposed to be the backbone for
  *  a physical model of a neutron star
  * This implementation allows the integration of the differential equations
  *  describing the neutron star
+ * The r_init and r_end values describe the integration range. This can depend
+ *  on the parameters involved, so it is a class member.
  * */
 class NSmodel {
 protected:
@@ -36,14 +38,12 @@ public:
 
     /* This is a static wrapper function, that calls the dy_dr function */
     static vector dy_dr_static(const double r, const vector& y, const void* params);
-    /*static vector dy_dr_static_scaled(const double r, const vector& y, const void* params);*/
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
     virtual vector get_initial_conditions(double r_init=R_INIT) const = 0;
 
     /* This function calls the integrator and returns the results of the integration */
     int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=-1., double r_end=-1.) const;
-    /* int scaled_integration(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;*/
 
     /* For easy output the class should define an << operator */
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);
@@ -87,7 +87,7 @@ protected:
     public:
     double mu, lambda, omega;
     double rho_0, phi_0;
-    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0;
+    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0, R_G;
 
     /* Constructor for the FBS class, just sets the relevant values of the class */
     FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0., double rho_0=0., double phi_0=0.)
