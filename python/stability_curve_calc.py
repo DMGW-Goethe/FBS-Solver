@@ -92,21 +92,34 @@ def calc_stability_curve(df, indices, debug = False):
 	contours = ax.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False)
 	
 	# extract all lines that were found with zero value
-	lines = []
+	all_lines = []
 	for line in contours.collections[0].get_paths():
-		lines.append(line.vertices)
+		all_lines.append(line.vertices)
+
+	# the wanted stab curve must fulfill two criteria:
+	#	- it must touch the x- and y-axis 
+	#	- then we chose the longest available stability curve
+
+	# filter out all curves which do not touch the x- and y- axis:
+	filtered_lines = [] 
+	minrho = 5e-4	# tolerance value for rho_c to filter stability curves
+	minphi = 1e-2	# tolerance value for Phi_c
+	for j in range(len(all_lines)):
+		#print(all_lines[j])
+		if ( (min(all_lines[j][:,0]) < minrho) and (min(all_lines[j][:,1]) < minphi) ):
+			filtered_lines.append(all_lines[j])
 
 	# select only the longest line (this is the one that we want):
 	longestindex = 0
 	maxlen = 0
-	for k in range(len(lines)):
+	for k in range(len(filtered_lines)):
 #		print(len(lines[k]))
-		if len(lines[k]) > maxlen:
-			maxlen = len(lines[k])
+		if len(filtered_lines[k]) > maxlen:
+			maxlen = len(filtered_lines[k])
 			longestindex = k
 
 	# the wanted stability curve is the line which has the longest length (in case there would be multiple lines)
-	stab_curve = lines[longestindex]
+	stab_curve = filtered_lines[longestindex]
 
 	ax.clear()
 	plt.close(fig)

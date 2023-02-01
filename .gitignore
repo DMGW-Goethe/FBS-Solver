@@ -11,3 +11,4 @@ python/__pycache__
 pyfbs/pyfbs.cpp
 pyfbs/pyfbs.cpython-38-x86_64-linux-gnu.so
 python/plots/
+.ipynb_checkpoints/
