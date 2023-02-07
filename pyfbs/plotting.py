@@ -11,7 +11,7 @@ import pandas as pd
 
 from . import stability_curve as scc # import custom python file which computes the stability curve
 from . import data
-
+from . import errorplot as errp
 
 # Function that returns all solutions in df that have condition(df, indices) == True
 def searchData(df, indices, condition):
@@ -339,3 +339,74 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 
 	if plotStabCurve:
 		plt.plot(stabCurve[:,0], stabCurve[:,1], color = "black", linewidth = 2)
+
+# plots the relative numerical errors, of two quantities, between the full system and the effective EoS system with respect to lambda_int
+# filenames is a list containing all filenames of fullsys and effsys, with every other filename corresponding to the fullsys and effsys respectively
+# Lambda_array contains all Lambda_int values in ascending order matching eqch pair of effsys/fullsys data points
+def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2, figname = "plot_error_comparison_effsys_fullsys.png", debug = False):
+
+	# reading in the data using the filenames and assigning indices
+	number_of_files = len(filenames)
+	df = [None]*number_of_files
+	indices = [None]*number_of_files
+
+	for i in range(len(filenames)):
+		df[i], indices[i] = data.load_file(filenames[i])
+
+	indices_fullsys = indices[0]
+	indices_effsys = indices[1]
+	# computation of the relative errors
+	min_err1, max_err1, median_err1, one_sigma_err1, two_sigma_err1 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index1)
+	min_err2, max_err2, median_err2, one_sigma_err2, two_sigma_err2 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index2)
+
+	# start the plotting:
+	if (debug):
+		print("for index1 = ", index1, ":\n max_err: \t", max_err1, ",\n min_err: \t", min_err1, ",\n median_err: \t", median_err1, ",\n 1_sigma_err: \t", one_sigma_err1, ",\n 2_sigma_err: \t", two_sigma_err1, ",\n Lambda_int: \t", Lambda_array)
+		print("for index2 = ", index2, ":\n max_err: \t", max_err2, ",\n min_err: \t", min_err2, ",\n median_err: \t", median_err2, ",\n 1_sigma_err: \t", one_sigma_err2, ",\n 2_sigma_err: \t", two_sigma_err2, ",\n Lambda_int: \t", Lambda_array)
+
+	# hardcoded parameters (might change later)
+	nrows = 2
+	ncols = 1
+	fig = plt.figure()
+	gs = fig.add_gridspec(nrows, ncols, hspace=0.1, wspace=0)
+	axs = gs.subplots(sharex='col')#, sharey='row')
+
+	# populate the first subplot
+	axs[0].fill_between(Lambda_array, min_err1, max_err1, alpha = 0.15, color="blue", label = "$M_{tot}$ error region")
+	axs[0].fill_between(Lambda_array, min_err1, two_sigma_err1, alpha = 0.15, color="blue")#, label = "$M_{tot}$ $2\sigma$ error region")#, hatch='x')
+	axs[0].fill_between(Lambda_array, min_err1, one_sigma_err1, alpha = 0.15, color="blue") #, label = "$1\sigma$ region"
+	axs[0].plot(Lambda_array, median_err1, color="blue", linewidth=1.75, linestyle ="--")#, label="median of $M_{tot}$-error")
+
+	# populate the second subplot
+	axs[1].fill_between(Lambda_array, min_err2, max_err2, alpha = 0.15, color="red", label = "$\Lambda \:\:\:\:\:\;$ error region")
+	axs[1].fill_between(Lambda_array, min_err2, two_sigma_err2, alpha = 0.15, color="red")#, label = "$\Lambda \:\:\:\:\:\;$ $2\sigma$ error region")
+	axs[1].fill_between(Lambda_array, min_err2, one_sigma_err2, alpha = 0.15, color="red") #, label = "$1\sigma$ region"
+	axs[1].plot(Lambda_array, median_err2, color="red", linewidth=1.75, linestyle ="--")#, label="median of $\Lambda$-error")
+
+	# set scale, plotlim, legend ...
+	axs[0].set_yscale("log") # "log" or "linear"
+	axs[1].set_yscale("log") # "log" or "linear"
+	axs[0].set_ylim(1e-3,2e0)
+	axs[1].set_ylim(1e-3,1e2)
+	axs[0].set_xlim(0,300)
+	axs[1].set_xlim(0,300)
+
+	axs[0].grid(alpha=0.15, linestyle="--", c="black")
+	axs[1].grid(alpha=0.15, linestyle="--", c="black")
+
+	axs[0].legend(loc="lower left")
+	axs[1].legend(loc="lower left")
+
+	# shared x-axis label of the plot
+	plt.xlabel("$\Lambda_{\mathrm{int}} = \lambda / (8 \pi m^2)$", fontsize = 14)
+	# shared y-axis label
+	fig.text(0.02, 0.5, "$\epsilon_{\mathrm{rel}} := ||Q_{\mathrm{full}}-Q_{\mathrm{eff}}|| / Q_{\mathrm{full}}$ , $Q = \{ M_{\mathrm{tot}}, \Lambda \}$", fontsize = 14, va='center', rotation='vertical')
+
+	# prevent labels on the "inside" between the subplots:
+	for ax in axs:
+		ax.label_outer()
+
+	# only saving pic is possible, plt.show() is not supported by matplotlib in this case
+	if (debug):
+		print("saving figure as: " + figname)
+	plt.savefig(figname, dpi=400, bbox_inches='tight')	

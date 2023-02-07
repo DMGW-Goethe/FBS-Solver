@@ -64,6 +64,6 @@ def file_to_curve(df, indices, pyEoS):
     PyMR_curve = []
     for d in df:
         PyMR_curve.append(PyFermionBosonStar.FromParameters(pyEoS, d[indices['mu']], lambda_ = d[indices['lambda']], 
-                                omega = d[indices['omega']], rho_0 = d[indices['omega']], phi_0 = d[indices['phi_0']] ) )            
+                                omega = d[indices['omega']], rho_0 = d[indices['rho_0']], phi_0 = d[indices['phi_0']] ) )            
     return PyMR_curve
     

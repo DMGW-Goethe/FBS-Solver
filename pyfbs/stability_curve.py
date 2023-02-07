@@ -86,8 +86,10 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 
 	# extract all lines that were found with zero value
 	all_lines = []
+	#lines = []
 	for line in contours.collections[0].get_paths():
 		all_lines.append(line.vertices)
+		#lines.append(line.vertices)
 
 	# the wanted stab curve must fulfill two criteria:
 	#	- it must touch the x- and y-axis 
@@ -98,12 +100,14 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	minrho = 5e-4	# tolerance value for rho_c to filter stability curves
 	minphi = 1e-2	# tolerance value for Phi_c
 	for j in range(len(all_lines)):
-		#print(all_lines[j])
+	#	#print(all_lines[j])
 		if ( (min(all_lines[j][:,0]) < minrho) and (min(all_lines[j][:,1]) < minphi) ):
 			filtered_lines.append(all_lines[j])
 
-	lines = sorted(lines, key=len, reverse=True)
-	stab_curve = lines[curve_index]
+	#lines = sorted(lines, key=len, reverse=True)
+	#stab_curve = lines[curve_index]
+	filtered_lines = sorted(filtered_lines, key=len, reverse=True)
+	stab_curve = filtered_lines[0]
 
 	ax.clear()
 	plt.close(fig)
