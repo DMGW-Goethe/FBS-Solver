@@ -353,7 +353,8 @@ int FermionBosonStar::bisection(double omega_0, double omega_1, int n_mode, int 
 
     if(res == integrator::endpoint_reached || res_1 == integrator::endpoint_reached) { // in this case psi didn't diverge, so we are probably not integrating to large enough r
         this->r_end *= 1.5;
-        // std::cout << "increased r_end to " << this->r_end << " and going deeper" <<  std::endl;
+        if (verbose > 1)
+            std::cout << "increased r_end to " << this->r_end << " and going deeper" <<  std::endl;
         return bisection(omega_0, omega_1, n_mode, max_steps-i, delta_omega, verbose);
     }
 
@@ -786,7 +787,6 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
 
             // now look for the local maxima&saddle points of y going from left to right (low r to higher r)
             std::vector<int> indices_maxima;
-            int i = index_y_min + 1;
             for( unsigned int i = index_y_min + 1; i < results.size()-2; i++) {
                 //std::cout << "i=" << i << ", r= " << results[i].first << ", y = " << y_func(i) << ", dy = " << dy_func(i) << std::endl;
                 if(   (y_func(i) > y_func(i -1) && y_func(i) > y_func(i+1) )

@@ -13,12 +13,10 @@ To compile, a call to
 
 should suffice.
 
-To obtain the data and plots of the paper we used this file.
-
 In case dependencies are needed
 
     sudo apt install libboost-dev
-    pip3 install numpy matplotlib cython
+    pip3 install numpy matplotlib cython pandas
 
 ## The C++ structure
 
@@ -38,11 +36,11 @@ See the `main.cpp` for some examples of how to integrate a single star, or creat
 The pyfbs module contains a wrapper for the C++ files described above. This makes quick calculations and plots of single stars and curves much easier.
 See the `pyfbs/TestFBS.ipynb` file for some examples.
 Unfortunately, the cython wrapper (< version 3) misses some functionality, so usage requires modification of the cython library files as described [here](https://stackoverflow.com/questions/67626270/inheritance-and-stdshared-ptr-in-cython).
+There are also functions for loading the files written by the mr_curves.hpp functions, extracting the stability curves and making pretty plots out of them. 
+See `plotting.ipynb` for some examples and generating the plots in our publication.
 
-## The python files
-
-These files are for loading a file written by the mr_curves.hpp functions, calculating the stability curves and making pretty plots out of them. 
-See `python/plotting.ipynb` for some examples.
+## Publication
+This code has been used in our publication [](). The data is generated with the `generate_tables.py` file, and plotted with the `plotting.ipynb` files.
 
 ## License
 TODO 
@@ -52,3 +50,4 @@ This work was supported by the Deutsche Forschungsgemeinschaft (DFG, German Rese
 
 ## matplotlib-cpp
 The code includes a modified version of the [matplotlib-cpp library](https://github.com/lava/matplotlib-cpp). See [this](https://github.com/lava/matplotlib-cpp/blob/master/LICENSE.matplotlib) for copyright and license purposes. The changes made include a wrapper for the `plt::xscale`, `plt::yscale` function included in matplotlib.
+
