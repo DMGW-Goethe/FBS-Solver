@@ -37,40 +37,29 @@ def calc_relative_err_min_max_median_sigma(data1, data2):
 
 # currently not in use!
 # filter out solutions with radii > 100 km (these objects are not Neutron Stars anyways) and using other critria (e.g. NaNs)
-def filter_errorplot_data(data1, data2, indices):
-    newd1 = []
-    newd2 = []
-    # now only apend values to the arrays if they do not match one of the filter criteria
-#    for i in range(len(data1)):
-#        
-#        newd1.append(data1[i])
-#        newd2.append(data2[i])
-        
-    for i in xrange(len(data1) - 1, -1, -1):
-        element1 = data1[i]
-        element2 = data2[i]
-        if (element1[indices[""]]) or ():
-            del data1[i]
-            del data2[i]
+def filter_errorplot_data(data1, data2, indices1, indices2):
+	newd1 = []
+	newd2 = []
+	# now only apend values to the arrays if they do not match one of the filter criteria
+	for i in range(len(data1)): # data1 and data2 should have the same length
+		filter_out_condition = False
+		filter_out_condition = (data1[i][indices1["R_F"]] > 50.) or (data2[i][indices2["R_F_0"]] > 50.)
 
-    return newd1, newd2
+		if not filter_out_condition:
+			newd1.append(data1[i])
+			newd2.append(data2[i])
+
+	return np.array(newd1), np.array(newd2)
 
 
-def calc_error_curves(data_in, indices_fullsys, indices_effsys, myindex):
+def calc_error_curves(data_in, indices_fullsys, indices_effsys, myindex, filter_stars=False):
 
 	if ((len(data_in) % 2) == 1):	# include a check because there must be pairs of data: full system + effective system
 		print("need an even amount of data files!\n With even files containing data of the full system and uneven from the effective system!")
 	
 	# pre-processing of data files:
 	# filter the data
-	# remove the first entry (star with min values of Phi_c and rho_c):
 	myworkdata = [None]*len(data_in)
-	#for i in range(len(data_in)):
-	#	myworkdata[i] = data_in[i]
-
-	# filter using the stability curve:
-	NstarsRho = len(np.unique(data_in[0][:,indices_fullsys['rho_0']]))
-	NstarsPhi = len(np.unique(data_in[0][:,indices_fullsys['phi_0']]))
 	stab_curve = [None]*len(data_in)
 	# compute all stability curves using the solution from the full system:
 	for k in range(0,len(data_in),2):
@@ -79,11 +68,12 @@ def calc_error_curves(data_in, indices_fullsys, indices_effsys, myindex):
 		myworkdata[k+1] = scc.filter_stab_curve_data(data_in[k+1], indices_fullsys, stab_curve[k]) # filter the stars inside the stability region
 	
 	# filter out data using other criteria:
-	#for l in range(0,len(data_in),2):
-	#	myworkdata[l], myworkdata[l+1] = filter_errorplot_data(myworkdata[l], myworkdata[l+1], indices_fullsys)
+	if (filter_stars):
+		for l in range(0,len(data_in),2):
+			myworkdata[l], myworkdata[l+1] = filter_errorplot_data(myworkdata[l], myworkdata[l+1], indices_fullsys, indices_effsys)
         
 	# compute the reative min/max/average errors
-	minerr = []	# def arrays:
+	minerr = []	# def helper arrays:
 	maxerr = []
 	medianerr = []
 	one_sigmaerr = []
@@ -91,13 +81,8 @@ def calc_error_curves(data_in, indices_fullsys, indices_effsys, myindex):
 
 	# calculate the errors of a given quantity (given by the index):
 	for j in range(0,len(myworkdata),2):
-        # Add clause If myindex=lambda_tidal then compute \Lambda first, then feed the function with tidal deformability instead of lmbda_tidal
-		if myindex == "lambda_tidal":
-			data1 = myworkdata[j][1:,indices_fullsys[myindex]] / myworkdata[j][1:,indices_fullsys["M_T"]]**5 	# tmp variables
-			data2 = myworkdata[j+1][1:,indices_effsys[myindex]] / myworkdata[j+1][1:,indices_fullsys["M_T"]]**5
-		else:
-			data1 = myworkdata[j][1:,indices_fullsys[myindex]]	# tmp variables
-			data2 = myworkdata[j+1][1:,indices_effsys[myindex]]
+		data1 = myworkdata[j][1:,indices_fullsys[myindex]]	# tmp variables
+		data2 = myworkdata[j+1][1:,indices_effsys[myindex]]
 		# here, the errors are calculated:
 		minerr_tmp, maxerr_tmp, medianerr_tmp, one_sigmaerr_tmp, two_sigmaerr_tmp = calc_relative_err_min_max_median_sigma(data1, data2)
 		minerr.append(minerr_tmp)

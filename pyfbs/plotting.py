@@ -73,13 +73,13 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 	if figHeight == None:
 		figHeight = 13
 		if nrows > ncols:
-		    figHeight /= ncols
-		    figHeight *= nrows
+			figHeight /= ncols
+			figHeight *= nrows
 	if figWidth == None:
 		figWidth = figHeight * 1.3
 		if nrows > ncols:
-		    figWidth /= nrows
-		    figWidth *= ncols
+			figWidth /= nrows
+			figWidth *= ncols
 
 
 	fig.set_figheight(figHeight)
@@ -91,14 +91,14 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 		ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
 		
 		if not overlay_info is None: #and i % np.shape(axs)[0] == 0:
-		    text = ''
-		    for k,v in zip(overlay_info.keys(), overlay_info.values()):
-		        text += f"${v} = {(dfs[i][0,indices[k]]):.0f} $\n"
+			text = ''
+			for k,v in zip(overlay_info.keys(), overlay_info.values()):
+				text += f"${v} = {(dfs[i][0,indices[k]]):.0f} $\n"
 		    
-		    text_box = AnchoredText(text.strip(), frameon=True, loc=overlay_loc, pad=0.1, prop={'fontsize':18}, alpha=1.)
-		    plt.setp(text_box.patch, boxstyle='round', edgecolor='black', facecolor=(0., 0., 0., 0.))
-		    ax.add_artist(text_box)
-		    #ax.text(0.1, 0.1, text.strip(), transform=ax.transAxes, alpha=0.5, bbox=dict(boxstyle='round', pad=0.2, edgecolor='black', facecolor=(0., 0., 0., 0.)), fontsize=18)
+			text_box = AnchoredText(text.strip(), frameon=True, loc=overlay_loc, pad=0.1, prop={'fontsize':18}, alpha=1.)
+			plt.setp(text_box.patch, boxstyle='round', edgecolor='black', facecolor=(0., 0., 0., 0.))
+			ax.add_artist(text_box)
+			#ax.text(0.1, 0.1, text.strip(), transform=ax.transAxes, alpha=0.5, bbox=dict(boxstyle='round', pad=0.2, edgecolor='black', facecolor=(0., 0., 0., 0.)), fontsize=18)
 
 	fig.add_subplot(111, frame_on=False)
 	plt.tick_params(labelcolor="none", bottom=False, left=False)
@@ -313,8 +313,8 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 		plotArray = np.log(plotArray)
 
 	if contourLevels is None and autoContour:
-		minVal = min(allPlotArray)
-		maxVal = max(allPlotArray)
+		minVal = min(PlotArray)
+		maxVal = max(PlotArray)
 		contourLevels = np.linspace(minVal, maxVal, 7)[1:-1]
 
 	contourPlot = plt.contour(rhoVals, phiVals, plotArray, colors=contourColors, levels=contourLevels)
@@ -340,10 +340,30 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 	if plotStabCurve:
 		plt.plot(stabCurve[:,0], stabCurve[:,1], color = "black", linewidth = 2)
 
+
 # plots the relative numerical errors, of two quantities, between the full system and the effective EoS system with respect to lambda_int
-# filenames is a list containing all filenames of fullsys and effsys, with every other filename corresponding to the fullsys and effsys respectively
-# Lambda_array contains all Lambda_int values in ascending order matching eqch pair of effsys/fullsys data points
-def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2, figname = "plot_error_comparison_effsys_fullsys.png", debug = False):
+# filenames is a list containing all filenames of fullsys and effsys, with every other filename corresponding to the fullsys and effsys respectively.
+# the fullsys-effsys data must be alternating, starting with a data set of the full system
+# Lambda_array contains all Lambda_int values in ascending order matching each pair of effsys/fullsys data points
+# index1 -> label of 1st quantity the rel error should be calculated for
+# index2 -> same as index1 but for the second quantity
+# figname -> name of the filename
+# ylim1 -> y-axis range of quantity 1
+# ylim2 -> y-axis range of quantity 2
+# xlim1 -> x-axis range of quantity 1
+# xlim2 -> x-axis range of quantity 2
+# yscale1 -> y-axis scale of quantity 1 (can be 'log' or 'linear')
+# yscale2 -> y-axis scale of quantity 2 (can be 'log' or 'linear')
+# label1 -> label of quantity 1 in the legend
+# label2 -> label of quantity 2 in the legend
+# xlabeltot -> label of shared x-axis for both quantities
+# ylabeltot -> label of shared y-axis / -title for both quantities
+# debug -> prints additional information
+# filter_stars -> if True, filter out certain FBS configurations as specified in errorplot.filter_errorplot_data()
+def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2, figname = "plot_error_comparison_effsys_fullsys.png", \
+	ylim1 = [1e-3,2e0], ylim2 = [1e-3,1e2], xlim1 = [0,300], xlim2 = [0,300], yscale1="log", yscale2 ="log", \
+	label1 =  "$M_{tot}$ error region", label2 = "$\Lambda \:\:\:\:\:\;$ error region", xlabeltot = "$\Lambda_{\mathrm{int}} = \lambda / (8 \pi m^2)$", \
+	ylabeltot = "$\epsilon_{\mathrm{rel}} := ||Q_{\mathrm{full}}-Q_{\mathrm{eff}}|| / Q_{\mathrm{full}}$ , $Q = \{ M_{\mathrm{tot}}, \Lambda \}$", debug = False, filter_stars = False):
 
 	# reading in the data using the filenames and assigning indices
 	number_of_files = len(filenames)
@@ -351,13 +371,14 @@ def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2
 	indices = [None]*number_of_files
 
 	for i in range(len(filenames)):
-		df[i], indices[i] = data.load_file(filenames[i])
+		df[i], indices[i] = data.load_file(filenames[i]) # load the files
+		df[i], indices[i] = data.add_Lambda_tidal(df[i], indices[i]) # add Lambda_tidal := lambda_tidal / M_T**5 as variable
 
 	indices_fullsys = indices[0]
 	indices_effsys = indices[1]
 	# computation of the relative errors
-	min_err1, max_err1, median_err1, one_sigma_err1, two_sigma_err1 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index1)
-	min_err2, max_err2, median_err2, one_sigma_err2, two_sigma_err2 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index2)
+	min_err1, max_err1, median_err1, one_sigma_err1, two_sigma_err1 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index1, filter_stars)
+	min_err2, max_err2, median_err2, one_sigma_err2, two_sigma_err2 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index2, filter_stars)
 
 	# start the plotting:
 	if (debug):
@@ -367,29 +388,30 @@ def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2
 	# hardcoded parameters (might change later)
 	nrows = 2
 	ncols = 1
-	fig = plt.figure()
+	fig = plt.figure(figsize=(6.5,5))
 	gs = fig.add_gridspec(nrows, ncols, hspace=0.1, wspace=0)
 	axs = gs.subplots(sharex='col')#, sharey='row')
 
 	# populate the first subplot
-	axs[0].fill_between(Lambda_array, min_err1, max_err1, alpha = 0.15, color="blue", label = "$M_{tot}$ error region")
+	axs[0].fill_between(Lambda_array, min_err1, max_err1, alpha = 0.15, color="blue", label = label1)
 	axs[0].fill_between(Lambda_array, min_err1, two_sigma_err1, alpha = 0.15, color="blue")#, label = "$M_{tot}$ $2\sigma$ error region")#, hatch='x')
 	axs[0].fill_between(Lambda_array, min_err1, one_sigma_err1, alpha = 0.15, color="blue") #, label = "$1\sigma$ region"
 	axs[0].plot(Lambda_array, median_err1, color="blue", linewidth=1.75, linestyle ="--")#, label="median of $M_{tot}$-error")
 
 	# populate the second subplot
-	axs[1].fill_between(Lambda_array, min_err2, max_err2, alpha = 0.15, color="red", label = "$\Lambda \:\:\:\:\:\;$ error region")
+	axs[1].fill_between(Lambda_array, min_err2, max_err2, alpha = 0.15, color="red", label = label2)
 	axs[1].fill_between(Lambda_array, min_err2, two_sigma_err2, alpha = 0.15, color="red")#, label = "$\Lambda \:\:\:\:\:\;$ $2\sigma$ error region")
 	axs[1].fill_between(Lambda_array, min_err2, one_sigma_err2, alpha = 0.15, color="red") #, label = "$1\sigma$ region"
 	axs[1].plot(Lambda_array, median_err2, color="red", linewidth=1.75, linestyle ="--")#, label="median of $\Lambda$-error")
 
 	# set scale, plotlim, legend ...
-	axs[0].set_yscale("log") # "log" or "linear"
-	axs[1].set_yscale("log") # "log" or "linear"
-	axs[0].set_ylim(1e-3,2e0)
-	axs[1].set_ylim(1e-3,1e2)
-	axs[0].set_xlim(0,300)
-	axs[1].set_xlim(0,300)
+	axs[0].set_yscale(yscale1) # "log" or "linear"
+	axs[1].set_yscale(yscale2) # "log" or "linear"
+	axs[0].set_ylim(ylim1)
+	axs[1].set_ylim(ylim2)
+	axs[0].set_xlim(xlim1)
+	axs[1].set_xlim(xlim2)
+	#axs[1].set_yticks(np.geomspace(ylim2[0],ylim2[1], 51))
 
 	axs[0].grid(alpha=0.15, linestyle="--", c="black")
 	axs[1].grid(alpha=0.15, linestyle="--", c="black")
@@ -398,9 +420,9 @@ def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2
 	axs[1].legend(loc="lower left")
 
 	# shared x-axis label of the plot
-	plt.xlabel("$\Lambda_{\mathrm{int}} = \lambda / (8 \pi m^2)$", fontsize = 14)
+	plt.xlabel(xlabeltot, fontsize = 14)
 	# shared y-axis label
-	fig.text(0.02, 0.5, "$\epsilon_{\mathrm{rel}} := ||Q_{\mathrm{full}}-Q_{\mathrm{eff}}|| / Q_{\mathrm{full}}$ , $Q = \{ M_{\mathrm{tot}}, \Lambda \}$", fontsize = 14, va='center', rotation='vertical')
+	fig.text(0.02, 0.5, ylabeltot, fontsize = 14, va='center', rotation='vertical')
 
 	# prevent labels on the "inside" between the subplots:
 	for ax in axs:
