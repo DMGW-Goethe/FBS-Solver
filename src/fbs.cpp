@@ -625,6 +625,7 @@ void FermionBosonStar::evaluate_model() {
  *  Only call if omega is the corresponding eigenfrequency of mu, lambda, rho_0, phi_0 */
 void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts, std::string filename) {
 
+    const bool force_phi_to_zero = false;
     intOpts.save_intermediate = true;
     intOpts.verbose = 0;
 
@@ -634,7 +635,9 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
     if(this->rho_0 > 0.)
         events.push_back(P_min_reached);
 
-    int res = this->integrate_and_avoid_phi_divergence(results, events, intOpts, false);
+    this->integrate_and_avoid_phi_divergence(results, events, intOpts, force_phi_to_zero);
+
+    this->calculate_star_parameters(results, events);
 
     if(!filename.empty()) {
         plotting::save_integration_data(results, {0,1,2,3,4}, {"a", "alpha", "phi", "Psi", "P"}, filename);
@@ -645,8 +648,6 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
         matplotlibcpp::save(filename); matplotlibcpp::close();
         #endif
     }
-
-    this->calculate_star_parameters(results, events);
 }
 
 /* Outputs the star parameters and properties */

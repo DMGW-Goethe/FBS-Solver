@@ -10,10 +10,6 @@
 
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the general maximum integration radius (might be increased if not sufficient)
-#define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
-#define PHI_converged 1e-4 // compared to phi / phi_0, when the bosonic component has converged sufficiently
-#define INT_converged 1e-7
-#define M_T_converged 1e-15 // leftover from previous attempts to characterize convergence
 
 /*  NSmodel
  * this is an abstract class that is supposed to be the backbone for

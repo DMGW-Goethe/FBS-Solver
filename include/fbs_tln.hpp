@@ -37,9 +37,10 @@ protected:
     /* Calculates the parameters lambda_tidal, k2, y_max, R_ext for a given integration contained in results,events */
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
-    /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, phi_1 = 0, and continues the integration
-     * to avoid the divergence that is otherwise present due to numerical properties of the system. For phi=0 the DE for H,phi_1 decouple and we are only interested in H anyways. */
-    /*int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=R_INIT, double r_end=R_MAX) const;*/
+
+    int bisection_phi_1_find_mode(double& phi_1_0_l, double& phi_1_0_r, int n_mode, int max_steps, int verbose);
+    int bisection_phi_1_converge_through_infty_behavior(double& phi_1_0_l, double& phi_1_0_r, int max_steps, double delta_phi_1, int verbose);
+
 
 public:
     double H_0, phi_1_0;
@@ -58,8 +59,6 @@ public:
 
     /* This function requires the FBS parameters and H_0 to be set. It finds the corresponding phi_1_0 */
     int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12, int verbose = 0);
-
-    using FermionBosonStar::evaluate_model; // TODO: Check Necessity
 
     /* Integrates the DE while avoiding the phi divergence and calculates the FBS properties
      * Returns the results and optionally ouputs them into a file*/
