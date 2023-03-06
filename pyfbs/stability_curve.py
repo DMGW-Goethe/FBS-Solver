@@ -6,7 +6,7 @@ import pandas as pd
 
 # find the nearest point in the rho_c-phi_c diagram to a given input point
 def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
-	
+
 	nearestpointMR = [0,0]	# hold one point in the MR diagram
 	distance = 1.0
 	min_distance = 100.0
@@ -26,7 +26,7 @@ def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
 
 def refactorList(list, n):
 	return [list[i:i+n] for i in range(0, len(list), n)]
-	
+
 # Calculates the stability curve according to the paper by Henriques et al. "Stabiliy of Boson-Fermion Stars"
 def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	# first, get some useful quantities from the list of all values
@@ -59,7 +59,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 		for iPhi in range(numStarsRho):
 			grad_M = [0.0,0.0]
 			grad_Nf = [0.0,0.0]
-			
+
 			grad_M[0], grad_M[1] = massesGradient[0][iRho][iPhi], massesGradient[1][iRho][iPhi]
 			grad_Nf[0], grad_Nf[1] = fermionNumbersGradient[0][iRho][iPhi], fermionNumbersGradient[1][iRho][iPhi]
 
@@ -73,7 +73,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 			massDerivs[iRho][iPhi] = np.linalg.norm(grad_M)
 			nfDerivs[iRho][iPhi] = np.linalg.norm(grad_Nf)
 
-	
+
 	# now that we have all values ready, we need to find the curve in deriv_array_2D that has zero value
 	# also, below I am throwing out the values at the boundary (that's why I do phiVals[1:]) because the derivative is just not well behaved at the boundarys
 	Yy, Xx = np.meshgrid(rhoVals[1:], phiVals[1:])
@@ -83,27 +83,14 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	fig = plt.figure(999)
 	ax = fig.add_subplot(111)
 	contours = ax.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False)
-	
+
 	# extract all lines that were found with zero value
 	lines = []
 	for line in contours.collections[0].get_paths():
 		lines.append(line.vertices)
 
-	# select only the longest line (this is the one that we want):
-	'''
-	longestindex = 0
-	maxlen = 0
-	for k in range(len(lines)):
-#		print(len(lines[k]))
-		if len(lines[k]) > maxlen:
-			maxlen = len(lines[k])
-			longestindex = k
-	'''
 	lines = sorted(lines, key=len, reverse=True)
 	stab_curve = lines[curve_index]
-
-	# the wanted stability curve is the line which has the longest length (in case there would be multiple lines)
-	#stab_curve = lines[longestindex]
 
 	ax.clear()
 	plt.close(fig)
@@ -129,7 +116,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 		plt.title("mass derivs")
 		plt.legend(loc = "upper right")
 		plt.show()
-		
+
 		plt.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False, linewidths = 4)
 		plt.plot(stab_curve[:,0], stab_curve[:,1], linestyle="--", linewidth = 4, color = "red", label = "extracted stability line")
 		plt.pcolormesh(Y, X, (nfDerivs), cmap = "viridis", alpha=0.8)
@@ -147,13 +134,12 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 def filter_stab_curve_data(sol_array, indices, stab_curve):
 
 	# extend the stability curve to make it a closed polygon
-	# Then, use it to search for all star configurations inside of the stability curve polygon:
-
+	# Then, use it to search for all star configurations inside of the stability curve polygon
 	# extend the stab_curve to a polygon
 	# append additional elements:
 	stab_curve_polygon = np.append(stab_curve, np.array([[-0.5,-0.5]]), axis=0)  # chose a point in the lower left corner which is guaranteed to produce a polygon with the remaining curve
 	bbPath = mplPath.Path(stab_curve_polygon) # convert stab curve so that mplPath can use it
-	
+
 	# construct check if the stars are inside of the stability curve
 	# (stab curve is a polygon and we check which points are inside it!)
 	filtered_data = [] # create dummy output array
@@ -204,12 +190,12 @@ def stab_curve_to_MR(sol_array, indices, old_stabcurve, num_rho_stars, num_phi_s
 			break
 
 		MR_stabcurve_phi0.append(MRpoint)
-	
+
 	# append the MR curves as phi_c=0 and rho_c=0 to the stability curve:
 	tmp1 = MR_stabcurve_rho0[::-1] # reverse element order to get the correct item order for appending later
 	for k in range(len(MR_stabcurve_rho0)):
 		MR_stabcurve.append(tmp1[k])
-	
+
 	for j in range(len(MR_stabcurve_phi0)):
 		MR_stabcurve.append(MR_stabcurve_phi0[j])
 

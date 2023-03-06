@@ -14,6 +14,8 @@
 #include "integrator.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
+#include "fbs.hpp"
+#include "fbs_tln.hpp"
 
 using clock_type = std::chrono::steady_clock;
 using second_type = std::chrono::duration<double, std::ratio<1> >;
