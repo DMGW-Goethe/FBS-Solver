@@ -42,10 +42,7 @@ There are also functions for loading the files written by the `mr_curves.hpp` fu
 See `plotting.ipynb` for some examples and generating the plots in our publication.
 
 ## Publication
-This code has been used in our publication [](). The data is generated with the `generate_tables.py` file, and plotted with the `plotting.ipynb` files.
-
-## License
-TODO
+This code has been used in our [publication](https://arxiv.org/abs/2303.04089). The data is generated with the `pyfbs/generate_tables.py` file, and plotted with the `plotting.ipynb` files.
 
 ## Acknowledgements
 This work was supported by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) through the [CRC-TR 211](https://crc-tr211.org/) ’Strong-interaction matter under extreme conditions’– project number 31547758.
