@@ -664,7 +664,7 @@ std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
                 << fbs.omega                 << " "   // omega
                 << fbs.mu                    << " "   // mass mu
                 << fbs.lambda                << " "   // self-interaction parameter lambda
-                << fbs.R_G                            // effective gravitational radius
+                << fbs.R_G*1.476625061                // effective gravitational radius
                             ;
 }
 /* Gives the labels of the values from the output */
