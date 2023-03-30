@@ -14,6 +14,7 @@
 #include "integrator.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
+#include "fbs_twofluid.hpp"
 
 using clock_type = std::chrono::steady_clock;
 using second_type = std::chrono::duration<double, std::ratio<1> >;
@@ -49,6 +50,6 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 
 void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, int verbose=1);
 
-void calc_twofluid_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu=1, double lambda=1, bool use_effective_EOS=false);
+void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu=1, double lambda=1);
 
 #endif

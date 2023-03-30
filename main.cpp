@@ -9,6 +9,7 @@
 #include "integrator.hpp"
 #include "eos.hpp" // include eos container class
 #include "nsmodel.hpp"
+#include "fbs_twofluid.hpp"
 #include "mr_curves.hpp"
 #include "plotting.hpp"     // to use python/matplotlib inside of c++
 
@@ -68,7 +69,7 @@ void test_effectiveEOS_pure_boson_star() {
 	double lambda = Lambda_int*8*M_PI*mu*mu; //(7500./30.) / 100.;	// we can then later try this out with different lambda!
 
 	// create the phi_c-grid:
-	const unsigned NstarsPhi = 200;
+	const unsigned NstarsPhi = 10;
 	double rho_cmin = 1e-10;	// we want to consider a pure boson star
 	double phi_cmin = 1e-5;
 	double phi_cmax = 0.055;
@@ -84,7 +85,7 @@ void test_effectiveEOS_pure_boson_star() {
 
 	// part to vary only rho_c:
 
-	const unsigned NstarsRho = 59;
+	const unsigned NstarsRho = 1;
 	rho_cmin = 5e-5; //0.0 / 2458.;	// we want to consider a pure neutron matter star
 	double rho_cmax = 5e-3; //2.5 / 2458.;	// in units of nuclear saturation density (?)
 	//double rho_cmax = 10.0 / 0.15 * 2.886376934e-6 * 939.565379; // includig conversion factors
@@ -115,7 +116,7 @@ void test_effectiveEOS_pure_boson_star() {
 	// calc the perturbed solutions to get the tidal love number:
 	calc_MRphik2_curve(MRphi_curve, MRphi_tln_curve, 2); // compute the perturbed solutions for TLN
 	// save the results in a txt file:
-	std::string plotname = "pureBS/paperplot-TLN-line_pureBS_fullsys-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	std::string plotname = "pureBS/1paperplot-TLN-line_pureBS_fullsys-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
 	//plotname = "tidal_pureEOS_KDE0v1_fullsys";
 	//write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
 	write_MRphi_curve<FermionBosonStarTLN>(MRphi_tln_curve, "plots/" + plotname + ".txt");
@@ -123,8 +124,8 @@ void test_effectiveEOS_pure_boson_star() {
 	//phi_c_grid[0] = 1e-30;
 	// compute effective two-fluid model:
 	std::vector<TwoFluidFBS> twofluid_MRphi_curve;
-	calc_twofluid_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda, true);	// use the effective EOS
-	plotname = "pureBS/paperplot-TLN-line_pureBS_effsys-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	calc_twofluidFBS_curves(EOS_DD2, myEffectiveEOS, rho_c_grid, phi_c_grid, twofluid_MRphi_curve, mu, lambda);	// use the effective EOS
+	plotname = "pureBS/1paperplot-TLN-line_pureBS_effsys-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
 	//plotname = "tidal_pureEOS_APR_twofluid";
 	//plotname = "rhophi-diagram_DD2_twofluid_" + std::to_string(mu) + "_" + std::to_string(lambda);
 	write_MRphi_curve<TwoFluidFBS>(twofluid_MRphi_curve, "plots/" + plotname + ".txt");
