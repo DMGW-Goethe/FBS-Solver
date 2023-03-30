@@ -13,7 +13,7 @@ void plotting::plot_evolution(const std::vector<integrator::step>& results, cons
     for(auto it = results.begin(); it != results.end(); ++it)
         r.push_back(it->first);
 
-    for(int i = 0; i < plot_components.size(); i++) {
+    for(unsigned int i = 0; i < plot_components.size(); i++) {
         std::vector<double> y;
         y.reserve(results.size());
         int index = plot_components[i];
@@ -41,13 +41,13 @@ void plotting::save_integration_data(const std::vector<integrator::step>& result
 
     if(img.is_open()) {
         img << "# r";
-        for(int i = 0; i < plot_components.size(); i++)
+        for(unsigned int i = 0; i < plot_components.size(); i++)
             img << "\t" << labels[i];
         img << std::endl;
 
         for(auto it = results.begin(); it != results.end(); ++it) {
             img << std::fixed << std::setprecision(10) << it->first;    // radius
-            for(int i = 0; i < plot_components.size(); i++)
+            for(unsigned int i = 0; i < plot_components.size(); i++)
                 img << std::scientific << std::setprecision(10) <<  " " << it->second[plot_components[i]]; // the other variables
             img << std::endl;
         }
