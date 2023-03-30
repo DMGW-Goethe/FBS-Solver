@@ -10,6 +10,7 @@
 
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the general maximum integration radius (might be increased if not sufficient)
+#define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
 
 /*  NSmodel
  * this is an abstract class that is supposed to be the backbone for
