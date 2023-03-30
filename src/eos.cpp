@@ -271,8 +271,9 @@ double EoStable::get_P_from_rho(const double rho, const double epsilon) {
     unsigned int table_len = rho_table.size();
 
     // if we are below the table return 0.
-    if (rho < rho_table[0])
+    if (rho < rho_table[0]) {
         return 0.;
+	}
 
 	// search the table for the correct value
 	for (unsigned int i = 1; i<table_len; i++) {

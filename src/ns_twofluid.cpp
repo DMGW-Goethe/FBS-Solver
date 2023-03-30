@@ -14,31 +14,26 @@ vector NSTwoFluid::get_initial_conditions(const double r_init) const {
 
 vector NSTwoFluid::dy_dr(const double r, const vector &vars) const {
 
-    const double nu = vars[0], m1 = vars[1], m2 = vars[2];
+    const double /*nu = vars[0],*/ m1 = vars[1], m2 = vars[2];
     double P1 = vars[3], P2 = vars[4];
     const double Y = vars[5];
 
-    // load the Eos from both fluids:
+    // load the EoS from both fluids:
     EquationOfState &myEOS1 = *(this->EOS);
     EquationOfState &myEOS2 = *(this->EOS_fluid2);
 
     // call both EoS and compute the wanted values
-    double rho1=0., etot1=0., epsilon1=0., dP1_drho=0., dP1_detot=0., drho_dP1=0., detot_dP1=0.;
-    double rho2=0., etot2=0., epsilon2=0., dP2_drho=0., dP2_detot=0., drho_dP2=0., detot_dP2=0.;
+    double etot1=0., dP1_detot=0., detot_dP1=0.;
+    double etot2=0., dP2_detot=0., detot_dP2=0.;
     // first EoS
     if (P1 <= 0. || P1 < myEOS1.min_P())
     {
         P1 = 0.;
-        rho1 = 0.;
-        epsilon1 = 0.;
         etot1 = 0.;
     }
     else
     {
-        //myEOS1.callEOS(rho1, epsilon1, P1); // change rho and epsilon by reference using EOS member function
         etot1 = myEOS1.get_e_from_P(P1);
-        //dP1_drho = rho1 > myEOS1.min_rho() ? myEOS1.dP_drho(rho1, epsilon1) : 0.;
-        //drho_dP1 = dP1_drho > 0. ? 1. / dP1_drho : 0.;
         dP1_detot = etot1 > myEOS1.min_e() ? myEOS1.dP_de(etot1) : 0.;
         detot_dP1 = dP1_detot > 0. ? 1. / dP1_detot : 0.;
     }
@@ -46,23 +41,14 @@ vector NSTwoFluid::dy_dr(const double r, const vector &vars) const {
     if (P2 <= 0. || P2 < myEOS2.min_P())
     {
         P2 = 0.;
-        rho2 = 0.;
-        epsilon2 = 0.;
         etot2 = 0.;
     }
     else
     {
-        //myEOS2.callEOS(rho2, epsilon2, P2); // change rho and epsilon by reference using EOS member function
         etot2 = myEOS2.get_e_from_P(P2);
-        //dP2_drho = rho2 > myEOS2.min_rho() ? myEOS2.dP_drho(rho2, epsilon2) : 0.;
-        //drho_dP2 = dP2_drho > 0. ? 1. / dP2_drho : 0.;
         dP2_detot = etot2 > myEOS2.min_e() ? myEOS2.dP_de(etot2) : 0.;
         detot_dP2 = dP2_detot > 0. ? 1. / dP2_detot : 0.;
     }
-
-    // uncomment the following if you want to use the EoS using rho and epsilon:
-    //etot1 = rho1*(1. + epsilon1);
-    //etot2 = rho2*(1. + epsilon2);
 
     // compute 'total'-values and helper variables:
     double mtot = m1 + m2;
@@ -218,7 +204,8 @@ void NSTwoFluid::evaluate_model(std::vector<integrator::step> &results, std::str
     std::vector<integrator::Event> events = {NSTwoFluid::all_Pressure_zero};
     results.clear();
 
-    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts); // integrate the star
+    this->integrate(results, events, this->get_initial_conditions(), intOpts); // integrate the star
+
 
     // option to save all the radial profiles into a txt file:
     if (!filename.empty())
