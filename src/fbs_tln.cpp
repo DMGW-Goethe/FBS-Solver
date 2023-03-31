@@ -31,13 +31,13 @@ vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) const {
 
     EquationOfState& myEOS = *(this->EOS);
 
-    double rho, epsilon, drho_dP, dP_drho;
+    double e, de_dP, dP_de;	// total energy density, and derivatives w.r.t. pressure P
     if(P <= 0. || P < myEOS.min_P() || P < P_ns_min)  {
-        P = 0.; rho = 0.; epsilon = 0., drho_dP = 0.;
+        P = 0.; e = 0., de_dP = 0.;
     } else {
-        myEOS.callEOS(rho, epsilon, P);
-        dP_drho = rho > myEOS.min_rho() ? myEOS.dP_de(rho, epsilon) : 0.;
-        drho_dP = dP_drho > 0. ? 1./dP_drho : 0.;
+        e = myEOS.get_e_from_P(P);
+        dP_de = e > myEOS.min_e() ? myEOS.dP_de(e) : 0.;
+        de_dP = dP_de > 0. ? 1./dP_de : 0.;
     }
 
     vector dy_dr = FermionBosonStar::dy_dr(r, vars); // use equations as given in parent class
@@ -56,11 +56,11 @@ vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) const {
                                     + 4.*M_PI*a*a*(P - V) + 4.*M_PI*Psi*Psi + a*da_dr/r + (1. - a*a)/2./r/r )*alpha;
 
     const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
-                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ drho_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + drho_dP)
-                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ drho_dP) - dalpha_dr/r/alpha*(7. + drho_dP)
+                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ de_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + de_dP)
+                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ de_dP) - dalpha_dr/r/alpha*(7. + de_dP)
                                     + 6*a*a/r/r) * H
-                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - drho_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +drho_dP) - 16.*M_PI* dPsi_dr/r*(3. + drho_dP)
-                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + drho_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - drho_dP) - 32.*M_PI*dphi_dr/r/r*(3. + drho_dP)) * phi_1;
+                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - de_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +de_dP) - 16.*M_PI* dPsi_dr/r*(3. + de_dP)
+                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + de_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - de_dP) - 32.*M_PI*dphi_dr/r/r*(3. + de_dP)) * phi_1;
 
     const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
                                 + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
@@ -68,7 +68,7 @@ vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) const {
 
     /*std::cout << "r = " << r
                 << ", ddalpha_dr2 = " << ddalpha_dr2
-                << ", drho/dP = " << drho_dP
+                << ", drho/dP = " << de_dP
                 << ", ddH_dr2 = " << ddH_dr2
                 << ", dH_dr = " << dH_dr
                 << ", H = " << H
