@@ -11,6 +11,7 @@
 #include "fbs_twofluid.hpp"
 #include "mr_curves.hpp"
 #include "plotting.hpp"     // to use python/matplotlib inside of c++
+#include "utilities.hpp"
 
 // --------------------------------------------------------------------
 
@@ -66,41 +67,6 @@ int Example_Star() {
 }
 
 
-void fillValuesPowerLaw(const double minValue, const double maxValue, std::vector<double>& values, const int power)
-{
-    if(values.size() == 1) {
-		values[0] = minValue;
-		return;
-	}
-	
-	if(power == 1)
-    {
-        const double dValue = double(maxValue - minValue) / double(values.size() - 1);
-        for(size_t i = 0; i < values.size(); i++)
-            values[i] = minValue + dValue * i;
-
-        return;
-    }
-
-    fillValuesPowerLaw(0.0, 1.0, values, 1);
-
-    for(size_t i = 0; i < values.size(); i++)
-    {
-        values[i] = pow(values[i], power);
-        values[i] *= maxValue - minValue;
-        values[i] += minValue;
-    }
-}
-
-void fillValuesLogarithmic(const double minValue, const double maxValue, std::vector<double>& values)
-{
-    fillValuesPowerLaw(log(minValue), log(maxValue), values, 1);
-
-    for(size_t i = 0; i < values.size(); i++)
-        values[i] = exp(values[i]);
-}
-
-
 // compute here e.g. a few configurations with the full system and with the effective EOS for different lambda, to check if they produce the same results.
 void test_effectiveEOS_pure_boson_star() {
 
@@ -118,8 +84,8 @@ void test_effectiveEOS_pure_boson_star() {
 	double phi_cmin = 1e-5;
 	double phi_cmax = 0.055;
 	
-	fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 1);
-    fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
+	utilities::fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 1);
+    utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
 
 	// declare different EOS types:
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
@@ -178,10 +144,10 @@ int create_MR_curve() {
 
     std::vector<double> rho_c_grid(Nstars, 0.), phi_c_grid(NstarsPhi, 0.), NbNf_grid;
 
-    fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 3);
-    fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 3);
-    //fillValuesLogarithmic(phi_cmin, phi_cmax, phi_c_grid);
-    //fillValuesLogarithmic(rho_cmin, rho_cmax, rho_c_grid);
+    utilities::fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 3);
+    utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 3);
+    //utilities::fillValuesLogarithmic(phi_cmin, phi_cmax, phi_c_grid);
+    //utilities::fillValuesLogarithmic(rho_cmin, rho_cmax, rho_c_grid);
 
 	// setup to compute a full NS configuration, including tidal deformability:
 	std::vector<FermionBosonStar> MRphi_curve;
@@ -209,7 +175,7 @@ int main() {
     // Example_Star();
 
     // create an MR curve
-    create_MR_curve();
+    //create_MR_curve();
 	// ----------------------------------------------------------------
 
 	// test two-fluid EOS with effective bosonic EoS:
