@@ -50,8 +50,10 @@ namespace integrator
     /* IntegrationOption
      * contains options for the integration
      *  max_step      : the maximal number of steps the integrator should take - if exceeded iteration_number_exceeded is the return_reason
-     *  min_stepsize  : the minimal stepsize for an integration step - if smaller steps are needed an stepsize_underflow is the return_reason
+     *  target_error  : the wanted local truncation error. The integrator will ajust the spepsize to meet this error
+	 *  min_stepsize  : the minimal stepsize for an integration step - if smaller steps are needed an stepsize_underflow is the return_reason
      *  max_stepsize  : the maximal stepsize for an integration step
+	 *  force_max_stepsize : will force the integrator to take stepsizes of 'max_stepsize' every step. Will ignore 'target_error'
      *  save_intermediate : Whether the integrator should save all steps in the results vector or just the initial and last steps
      *  verbose       : How verbose the integrator should be
      *  clean_events  : Whether to call event->reset before integration - Default is true, put to false when continuing an integration for example
