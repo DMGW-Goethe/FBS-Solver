@@ -50,25 +50,24 @@ vector FermionBosonStar::dy_dr(const double r, const vector& vars) const {
     EquationOfState& EoS = *(this->EOS);
 
     // define hydrodynamic quantities
-    double rho = 0.;      // restmass density, must be set using EOS
-    double epsilon = 0.;  // specific energy denstiy, must be set either through EOS or hydrodynamic relations
+    double etot = 0.;	// total energy density. Must be computes from P using the EoS
     // define potential of the bosonic field
     const double V = mu*mu*phi*phi + lambda/2.*pow(phi, 4);
     const double dV_deps = mu*mu + lambda*phi*phi;
 
     // apply the EOS
     if(P <= 0. || P < EoS.min_P() || P < P_ns_min)  {
-        P = 0.; rho = 0.; epsilon = 0.;
+        P = 0.; etot = 0.;
     } else {
-        EoS.callEOS(rho, epsilon, P);
+        etot = EoS.get_e_from_P(P);
     }
 
     // compute the ODEs:
-    double da_dr = 0.5* a *     ( (1.-a*a) / r + 8.*M_PI*r*a*a*( omega*omega*phi*phi/alpha/alpha + V + Psi*Psi/a/a + rho*(1.+epsilon)  ));
+    double da_dr = 0.5* a *     ( (1.-a*a) / r + 8.*M_PI*r*a*a*( omega*omega*phi*phi/alpha/alpha + V + Psi*Psi/a/a + etot  ));
     double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*a*a*( omega*omega*phi*phi/alpha/alpha - V  + Psi*Psi/a/a + P ) );
     double dPhi_dr = Psi;
     double dPsi_dr = (-omega*omega*a*a/alpha/alpha + a*a*dV_deps) * phi + (da_dr/a - dalpha_dr/alpha - 2./r) * Psi;
-    double dP_dr = -(rho*(1.+epsilon) + P)*dalpha_dr/alpha;
+    double dP_dr = -(etot + P)*dalpha_dr/alpha;
 
     // write the ODE values into output vector
     return vector({da_dr, dalpha_dr, dPhi_dr, dPsi_dr, dP_dr});
