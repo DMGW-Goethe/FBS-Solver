@@ -12,6 +12,9 @@ To compile, a call to
     make
 
 should suffice.
+If you want to only compile the c++ code without the Cython components, call
+
+    make fbs
 
 In case dependencies are needed
 
@@ -21,12 +24,15 @@ In case dependencies are needed
 ## The C++ structure
 
 The file structure is as follows:
- - `vector.hpp`: Defines a simple wrapper of a boost::vector for (mathematical) vectors
- - `integrator.hpp`: Includes a Runge-Kutta-45-Fehlberg integrator that is accurate to 5th order with variable step size. The integrator allows to define events with an event_condition that will be checked for during the integration
- - `eos.hpp`: Defines a model for different Equations of State. Preimplemented are a Polytropic EoS and a Causal EoS. Additional EoS can be read from files.
+ - `vector.hpp`: Defines a simple wrapper of a boost::vector for (mathematical) vectors.
+ - `utilities.hpp`: Collection of some utility functions that may be used in other files.
+ - `integrator.hpp`: Includes a Runge-Kutta-45-Fehlberg integrator that is accurate to 5th order with variable step size. The integrator allows to define events with an event_condition that will be checked for during the integration. Additional helber functions related to integrtion are also included.
+ - `eos.hpp`: Defines a model for different Equations of State. Preimplemented are a Polytropic EoS, a Causal EoS and an effective bosonic EoS for a massive self-interacting complex scalar field. Additional tabulated EoS can be read from files.
  - `nsmodel.hpp`: Gives a base class for a star described by differential equations.
  - `fbs.hpp` The FermionBosonStar class gives the logic and differential equations for an FBS in equilibrium.
  - `fbstln.hpp`: The FBSTLN class extends the functionality to pertubations as described in the paper. The general idea is to first create a FermionBosonStar instance and integrate the equilibrium state, and from there create an instance of the TLN class to extend the computation. There are two conventions implemented, check the econvention branch.
+ - `ns_twofluid.hpp`: The NS_TWOFLUID class describes a star consisting of two minimally coupled fluids (each with their own EoS) in equilibrium.
+ - `fbs_twofluid.hpp`: A class derived from NS_TWOFLUID. Features custom initial conditions to use it together with the effective bosonic EoS.
  - `mr_curves.hpp`: Defines functions to calculate lists of FBS with OMP support and write them to file.
  - `plotting.hpp`: Allows to plot single integrations of stars. Only for debugging purposes, superseeded by the pyfbs implementation.
  - `matplotlibcpp.hpp`: For aforementioned debugging purposes. Generally not used, only if specified in Makefile. Does not work together with pyfbs. See at the end for more info.
