@@ -39,6 +39,13 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
             continue;
         }
 
+		if (options.force_max_stepsize) {	// note: this will ignore target truncation error
+			r += dr;
+            y += dV_05;
+			dr = options.max_stepsize;
+			return true;
+		}
+
         // approximating the truncation error:
         double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
 		//double truncation_error = ublas::norm_2(dV_05 - dV_04) * dr; // 2-Norm

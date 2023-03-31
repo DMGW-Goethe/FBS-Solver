@@ -61,11 +61,12 @@ namespace integrator
         double target_error;
         double min_stepsize;
         double max_stepsize;
+		bool force_max_stepsize;
         bool save_intermediate;
         int verbose;
         bool clean_events;
-        IntegrationOptions(const int max_step=1000000, const double target_error=1e-14, const double min_stepsize=1e-16, const double max_stepsize=1e-2, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
-                            : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), save_intermediate(save_intermediate), verbose(verbose), clean_events(clean_events) {}
+        IntegrationOptions(const int max_step=1000000, const double target_error=1e-14, const double min_stepsize=1e-16, const double max_stepsize=1e-2, const bool force_max_stepsize=false, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
+                            : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), force_max_stepsize(force_max_stepsize), save_intermediate(save_intermediate), verbose(verbose), clean_events(clean_events) {}
     };
 
     /* define return codes for the integrator */
