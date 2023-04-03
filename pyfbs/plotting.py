@@ -11,7 +11,26 @@ import pandas as pd
 
 from . import stability_curve as scc # import custom python file which computes the stability curve
 from . import data
-from . import errorplot as errp
+
+from matplotlib import rcParams
+from matplotlib import rcParamsDefault
+from matplotlib import rc
+
+import pyfbs
+
+rcParams.update(rcParamsDefault)
+
+#rc('font', **{'family': 'CMU Sans Serif', 'CMU Sans Serif': ['CMUSansSerif']})
+rc('font', **{'family': 'CMU Serif'})
+rcParams["mathtext.fontset"] = "cm"
+
+def latex_float(f):
+    float_str = "{0:.3g}".format(f)
+    if "e" in float_str:
+        base, exponent = float_str.split("e")
+        return r"{0} \times 10^{{{1}}}".format(base, int(exponent))
+    else:
+        return float_str
 
 # Function that returns all solutions in df that have condition(df, indices) == True
 def searchData(df, indices, condition):
@@ -27,18 +46,24 @@ def searchData(df, indices, condition):
 	return np.array(result)
 
 # Using the above function to find all solutions that correspond to pure neutron stars
-def searchPureNS(df, indices):
+def searchPureNS(df, indices, indexOffset = 0):
+	allPhiVals = np.unique(df[:,indices["phi_0"]])
+	desiredPhi = np.partition(allPhiVals, indexOffset)[indexOffset]
+
 	def condition(sol, indices):
-		if(sol[indices["phi_0"]] == 0):
+		if(sol[indices["phi_0"]] == desiredPhi):
 			return True
 		return False
 
 	return searchData(df, indices, condition)
 
 # Using the searchData function to find all solutions that correspond to pure boson stars
-def searchPureBS(df, indices):
+def searchPureBS(df, indices, indexOffset = 0):
+	allRhoVals = np.unique(df[:,indices["rho_0"]])
+	desiredRho = np.partition(allRhoVals, indexOffset)[indexOffset]
+
 	def condition(sol, indices):
-		if(sol[indices["rho_0"]] == 0):
+		if(sol[indices["rho_0"]] == desiredRho):
 			return True
 		return False
 		
@@ -57,8 +82,8 @@ def searchPureBS(df, indices):
 # xlim and ylim define the axis limits for all individual cells
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
 def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = None, figWidth = None, nrows = 2, ncols = 2, stabCurves=None,
-                       overlay_info=None, overlay_loc=1, addColorbar = True, lockAxes = True, addLegend = True, tickFontSize=15, cmap='viridis',
-                       **kwargs):
+					   overlay_info=None, overlay_loc=1, addColorbar = True, lockAxes = True, addLegend = True, tickFontSize=15, cmap='viridis', clim = [0, 1], cmapRange=[0, 1],
+					   **kwargs):
 	#s = 0.3, plotPureNS = True, plotPureBS = False, filterData = True, cmap = "viridis", xlim = [0, 2.7], ylim = [1, 5e6], tickFontSize = 13, 
 	# create a grid of plots
 	fig = plt.figure()
@@ -81,22 +106,25 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 			figWidth /= nrows
 			figWidth *= ncols
 
-
 	fig.set_figheight(figHeight)
 	fig.set_figwidth(figWidth)
 
 	# iterate over all dfs and fill the individual cells of the grid according the provided plotFunc
 	for i, ax in enumerate(axs.flatten()):
-		scatterFunc(dfs[i], indices, **kwargs, pltAxs=ax, cmap=cmap, stabCurve=stabCurves[i] if not stabCurves is None else None)
+		plotHandles, plotLabels = scatterFunc(dfs[i], indices, clim = clim, pltAxs=ax, cmap=cmap, cmapRange=cmapRange, stabCurve=stabCurves[i] if not stabCurves is None else None, **kwargs)
 		ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
 		
 		if not overlay_info is None: #and i % np.shape(axs)[0] == 0:
 			text = ''
 			for k,v in zip(overlay_info.keys(), overlay_info.values()):
-				text += f"${v} = {(dfs[i][0,indices[k]]):.0f} $\n"
-		    
-			text_box = AnchoredText(text.strip(), frameon=True, loc=overlay_loc, pad=0.1, prop={'fontsize':18}, alpha=1.)
-			plt.setp(text_box.patch, boxstyle='round', edgecolor='black', facecolor=(0., 0., 0., 0.))
+				if(k is "mu"):
+					text += f"${v} = {latex_float(dfs[i][0,indices[k]] * 1.34e-10)}$ eV\n"
+					#text += f"${v} = {(dfs[i][0,indices[k]] * 1.34e-10):.2e} $\n"
+				else:
+					text += f"${v} = {(dfs[i][0,indices[k]]):.0f} $\n"
+			
+			text_box = AnchoredText(text.strip(), frameon=True, loc=overlay_loc, pad=0.1, prop={'fontsize':12}, alpha=1., borderpad=0.8)
+			plt.setp(text_box.patch, boxstyle='round', edgecolor='black', facecolor=(1., 1., 1., 1.))
 			ax.add_artist(text_box)
 			#ax.text(0.1, 0.1, text.strip(), transform=ax.transAxes, alpha=0.5, bbox=dict(boxstyle='round', pad=0.2, edgecolor='black', facecolor=(0., 0., 0., 0.)), fontsize=18)
 
@@ -110,21 +138,23 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 
 	# add the color bar to the top of the grid
 	if addColorbar:
-		cb_ax = fig.add_axes([0.15, 0.91, 0.5, 0.014])
-		norm = mpl.colors.Normalize(vmin=0,vmax=1)
-		cbar = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cb_ax, cmap = "jet", orientation = "horizontal")
+		cb_ax = fig.add_axes([0.15, 0.925, 0.5, 0.014])
+		norm = mpl.colors.Normalize(vmin=0,vmax=clim[1])
+		cbar = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cb_ax, cmap = cmap, orientation = "horizontal")
+
+		cbar.ax.set_xlim(0, 1)
 		cbar.set_label(r"Dark Matter Mass Fraction", rotation=0, fontsize=22)
-		cbar.ax.get_yaxis().labelpad = 20
+		cbar.ax.get_xaxis().labelpad = 6
 		#cbar.ax.xaxis.set_ticks_position('top')
 		cbar.ax.xaxis.set_label_position('top')
 		cbar.set_ticks(np.linspace(0, 1.0, 6, endpoint=True))
 		cbar.ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
 	
 	if addLegend:
-		hand, lab = axs[0,0].get_legend_handles_labels() if nrows > 1 else axs[0].get_legend_handles_labels()
-		cb_ax.legend(hand, lab, loc=(1.05, -1.5), fontsize=tickFontSize)
+		#hand, lab = axs[0, 0].get_legend_handles_labels() if nrows > 1 else axs[0].get_legend_handles_labels()
+		cb_ax.legend(handles = plotHandles, labels = plotLabels, loc=(1.05, -1.5), fontsize=tickFontSize)
 	
-	return axs
+	return fig, axs
 
 # makes a scatter plot of two indices X and y. Parameters are:
 # stabCurve -> stablity curve for the given df. If none is provided then it is automatically calculated
@@ -136,7 +166,7 @@ def grid_Scatter(dfs, indices, scatterFunc, ylabel="", xlabel="", figHeight = No
 # xlim and ylim define the axis limits for all individual cells
 # pltAxs -> specifies the axs object in which the data is to be plotted. If none is provided, then plt is being used
 # tickFontSize defines the font size of all ticks and the fontsize of the inset labels
-def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 1e6], xlim = [0, 3], pltAxs = plt, tickFontSize = 13, xlabel="", ylabel="", yscale='linear', xscale='linear'):
+def scatter_XY(df, indices, X, Y, rasterized=False, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 1e6], xlim = [0, 3], pltAxs = plt, tickFontSize = 13, xlabel="", ylabel="", yscale='linear', xscale='linear', cmapRange=[0, 1], pureNSIndexOffset = 0, legendloc = "upper left", showBuchdahlLimit = False):
 	# calculate the stability curve and filter the data, if needed
 	if stabCurve is None and filterData:
 		stabCurve = scc.calc_stability_curve(df, indices)
@@ -148,6 +178,9 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 	if isinstance(cmap, str):
 		cmap = cm.get_cmap(cmap)
 
+	plotHandles = []
+	plotLables = []
+
 	# extract some useful information from the data file
 	allNbs = filteredData[:,indices['N_B']]
 	allNfs = filteredData[:,indices['N_F']]
@@ -156,14 +189,14 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 	allX = filteredData[:,indices[X]]
 	allY = filteredData[:,indices[Y]]
 
-	pltAxs.scatter(allX, allY, s = s, alpha=1, c=allRelativMassFractions, cmap=cmap)
-	pltAxs.scatter([], [], s = 20, color = cmap(0.), label="FBS Configurations") # I have to add this empty scatter plot, since otherwise no dot is being shown in the inset label for the "FBS Configurations"
-	
+	pltAxs.scatter(allX, allY, s = s, alpha=1, c=allRelativMassFractions, cmap=cmap, vmin=clim[0], vmax=clim[1], rasterized=rasterized)
+
 	# if pltAxs == plt, then finish up the plot with all labels and make it look nice
 	if pltAxs == plt:
 		pltAxs.clim(clim)
 
 		cbar = pltAxs.colorbar()
+		cbar.ax.set_ylim(cmapRange[0], cmapRange[1])
 		cbar.set_label(r"Dark Matter Mass Fraction", rotation=270, fontsize=tickFontSize)
 		cbar.ax.get_yaxis().labelpad = 15
 		cbar.ax.tick_params(axis='both', which='major', labelsize=tickFontSize)
@@ -183,58 +216,92 @@ def scatter_XY(df, indices, X, Y, filterData = True, stabCurve = None, s = 0.3, 
 		pltAxs.set_yscale(yscale)
 		pltAxs.set_xscale(xscale)
 
-	pltAxs.grid(alpha=0.2, linestyle="-")
+	if(showBuchdahlLimit):
+		p1 = xlim
+		p2 = [xlim[0]*4/9, xlim[1]*4/9]
+		pltAxs.fill_between(x=p1, y1=p2, y2=ylim[1], color="black", alpha=0.1)
+		#plt.fill_between([0 xlim[1]], y1=[0, 2], y2=[3,3])
+		pltAxs.plot(p1, p2, color="black")
+
+	scatterHandle = pltAxs.scatter([], [], s = 20, color = "black", label="FBS Configurations", cmap=cmap) # I have to add this empty scatter plot, since otherwise no dot is being shown in the inset label for the "FBS Configurations"
+	plotHandles.append(scatterHandle)
+	plotLables.append("FBS Configurations")
+
+	pltAxs.grid(alpha=0.2, linestyle="--")
 	#plt.text(10, 1.5, 'preliminary', fontsize=40, color='gray', alpha=0.05,	ha='center', va='center', rotation=30)
 
 	# plot pure quantities (pure neutron star and/or pure boson star) if required
-	if plotPureNS:
-		pureNS = searchPureNS(filteredData, indices)
-
-		pureNSX = pureNS[:,indices[X]]
-		pureNSY = pureNS[:,indices[Y]]
-		pltAxs.plot(pureNSX, pureNSY, label = "Pure DD2", color = cmap(0.), linestyle = "-", linewidth = 2)
-		
 	if plotPureBS:
 		pureBS = searchPureBS(filteredData, indices)
 
+		pureBS = np.array([sol for sol in pureBS if np.abs(sol[indices[Y]]) < 10 * ylim[1] and np.abs(sol[indices[Y]]) > ylim[0]])
 		pureBSX = pureBS[:,indices[X]]
 		pureBSY = pureBS[:,indices[Y]]
-		pltAxs.plot(pureBSX, pureBSY, label = "Pure BS", color = cmap(1.), linestyle = "-", linewidth = 2, alpha=0.5)
-	
+
+		pltAxs.plot(pureBSX, pureBSY, label = "Pure BS", color = cmap(cmapRange[1]/clim[1]), linestyle = "-", linewidth = 4, alpha=1)
+		pltAxs.plot(pureBSX, pureBSY, color = "white", linestyle = "-", linewidth = 1.5)
+
+		pureBSlineLegend1 = lines.Line2D([], [], linewidth=4, linestyle="-", color=cmap(cmapRange[1]/clim[1]))
+		pureBSlineLegend2 = lines.Line2D([], [], linewidth=1.5, linestyle="-", color='white')
+
+		plotHandles.append((pureBSlineLegend1, pureBSlineLegend2))
+		plotLables.append("Pure BS")
+
+	if plotPureNS:
+		pureNS = searchPureNS(filteredData, indices, pureNSIndexOffset)
+		pureNS = np.array([sol for sol in pureNS if np.abs(sol[indices[Y]]) < 10 * ylim[1] and np.abs(sol[indices[Y]]) > ylim[0] and np.abs(sol[indices[X]]) > 1e-9 and np.abs(sol[indices[X]]) < 10 * xlim[1]])
+		
+		pureNSX = pureNS[:,indices[X]]
+		pureNSY = pureNS[:,indices[Y]]
+
+		#print(pureNSX)
+		pureDD2handle, = pltAxs.plot(pureNSX, pureNSY, label = "Pure DD2", color = cmap(0.), linestyle = "-", linewidth = 4)#, gapcolor="yellow", dashes=[3, 3])
+		pltAxs.plot(pureNSX, pureNSY, color = "white", linestyle = "-", linewidth = 1.5)
+		
+		pureNSlineLegend1 = lines.Line2D([], [], linewidth=4, linestyle="-", color=cmap(0))
+		pureNSlineLegend2 = lines.Line2D([], [], linewidth=1.5, linestyle="-", color='white')
+
+		plotHandles.append((pureNSlineLegend1, pureNSlineLegend2))
+		plotLables.append("Pure DD2")
+
 	# add the final plot label (has to happen at the end because only now we know whether pure ns and/or bs was plotted)
 	if pltAxs == plt:
-		pltAxs.legend(loc = "upper right", fontsize = tickFontSize)
+		pltAxs.legend(handles = plotHandles, labels = plotLables, loc = legendloc, fontsize = 12, framealpha=1)
+	
+	return plotHandles, plotLables
 
 
-def scatter_Tidal(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 1e6], xlim = [0, 3], pltAxs = plt, tickFontSize = 13):
+def scatter_Tidal(df, indices, **kwargs):
 	df, indices = data.add_Lambda_tidal(df, indices)
 	
-	scatter_XY(df, indices, 'M_T', 'Lambda_tidal', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=plotPureBS, 
-				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Total Gravitational Mass [M$_\odot$]", ylabel=r"Tidal Deformability $\Lambda$", yscale='log')
+	return scatter_XY(df, indices, 'M_T', 'Lambda_tidal', xlabel=r"Total Gravitational Mass [M$_\odot$]", ylabel=r"Tidal Deformability $\Lambda$", yscale='log', **kwargs)
 				
-
-def scatter_MR(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 3], xlim = [0, 30], pltAxs = plt, tickFontSize = 13, plotPureBS=False):
+'''
+def scatter_MR(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, cmap = "viridis", clim = [0, 1], ylim = [1, 3], xlim = [0, 30], pltAxs = plt, tickFontSize = 13, plotPureBS=False, **kwargs):
 	scatter_XY(df, indices, 'R_F', 'M_T', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=False, 
-				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Fermionic Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]")
+				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Fermionic Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]", **kwargs)
+'''
+
+def scatter_MR(df, indices, **kwargs):
+	return scatter_XY(df, indices, 'R_F', 'M_T', xlabel=r"Fermionic Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]", **kwargs)
 
 
-def scatter_MRgrav(df, indices, filterData = True, stabCurve = None, s = 0.3, plotPureNS = True, plotPureBS=True, cmap = "viridis", clim = [0, 1], ylim = [1, 3], xlim = [0, 30], pltAxs = plt, tickFontSize = 13):
+def scatter_MRgrav(df, indices, **kwargs):
 	df, indices = data.add_R_max(df, indices)
 	
-	scatter_XY(df, indices, 'R_m', 'M_T', filterData=filterData, stabCurve=stabCurve, s=s, plotPureNS=plotPureNS, plotPureBS=plotPureBS, 
-				cmap=cmap, clim=clim, ylim=ylim, xlim=xlim, pltAxs=pltAxs, tickFontSize=tickFontSize, xlabel=r"Gravitational Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]")
+	return scatter_XY(df, indices, 'R_m', 'M_T', xlabel=r"Gravitational Radius [km]", ylabel=r"Total Gravitational Mass [M$_\odot$]", **kwargs)
 
 
 # helping function to plot a concarve surface (mask out some regions)
 def apply_mask(triang, x, y, triang_cutoff=0.5):
-    # Mask triangles with sidelength bigger some alpha
-    triangles = triang.triangles
-    # Mask off unwanted triangles.
-    xtri = x[triangles] - np.roll(x[triangles], 1, axis=1)
-    ytri = y[triangles] - np.roll(y[triangles], 1, axis=1)
-    maxi = np.max(np.sqrt((0.2*xtri)**2 + ytri**2), axis=1)
-    # apply masking
-    triang.set_mask(maxi > triang_cutoff)
+	# Mask triangles with sidelength bigger some alpha
+	triangles = triang.triangles
+	# Mask off unwanted triangles.
+	xtri = x[triangles] - np.roll(x[triangles], 1, axis=1)
+	ytri = y[triangles] - np.roll(y[triangles], 1, axis=1)
+	maxi = np.max(np.sqrt((0.2*xtri)**2 + ytri**2), axis=1)
+	# apply masking
+	triang.set_mask(maxi > triang_cutoff)
 
 # plot the stability region in an MR-diagram (!) by interpolaring between all stable points:
 # input an array with filtered stars (only the ones that are stable)
@@ -295,7 +362,7 @@ def plot_interpolate_stability_region(sol_filtered, indices, z_index, maxR, maxM
 # contourColors -> manually specify the contour line colors
 # tickFontSize specifies the size of the tick labels
 # xlim and ylim specify the rho and phi range, respetively
-def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linear", stabCurve = None, plotStabCurve = True, cbarLabel = "", autoContour = False, contourColors = ['green', 'brown', '#EE2C2C', "#00688B", "#E8E8E8"], contourLevels = None, tickFontSize = 13, xlim = None, ylim = None):
+def plotRhoPhi(df, indices, index, xlabel = r"$\rho_c$ [Code Units]", ylabel = r"$\phi_c$ [Code Units]", cmap = "plasma", clim = None, scale = "linear", stabCurve = None, plotStabCurve = True, cbarLabel = "", autoContour = False, contourColors = ['green', 'brown', '#EE2C2C', "#00688B", "#E8E8E8"], contourLevels = None, tickFontSize = 13, xlim = None, ylim = None, manualContourPos = None):
 	
 	# first, get some useful quantities from the list of all values
 	numStarsRho = len(np.unique(df[:,indices['rho_0']]))
@@ -313,15 +380,16 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 		plotArray = np.log(plotArray)
 
 	if contourLevels is None and autoContour:
-		minVal = min(PlotArray)
-		maxVal = max(PlotArray)
+		minVal = min(plotArray)
+		maxVal = max(plotArray)
 		contourLevels = np.linspace(minVal, maxVal, 7)[1:-1]
 
 	contourPlot = plt.contour(rhoVals, phiVals, plotArray, colors=contourColors, levels=contourLevels)
-	plt.clabel(contourPlot, inline=True, fontsize = 10)
+	plt.clabel(contourPlot, inline=True, fontsize = 11, manual=manualContourPos)
+	plt.tick_params(axis='both', which='major', labelsize=14)
 
 	xx, yy = np.meshgrid(rhoVals, phiVals)
-	plt.pcolormesh(xx, yy, plotArray, cmap = cmap)
+	plt.pcolormesh(xx, yy, plotArray, cmap = cmap, alpha = 0.8, linewidth=0, rasterized=True)
 	if not clim is None:
 		plt.clim(clim)
 
@@ -330,105 +398,13 @@ def plotRhoPhi(df, indices, index, cmap = "viridis", clim = None, scale = "linea
 	if not ylim is None:
 		plt.ylim(ylim)
 
-	plt.xlabel(r"$\rho_c$ [Code Units]", fontsize = 15)
-	plt.ylabel(r"$\phi_c$ [Code Units]", fontsize = 15)
+	plt.xlabel(xlabel, fontsize = tickFontSize)
+	plt.ylabel(ylabel, fontsize = tickFontSize)
 	
 	cbar = plt.colorbar()
-	cbar.set_label(cbarLabel, rotation=270, fontsize=15)
-	cbar.ax.get_yaxis().labelpad = 15
+	cbar.set_label(cbarLabel, rotation=270, fontsize=tickFontSize)
+	cbar.ax.get_yaxis().labelpad = 20
+	cbar.ax.tick_params(axis='both', which='major', labelsize=14)
 
 	if plotStabCurve:
 		plt.plot(stabCurve[:,0], stabCurve[:,1], color = "black", linewidth = 2)
-
-
-# plots the relative numerical errors, of two quantities, between the full system and the effective EoS system with respect to lambda_int
-# filenames is a list containing all filenames of fullsys and effsys, with every other filename corresponding to the fullsys and effsys respectively.
-# the fullsys-effsys data must be alternating, starting with a data set of the full system
-# Lambda_array contains all Lambda_int values in ascending order matching each pair of effsys/fullsys data points
-# index1 -> label of 1st quantity the rel error should be calculated for
-# index2 -> same as index1 but for the second quantity
-# figname -> name of the filename
-# ylim1 -> y-axis range of quantity 1
-# ylim2 -> y-axis range of quantity 2
-# xlim1 -> x-axis range of quantity 1
-# xlim2 -> x-axis range of quantity 2
-# yscale1 -> y-axis scale of quantity 1 (can be 'log' or 'linear')
-# yscale2 -> y-axis scale of quantity 2 (can be 'log' or 'linear')
-# label1 -> label of quantity 1 in the legend
-# label2 -> label of quantity 2 in the legend
-# xlabeltot -> label of shared x-axis for both quantities
-# ylabeltot -> label of shared y-axis / -title for both quantities
-# debug -> prints additional information
-# filter_stars -> if True, filter out certain FBS configurations as specified in errorplot.filter_errorplot_data()
-def plot_error_comparison_effsys_fullsys(filenames, Lambda_array, index1, index2, figname = "plot_error_comparison_effsys_fullsys.png", \
-	ylim1 = [1e-3,2e0], ylim2 = [1e-3,1e2], xlim1 = [0,300], xlim2 = [0,300], yscale1="log", yscale2 ="log", \
-	label1 =  "$M_{tot}$ error region", label2 = "$\Lambda \:\:\:\:\:\;$ error region", xlabeltot = "$\Lambda_{\mathrm{int}} = \lambda / (8 \pi m^2)$", \
-	ylabeltot = "$\epsilon_{\mathrm{rel}} := ||Q_{\mathrm{full}}-Q_{\mathrm{eff}}|| / Q_{\mathrm{full}}$ , $Q = \{ M_{\mathrm{tot}}, \Lambda \}$", debug = False, filter_stars = False):
-
-	# reading in the data using the filenames and assigning indices
-	number_of_files = len(filenames)
-	df = [None]*number_of_files
-	indices = [None]*number_of_files
-
-	for i in range(len(filenames)):
-		df[i], indices[i] = data.load_file(filenames[i]) # load the files
-		df[i], indices[i] = data.add_Lambda_tidal(df[i], indices[i]) # add Lambda_tidal := lambda_tidal / M_T**5 as variable
-
-	indices_fullsys = indices[0]
-	indices_effsys = indices[1]
-	# computation of the relative errors
-	min_err1, max_err1, median_err1, one_sigma_err1, two_sigma_err1 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index1, filter_stars)
-	min_err2, max_err2, median_err2, one_sigma_err2, two_sigma_err2 = errp.calc_error_curves(df, indices_fullsys, indices_effsys, index2, filter_stars)
-
-	# start the plotting:
-	if (debug):
-		print("for index1 = ", index1, ":\n max_err: \t", max_err1, ",\n min_err: \t", min_err1, ",\n median_err: \t", median_err1, ",\n 1_sigma_err: \t", one_sigma_err1, ",\n 2_sigma_err: \t", two_sigma_err1, ",\n Lambda_int: \t", Lambda_array)
-		print("for index2 = ", index2, ":\n max_err: \t", max_err2, ",\n min_err: \t", min_err2, ",\n median_err: \t", median_err2, ",\n 1_sigma_err: \t", one_sigma_err2, ",\n 2_sigma_err: \t", two_sigma_err2, ",\n Lambda_int: \t", Lambda_array)
-
-	# hardcoded parameters (might change later)
-	nrows = 2
-	ncols = 1
-	fig = plt.figure(figsize=(6.5,5))
-	gs = fig.add_gridspec(nrows, ncols, hspace=0.1, wspace=0)
-	axs = gs.subplots(sharex='col')#, sharey='row')
-
-	# populate the first subplot
-	axs[0].fill_between(Lambda_array, min_err1, max_err1, alpha = 0.15, color="blue", label = label1)
-	axs[0].fill_between(Lambda_array, min_err1, two_sigma_err1, alpha = 0.15, color="blue")#, label = "$M_{tot}$ $2\sigma$ error region")#, hatch='x')
-	axs[0].fill_between(Lambda_array, min_err1, one_sigma_err1, alpha = 0.15, color="blue") #, label = "$1\sigma$ region"
-	axs[0].plot(Lambda_array, median_err1, color="blue", linewidth=1.75, linestyle ="--")#, label="median of $M_{tot}$-error")
-
-	# populate the second subplot
-	axs[1].fill_between(Lambda_array, min_err2, max_err2, alpha = 0.15, color="red", label = label2)
-	axs[1].fill_between(Lambda_array, min_err2, two_sigma_err2, alpha = 0.15, color="red")#, label = "$\Lambda \:\:\:\:\:\;$ $2\sigma$ error region")
-	axs[1].fill_between(Lambda_array, min_err2, one_sigma_err2, alpha = 0.15, color="red") #, label = "$1\sigma$ region"
-	axs[1].plot(Lambda_array, median_err2, color="red", linewidth=1.75, linestyle ="--")#, label="median of $\Lambda$-error")
-
-	# set scale, plotlim, legend ...
-	axs[0].set_yscale(yscale1) # "log" or "linear"
-	axs[1].set_yscale(yscale2) # "log" or "linear"
-	axs[0].set_ylim(ylim1)
-	axs[1].set_ylim(ylim2)
-	axs[0].set_xlim(xlim1)
-	axs[1].set_xlim(xlim2)
-	#axs[1].set_yticks(np.geomspace(ylim2[0],ylim2[1], 51))
-
-	axs[0].grid(alpha=0.15, linestyle="--", c="black")
-	axs[1].grid(alpha=0.15, linestyle="--", c="black")
-
-	axs[0].legend(loc="lower left")
-	axs[1].legend(loc="lower left")
-
-	# shared x-axis label of the plot
-	plt.xlabel(xlabeltot, fontsize = 14)
-	# shared y-axis label
-	fig.text(0.02, 0.5, ylabeltot, fontsize = 14, va='center', rotation='vertical')
-
-	# prevent labels on the "inside" between the subplots:
-	for ax in axs:
-		ax.label_outer()
-
-	# only saving pic is possible, plt.show() is not supported by matplotlib in this case
-	if (debug):
-		print("saving figure as: " + figname)
-	plt.savefig(figname, dpi=400, bbox_inches='tight')	

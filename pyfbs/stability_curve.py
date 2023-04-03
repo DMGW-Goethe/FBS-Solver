@@ -28,7 +28,7 @@ def refactorList(list, n):
 	return [list[i:i+n] for i in range(0, len(list), n)]
 
 # Calculates the stability curve according to the paper by Henriques et al. "Stabiliy of Boson-Fermion Stars"
-def calc_stability_curve(df, indices, debug = False, curve_index=0):
+def calc_stability_curve(df, indices, debug = False, curve_index=0, rhoCutoff = 1, phiCutoff = 1):
 	# first, get some useful quantities from the list of all values
 	rhoVals = sorted(np.unique(df[:,indices["rho_0"]]))
 	phiVals = sorted(np.unique(df[:,indices["phi_0"]]))
@@ -76,8 +76,8 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 
 	# now that we have all values ready, we need to find the curve in deriv_array_2D that has zero value
 	# also, below I am throwing out the values at the boundary (that's why I do phiVals[1:]) because the derivative is just not well behaved at the boundarys
-	Yy, Xx = np.meshgrid(rhoVals[1:], phiVals[1:])
-	deriv_array_2D = [temp[1:] for temp in deriv_array_2D[1:]]
+	Yy, Xx = np.meshgrid(rhoVals[rhoCutoff:], phiVals[phiCutoff:])
+	deriv_array_2D = [temp[rhoCutoff:] for temp in deriv_array_2D[phiCutoff:]]
 
 	# plt.contour is perfect to find the curve with zero value
 	fig = plt.figure(999)
@@ -85,29 +85,12 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	contours = ax.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False)
 
 	# extract all lines that were found with zero value
-	all_lines = []
-	#lines = []
+	lines = []
 	for line in contours.collections[0].get_paths():
-		all_lines.append(line.vertices)
-		#lines.append(line.vertices)
+		lines.append(line.vertices)
 
-	# the wanted stab curve must fulfill two criteria:
-	#	- it must touch the x- and y-axis 
-	#	- then we chose the longest available stability curve
-
-	# filter out all curves which do not touch the x- and y- axis:
-	filtered_lines = [] 
-	minrho = 5e-4	# tolerance value for rho_c to filter stability curves
-	minphi = 1e-2	# tolerance value for Phi_c
-	for j in range(len(all_lines)):
-	#	#print(all_lines[j])
-		if ( (min(all_lines[j][:,0]) < minrho) and (min(all_lines[j][:,1]) < minphi) ):
-			filtered_lines.append(all_lines[j])
-
-	#lines = sorted(lines, key=len, reverse=True)
-	#stab_curve = lines[curve_index]
-	filtered_lines = sorted(filtered_lines, key=len, reverse=True)
-	stab_curve = filtered_lines[0]
+	lines = sorted(lines, key=len, reverse=True)
+	stab_curve = lines[curve_index]
 
 	ax.clear()
 	plt.close(fig)
@@ -116,7 +99,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 	if(debug):
 		Y, X = np.meshgrid(rhoVals, phiVals)
 
-		plt.pcolormesh(Y, X, (deriv_array_2D), cmap = "PRGn", alpha=0.8)
+		plt.pcolormesh(Yy, Xx, (deriv_array_2D), cmap = "PRGn", alpha=0.8)
 		plt.colorbar()
 		plt.clim([-1,1])
 		plt.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False, linewidths = 4)
@@ -128,7 +111,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 		plt.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False, linewidths = 4)
 		plt.plot(stab_curve[:,0], stab_curve[:,1], linestyle="--", linewidth = 4, color = "red", label = "extracted stability line")
 		plt.pcolormesh(Y, X, (massDerivs), cmap = "viridis", alpha=0.8)
-		plt.clim([0, 500])
+		plt.clim([0, 1000])
 		plt.colorbar()
 		plt.title("mass derivs")
 		plt.legend(loc = "upper right")
@@ -137,7 +120,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0):
 		plt.contour(Yy, Xx, deriv_array_2D, colors='black', levels=[0.00], antialiased = False, linewidths = 4)
 		plt.plot(stab_curve[:,0], stab_curve[:,1], linestyle="--", linewidth = 4, color = "red", label = "extracted stability line")
 		plt.pcolormesh(Y, X, (nfDerivs), cmap = "viridis", alpha=0.8)
-		plt.clim([0, 500])
+		plt.clim([0, 1000])
 		plt.colorbar()
 		plt.title("nf derivs")
 		plt.legend(loc = "upper right")
@@ -154,7 +137,12 @@ def filter_stab_curve_data(sol_array, indices, stab_curve):
 	# Then, use it to search for all star configurations inside of the stability curve polygon
 	# extend the stab_curve to a polygon
 	# append additional elements:
-	stab_curve_polygon = np.append(stab_curve, np.array([[-0.5,-0.5]]), axis=0)  # chose a point in the lower left corner which is guaranteed to produce a polygon with the remaining curve
+	#stab_curve_polygon = np.append(stab_curve, np.array([[-0.5,-0.5]]), axis=0)  # chose a point in the lower left corner which is guaranteed to produce a polygon with the remaining curve
+	stab_curve_polygon = np.append(stab_curve, np.array([[stab_curve[-1][0], 0.0]]), axis=0)
+	stab_curve_polygon = np.append(stab_curve_polygon, np.array([[0.0, 0.0]]), axis=0)
+	stab_curve_polygon = np.append(stab_curve_polygon, np.array([[0.0, stab_curve[0][1]]]), axis=0)
+
+	#print(stab_curve_polygon)
 	bbPath = mplPath.Path(stab_curve_polygon) # convert stab curve so that mplPath can use it
 
 	# construct check if the stars are inside of the stability curve
