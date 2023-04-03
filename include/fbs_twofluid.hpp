@@ -23,9 +23,6 @@ public:
 
 	//std::shared_ptr<EquationOfState> EOS_fluid2;	// EOS of the second fluid
 
-    TwoFluidFBS()
-            : NSTwoFluid(nullptr, nullptr), mu(1.), lambda(1.) {}
-
     TwoFluidFBS(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, double mu, double lambda)
             : NSTwoFluid(EOS1, EOS2), mu(mu), lambda(lambda) {}
 

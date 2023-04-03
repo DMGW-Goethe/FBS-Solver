@@ -20,17 +20,14 @@ protected:
 
 public:
 	std::shared_ptr<EquationOfState> EOS_fluid2;	// EOS of the second fluid
-	
+
     //double mu, lambda;   // holds the defining values of the bosonic scalar field. paricle mass mu, self-interaction parameter lambda
     double rho1_0, rho2_0;	// initial conditions, central density of fluid 1 and 2 respectively
     // total mass M_T; total mass of fluid 1 (2): M_1  (M_2); radius R_1 , R_2 (99% of matter included); radius where pressure is zero R_1_0 , R_2_0;
     double M_T, M_1, M_2, R_1, R_1_0, R_2, R_2_0, C, k2, lambda_tidal;
 	double N_1, N_2; // fermion/boson numbers computed using the noether current
 
-	
 
-    NSTwoFluid()
-        : NSmodel(nullptr), EOS_fluid2(nullptr), rho1_0(0.), rho2_0(0.), M_T(0.), M_1(0.), M_2(0.), R_1(0.), R_1_0(0.), R_2(0.), R_2_0(0.), k2(0.), lambda_tidal(0.), N_1(0.), N_2(0.) {}
 
 	NSTwoFluid(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2)
         : NSmodel(EOS1), EOS_fluid2(EOS2), rho1_0(0.), rho2_0(0.), M_T(0.), M_1(0.), M_2(0.), R_1(0.), R_1_0(0.), R_2(0.), R_2_0(0.), k2(0.), lambda_tidal(0.), N_1(0.), N_2(0.) {}
