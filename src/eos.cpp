@@ -9,6 +9,7 @@ double PolytropicEoS::get_P_from_rho(const double rho, const double epsilon) {
 
 double PolytropicEoS::get_P_from_e(const double etot_in) {
 	// todo, maybe have to do root finding?
+	throw std::runtime_error("not implemented");
 	return 0.0;
 }
 
@@ -58,9 +59,25 @@ double CausalEoS::get_P_from_rho(const double rho, const double epsilon) {
 	return this->P_f + rho*(1. + epsilon) - this->eps_f;   // p = P_f + eps - eps_f
 }
 
-double CausalEoS::dP_de(const double rho, const double epsilon) {
+
+double CausalEoS::get_P_from_e(const double etot) {
+
+    return this->P_f + etot - this->eps_f;   // p = P_f + eps - eps_f
+}
+
+double CausalEoS::get_e_from_P(const double P) {
+
+    return P - this->P_f + this->eps_f;   // p = P_f + eps - eps_f
+}
+
+double CausalEoS::dP_de(const double e) {
 
 	return 1.;   // p = P_f + eps - eps_f
+}
+
+double CausalEoS::dP_drho(const double rho_in, const double epsilon) {
+
+	return 1.+epsilon;
 }
 
 /* This expects as input P and will give rho, epsilon as output through reference
@@ -85,7 +102,7 @@ double CausalEoS::min_e() {
 /* EffectiveBosonicEoS */
 double EffectiveBosonicEoS::get_P_from_rho(const double rho_in, const double epsilon) {
 	// (note: if for some reason, this function causes problems, then it is likely better to implement a root-finding algorithm to find Phi_eff))
-	// It is possible to compute P(rho) by inverting: rho = 2* sqrt(mu^2 + lambda*phi^2)*phi^2 
+	// It is possible to compute P(rho) by inverting: rho = 2* sqrt(mu^2 + lambda*phi^2)*phi^2
 	// and then using the energy density e, to compute P(e) using the EoS:
 
 	// use the cubic formula for: 0 = a*y^2 + y^3 - b (see: https://www.wolframalpha.com/input?i=find+root+of+a*x%5E2+%2B+x%5E3+-+b ),
@@ -142,7 +159,7 @@ void EffectiveBosonicEoS::callEOS(double& myrho, double& epsilon, const double P
 
 	// now use: etot = rho*(1+epsilon)
     epsilon = e_tot/myrho - 1.;
-	
+
 	return;
 }
 

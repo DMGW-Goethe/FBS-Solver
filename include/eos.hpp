@@ -28,7 +28,7 @@ public:
 	virtual double dP_de(const double e) = 0;
 
     /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
-    virtual double dP_de(const double rho, double epsilon) 
+    virtual double dP_de(const double rho, double epsilon)
 	{  return dP_de(rho*(1. + epsilon));  }
 
     /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
@@ -59,7 +59,7 @@ public:
     double get_P_from_rho(const double rho_in, const double epsilon);
 	double get_P_from_e(const double etot_in);
 	double get_e_from_P(const double P_in);
-    
+
 	double dP_drho(const double rho, double epsilon);
 
     /* This gives the derivative dP/de depending on the matter density rho. The internal energy density is ignored */
@@ -91,9 +91,12 @@ public:
 
     /* This gives the pressure P depending on the matter density rho and internal energy epsilon */
     double get_P_from_rho(const double rho_in, const double epsilon);
+	double get_P_from_e(const double etot_in);
+	double get_e_from_P(const double P_in);
 
     /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
-    double dP_de(const double rho, double epsilon);
+    double dP_de(const double e);
+	double dP_drho(const double rho, double epsilon);
 
     /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
 	void callEOS(double& myrho, double& epsilon, const double P);
