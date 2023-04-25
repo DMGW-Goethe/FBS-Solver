@@ -12,6 +12,7 @@
 #include "mr_curves.hpp"
 #include "plotting.hpp"     // to use python/matplotlib inside of c++
 #include "utilities.hpp"
+#include "fps.hpp"
 
 // --------------------------------------------------------------------
 
@@ -120,6 +121,35 @@ void test_effectiveEOS_pure_boson_star() {
 }
 
 
+void test_single_fermion_proca_star() {
+
+	double mu = 1.0;
+	double Lambda_int = 0.;
+	double lambda = Lambda_int*8*M_PI*mu*mu; //Lambda_int*mu*mu; when using units of Minamisuji (2018)
+
+	double rho_0 = 0.0; //5e-3;
+	double E_0 = 0.1 / 1.41421356237309 ;/// 8. / M_PI;
+
+	auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+	FermionProcaStar fps_model(EOS_DD2, mu, lambda, 0.0, rho_0, E_0);    // create model for star
+
+	const double omega_0 = 1., omega_1 = 20.;  // upper and lower bound for omega in the bisection search
+
+	int bisection_success = fps_model.bisection(omega_0, omega_1,0);  // compute bisection
+		if (bisection_success == -1) {
+            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << std::endl;
+		}
+		else {
+			std::vector<integrator::step> results;
+			integrator::IntegrationOptions intOpts = integrator::IntegrationOptions();
+            fps_model.evaluate_model(results, intOpts, "plots/FPS/first_fps_test.txt");   // evaluate the model but do not save the intermediate data into txt file
+		}
+
+	std::cout << "calculation complete!" << std::endl;
+	std::cout << "global quantities:" << std::endl;
+	std::cout << std::fixed << std::setprecision(10) << fps_model << std::endl;
+}
+
 int create_MR_curve() {
 
     const unsigned Nstars = 30;     // number of stars in MR curve of constant Phi_c
@@ -179,7 +209,8 @@ int main() {
 	// ----------------------------------------------------------------
 
 	// test two-fluid EOS with effective bosonic EoS:
-	test_effectiveEOS_pure_boson_star();
+	//test_effectiveEOS_pure_boson_star();
+	test_single_fermion_proca_star();
 
     // ----------------------------------------------------------------
 

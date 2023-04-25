@@ -2,7 +2,23 @@
 
 
 /*   Events   */
-// can define new events here...
+/* Overwrite events from the parent class so that we can use the same implementation: */
+/* This event triggers when E or B are diverging, i.e. E,B > 1. */
+const integrator::Event FermionProcaStar::Psi_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return (std::abs(y[2]) > 1.0 || std::abs(y[3]) > 1.0); }, true, "E_B_diverging");
+
+/* This event triggers when E becomes negative, it is used to count the zero crossings of E */
+const integrator::Event FermionProcaStar::phi_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return y[2] < 0.; }, false, "E_negative");
+/* This event triggers when E becomes positive */
+const integrator::Event FermionProcaStar::phi_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                                                { return y[2] > 0.; }, false, "E_positive");
+
+/* This event checks that E and B have converged */
+const integrator::Event FermionProcaStar::EB_converged = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params)
+                                                                            { return (	std::abs(y[2])/((FermionProcaStar*)params)->E_0 < PHI_converged &&
+                                                                                    	std::abs(y[3])/((FermionProcaStar*)params)->E_0/*/r*/ < PHI_converged ); }, false, "EB_converged");
+
 
 
 /* This function gives the system of ODEs for the FPS star
@@ -33,9 +49,11 @@ vector FermionProcaStar::dy_dr(const double r, const vector& vars) const {
     }
 
     // compute the ODEs:
+	#define DEF_KAPPA 8.*M_PI
+	//DEF_KAPPA is there to use units where G=1/8pi
 	double dE_dr = - dV_deps*B*alpha*alpha/omega + omega*B;
-    double da_dr = 0.5* a *      ( (1.-a*a) / r + 8.*M_PI*r*a*a*( etot + std::pow((dE_dr - omega*B),2)/(alpha*alpha*a*a) + V + 2*dV_deps*E*E/alpha/alpha ));
-    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + 8.*M_PI*r*a*a*( P - std::pow((dE_dr - omega*B),2)/(alpha*alpha*a*a) - V + 2*dV_deps*B*B/a/a) );
+    double da_dr = 0.5* a *      ( (1.-a*a) / r + DEF_KAPPA*r*a*a*( etot + std::pow((dE_dr - omega*B),2)/(alpha*alpha*a*a) + V + 2*dV_deps*E*E/alpha/alpha ));
+    double dalpha_dr = 0.5* alpha * ( (a*a-1.) / r + DEF_KAPPA*r*a*a*( P - std::pow((dE_dr - omega*B),2)/(alpha*alpha*a*a) - V + 2*dV_deps*B*B/a/a) );
     
 	double dB_dr = ( dV2_deps2*( 2*B*B*da_dr/a/a/a + 2.*E*dE_dr/alpha/alpha - 2.*E*E*dalpha_dr/alpha/alpha/alpha)*B*alpha*alpha  
 					- dV_deps*(a*a*E*omega + 2.*B*alpha*dalpha_dr)
@@ -58,7 +76,73 @@ vector FermionProcaStar::get_initial_conditions(double r_init) const {
 
 /* FUNCTIONS RELATED TO THE BISECTION, TO FIND THE RIGHT MODE */
 
+/* This function performs an integration and tries to find R_B_0 while integrating, where the bosonic component has sufficiently converged
+ *  and we can set it to zero. The convergence criterion is given by the EB_converged event. The function returns R_B_0 by reference.
+ * If the condition is not fulfilled, the "convergence" can be forced (with the force boolean) by finding the last minimum of the phi field.
+ * */
+int FermionProcaStar::find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts, double& R_B_0, bool force, double r_init, double r_end) const {
 
+    if(this->phi_0 <= 0.)
+        return -1;
+
+    //integrator::Event Psi_positive = FermionBosonStar::Psi_positive;
+    integrator::Event EB_converged = FermionProcaStar::EB_converged;
+    EB_converged.stopping_condition = true;
+    //events.push_back(Psi_positive); // the presence of this event increases the accuracy around zero crossings
+    events.push_back(EB_converged);
+
+    int res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+
+    EB_converged = events[events.size()-1];
+    events.pop_back(); // Remove events that we added
+    //events.pop_back();
+
+    if (res == integrator::event_stopping_condition && !EB_converged.active) // in this case another event triggered the stop so just return
+        return res;
+
+    if (!EB_converged.active ) { // the integrator didn't catch the convergence so we have to find it ourselves
+
+        if (!intOpts.save_intermediate) { // can't find it if we don't have the steps
+            results.clear();
+            intOpts.save_intermediate = true;
+            res = this->integrate(results, events, this->get_initial_conditions(), intOpts, r_init, r_end);
+            intOpts.save_intermediate = false;
+        }
+        // find the minimum in the phi field before it diverges
+        int index_phi_converged = 1;
+
+        auto abs_EB_func = [&results] (int index) { return std::abs(results[index].second[2]) + std::abs(results[index].second[3]); };
+        std::vector<int> abs_phi_minima({});
+        int index_phi_global_min = 0;
+        for (unsigned int i=1; i < results.size()-1; i++) {
+            if ( abs_EB_func(i) <= abs_EB_func(i-1) && abs_EB_func(i) < abs_EB_func(i+1) )
+                abs_phi_minima.push_back(i);
+            if (abs_EB_func(i) < abs_EB_func(index_phi_global_min) )
+                index_phi_global_min = i;
+        }
+        index_phi_converged = index_phi_global_min;
+        if(abs_phi_minima.size() > 0)
+            index_phi_converged = abs_phi_minima[abs_phi_minima.size()-1];
+
+        // maybe the event didn't trigger because psi was too large?
+        if(!force) {
+            auto y_at_EB_converged = results[index_phi_converged].second;
+            vector dy_at_phi_converged = this->dy_dr(results[index_phi_converged].first, y_at_EB_converged);
+            y_at_EB_converged[3] =0.;
+            if (!EB_converged.condition(results[index_phi_converged].first, 0., y_at_EB_converged, dy_at_phi_converged, (const void*)this)) {
+                return res; // no, phi doesn't get close to zero so we shouldn't artifically set it so
+            }
+        }
+        // found a convergence for phi so restart at that point
+        results.erase(results.begin()+index_phi_converged, results.end()); // remove elements from integration
+
+        for (auto it = events.begin(); it != events.end(); ++it) // set events to active so that they don't trigger again in case they were active at the point of convergence
+            it->active = true;
+    }
+
+    R_B_0 = results[results.size()-1].first;
+    return res;
+}
 
 
 /* FUNCTIONS TO COMPUTE MACROSCOPIC PARAMETERS OF THE STAR */
@@ -188,11 +272,6 @@ void FermionProcaStar::calculate_star_parameters(const std::vector<integrator::s
 
 /* TOP-LEVEL LOGIC: FUNCTIONS RELATED TO THE FINAL EVALUATION OF THE SOLUTION*/
 
-/* Simple wrapper function if the results of the integration are not needed for the user */
-void FermionProcaStar::evaluate_model() {
-    std::vector<integrator::step> results;
-    this->evaluate_model(results);
-}
 
 /* This function integrates over the ODE system while avoiding the phi divergence
  *  and then calculates the star properties

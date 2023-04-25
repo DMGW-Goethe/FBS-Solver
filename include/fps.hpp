@@ -40,25 +40,25 @@ protected:
     int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, double& R_B_0, bool force=false, double r_init=-1., double r_end=-1.) const;
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. Only call when omega is found after the bisection! */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), bool force = false, std::vector<int> additional_zero_indices={}, double r_init=-1., double r_end=-1.);
+    //int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), bool force = false, std::vector<int> additional_zero_indices={}, double r_init=-1., double r_end=-1.);
 
-    int bisection_converge_through_infty_behavior(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega, int verbose);
-    int bisection_find_mode(double& omega_0, double& omega_1, int n_mode, int max_steps, int verbose);
-    int bisection_expand_range(double& omega_0, double& omega_1, int n_mode, int& n_roots_0, int& n_roots_1, int verbose);
+    //int bisection_converge_through_infty_behavior(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega, int verbose);
+    //int bisection_find_mode(double& omega_0, double& omega_1, int n_mode, int max_steps, int verbose);
+    //int bisection_expand_range(double& omega_0, double& omega_1, int n_mode, int& n_roots_0, int& n_roots_1, int verbose);
 
 public:
     double E_0; // central value of the A_t-component of the vector field
 
     /* Constructor for the FPS class, just sets the relevant values of the class */
     FermionProcaStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0., double rho_0=0., double E_0=0.)
-            : FermionBosonStar(EOS,mu,lambda,omega,rho_0,/*phi_0=*/0.0), E_0(E_0) {}
+            : FermionBosonStar(EOS,mu,lambda,omega,rho_0,/*phi_0=*/E_0), E_0(E_0) {}
 
     /* The differential equations describing the FPS. The quantities are a, alpha, E, B and P */
     vector dy_dr(const double r, const vector& vars) const;
 
     /* This function requires mu, lambda, rho_0, E_0 to be set. It finds the corresponding eigenfrequency omega for the nth mode.
      * omega_0, and omega_1 describe a range in which omega is expected, but the function can extend that range if found to be insufficient*/
-    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16, int verbose=0);
+    //int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16, int verbose=0);
 
     /* The initial conditions for a, alpha, phi, E, B, and P */
     virtual vector get_initial_conditions(double r_init=-1.) const;
@@ -66,18 +66,18 @@ public:
     /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/N_F = NbNf_ratio */
     //void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16);
 
-    /* Integrates the ODE while avoiding the E and B (?) divergence and calculates the FBS properties
+    /* Integrates the ODE while avoiding the E and B (?) divergence and calculates the FPS properties
      * Returns the results and optionally ouputs them into a file*/
     void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
     /* Wrapper if the intermediate results are not wanted */
-    void evaluate_model();
+    //void evaluate_model();
 
     /* This function outputs parameters and properties, in the order given by the labels function */
     friend std::ostream& operator<<(std::ostream&, const FermionProcaStar&);
     static std::vector<std::string> labels();
 
     /* These events are used for different integration purposes */
-    static const integrator::Event M_converged, Psi_diverging, phi_negative, phi_positive, phi_converged, integration_converged, P_min_reached, Psi_positive;
+    static const integrator::Event Psi_diverging, phi_negative, phi_positive, P_min_reached, EB_converged;
 
 }; 
 
