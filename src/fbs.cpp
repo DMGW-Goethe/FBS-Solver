@@ -285,8 +285,11 @@ int FermionBosonStar::bisection_find_mode(double& omega_0, double& omega_1, int 
     // iterate until the upper and lower omega produce results with one root difference
     while(n_roots_1 - n_roots_0 > 1 && steps < max_steps) {
         omega_mid = (omega_0 + omega_1)/2.;
-        if (omega_mid == this->omega) // if this happens we reached floting point accuracy limits
+        if (omega_mid == this->omega) { // if this happens we reached floting point accuracy limits
+            if (verbose > 0) {
+                std::cout << "floating point accuracy reached while searching root at iteration step =" << steps << std::endl;}
             break;
+        }
         this->omega = omega_mid;
         res = this->integrate(results_mid, events, this->get_initial_conditions(), intOpts);
         n_roots_mid = events[0].steps.size() + events[1].steps.size() -1;   // number of roots is number of - to + crossings plus + to - crossings
