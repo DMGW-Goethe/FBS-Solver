@@ -70,7 +70,7 @@ public:
      * Returns the results and optionally ouputs them into a file*/
     void evaluate_model(std::vector<integrator::step>& results, integrator::IntegrationOptions intOpts= integrator::IntegrationOptions(), std::string filename="");
     /* Wrapper if the intermediate results are not wanted */
-    //void evaluate_model();
+    void evaluate_model();
 
     /* This function outputs parameters and properties, in the order given by the labels function */
     friend std::ostream& operator<<(std::ostream&, const FermionProcaStar&);

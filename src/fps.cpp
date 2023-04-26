@@ -49,7 +49,8 @@ vector FermionProcaStar::dy_dr(const double r, const vector& vars) const {
     }
 
     // compute the ODEs:
-	#define DEF_KAPPA 8.*M_PI
+	#define DEF_KAPPA 1.0
+	//8.*M_PI
 	//DEF_KAPPA is there to use units where G=1/8pi
 	double dE_dr = - dV_deps*B*alpha*alpha/omega + omega*B;
     double da_dr = 0.5* a *      ( (1.-a*a) / r + DEF_KAPPA*r*a*a*( etot + std::pow((dE_dr - omega*B),2)/(alpha*alpha*a*a) + V + 2*dV_deps*E*E/alpha/alpha ));
@@ -272,6 +273,11 @@ void FermionProcaStar::calculate_star_parameters(const std::vector<integrator::s
 
 /* TOP-LEVEL LOGIC: FUNCTIONS RELATED TO THE FINAL EVALUATION OF THE SOLUTION*/
 
+/* Simple wrapper function if the results of the integration are not needed for the user */
+void FermionProcaStar::evaluate_model() {
+    std::vector<integrator::step> results;
+    this->evaluate_model(results);
+}
 
 /* This function integrates over the ODE system while avoiding the phi divergence
  *  and then calculates the star properties
