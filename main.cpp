@@ -150,6 +150,43 @@ void test_single_fermion_proca_star() {
 	std::cout << std::fixed << std::setprecision(10) << fps_model << std::endl;
 }
 
+
+void compute_fermionProcaStar_grid() {
+
+	double mu = 1.0;
+	double Lambda_int = 1.0 * 2.; // factor 2 to convert to the number of minamisuji
+	double lambda = Lambda_int*mu*mu;// Lambda_int*8*M_PI*mu*mu;
+
+	// create the E_c-rho_c-grid:
+	const unsigned NstarsVec = 60;	// number of pure FPS
+	const unsigned NstarsRho = 1;	// number of pure NS
+	std::vector<double> rho_c_grid(NstarsRho, 0.0), E_c_grid(NstarsVec, 0.0);
+
+	double rho_cmin = 0.0;
+	double rho_cmax = 1e-10;
+	double E_cmin = 1e-6;
+
+	double E_cmax = 3.2 / 1.41421356237309; // beware: E_cmax MUST have: E_cmax < m / sqrt(lambda) = 1/4*sqrt(pi*Lambda_int)
+	if (lambda > 0. && E_cmax > mu/std::sqrt(lambda)) {
+		E_cmax = 0.99*mu/std::sqrt(lambda);
+	}
+		
+	
+	utilities::fillValuesPowerLaw(E_cmin, E_cmax, E_c_grid, 1);
+    utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
+
+	// declare different EOS types:
+    auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+
+	std::vector<FermionProcaStar> FPS_curve;
+
+	calc_rhophi_curves_FPS(mu, lambda, EOS_DD2, rho_c_grid, E_c_grid, FPS_curve, 2, 0);
+
+	std::string plotname = "FPS/Minamisuji_fig3_reproduction-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	write_MRphi_curve<FermionProcaStar>(FPS_curve, "plots/" + plotname + ".txt");
+	
+}
+
 int create_MR_curve() {
 
     const unsigned Nstars = 30;     // number of stars in MR curve of constant Phi_c
@@ -210,7 +247,8 @@ int main() {
 
 	// test two-fluid EOS with effective bosonic EoS:
 	//test_effectiveEOS_pure_boson_star();
-	test_single_fermion_proca_star();
+	//test_single_fermion_proca_star();
+	compute_fermionProcaStar_grid();
 
     // ----------------------------------------------------------------
 
