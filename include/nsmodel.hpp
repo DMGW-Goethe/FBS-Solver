@@ -7,10 +7,8 @@
 #include "eos.hpp"
 #include "integrator.hpp"
 #include "plotting.hpp"
+#include "globalvars.hpp"
 
-#define R_INIT 1e-10_num    // the initial integration radius
-#define R_MAX 500._num      // the general maximum integration radius (might be increased if not sufficient)
-#define P_ns_min 1e-15_num  // the minimum pressure for the "boundary" of the NS
 
 /*  NSmodel
  * this is an abstract class that is supposed to be the backbone for

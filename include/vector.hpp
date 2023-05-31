@@ -1,10 +1,7 @@
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
 
-#define NUMERIC long double
-
-// user-defined literal to automatically convert every floating-point constant to NUMERIC type
-inline NUMERIC operator "" _num(long double d) {return (NUMERIC)d;}
+#include "globalvars.hpp"
 
 // include the external boost/ublas library and use the n-dimensional vector class
 // see: https://www.boost.org/

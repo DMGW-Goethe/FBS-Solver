@@ -6,10 +6,7 @@
 #include "eos.hpp"
 #include "plotting.hpp"
 #include "nsmodel.hpp"
-
-#define PHI_converged 1e-4_num // compared to phi / phi_0, when the bosonic component has converged sufficiently
-#define INT_converged 1e-7_num
-#define M_T_converged 1e-15_num // leftover from previous attempts to characterize convergence
+#include "globalvars.hpp"
 
 
 /* FermionBosonStar
