@@ -38,27 +38,27 @@ protected:
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
 
-    int bisection_phi_1_find_mode(double& phi_1_0_l, double& phi_1_0_r, int n_mode, int max_steps, int verbose);
-    int bisection_phi_1_converge_through_infty_behavior(double& phi_1_0_l, double& phi_1_0_r, int max_steps, double delta_phi_1, int verbose);
+    int bisection_phi_1_find_mode(NUMERIC& phi_1_0_l, NUMERIC& phi_1_0_r, int n_mode, int max_steps, int verbose);
+    int bisection_phi_1_converge_through_infty_behavior(NUMERIC& phi_1_0_l, NUMERIC& phi_1_0_r, int max_steps, NUMERIC delta_phi_1, int verbose);
 
 
 public:
-    double H_0, phi_1_0;
-    double lambda_tidal, k2, y_max, R_ext;
+    NUMERIC H_0, phi_1_0;
+    NUMERIC lambda_tidal, k2, y_max, R_ext;
 
-    /*FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, double mu, double lambda, double omega)
+    /*FermionBosonStarTLN(std::shared_ptr<EquationOfState> EOS, NUMERIC mu, NUMERIC lambda, NUMERIC omega)
         : FermionBosonStar(EOS, mu, lambda, omega), H_0(1.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.), R_ext(0) {}*/ // TODO: Check, this shouldn't work without call to evaluate_model of the parent class
     /* The constructor for the class. Assumes that the FermionBosonStar has its properties calculated! */
     FermionBosonStarTLN(const FermionBosonStar& fbs) : FermionBosonStar(fbs), H_0(1.), phi_1_0(0.), lambda_tidal(0.), k2(0.), y_max(0.), R_ext(0.) {  }
 
     /* The differential equations describing the FBS + TLN. The quantities are a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1 */
-    vector dy_dr(const double r, const vector& vars) const;
+    vector dy_dr(const NUMERIC r, const vector& vars) const;
 
     /* The initial conditions for a, alpha, phi, Psi, P, H, dH, phi_1, dphi_1*/
-    vector get_initial_conditions(double r_init=R_INIT) const;
+    vector get_initial_conditions(NUMERIC r_init=R_INIT) const;
 
     /* This function requires the FBS parameters and H_0 to be set. It finds the corresponding phi_1_0 */
-    int bisection_phi_1(double phi_1_0, double phi_1_1, int n_mode=0, int max_step=200, double delta_phi_1=1e-12, int verbose = 0);
+    int bisection_phi_1(NUMERIC phi_1_0, NUMERIC phi_1_1, int n_mode=0, int max_step=200, NUMERIC delta_phi_1=1e-12_num, int verbose = 0);
 
     /* Integrates the DE while avoiding the phi divergence and calculates the FBS properties
      * Returns the results and optionally ouputs them into a file*/

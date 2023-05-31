@@ -13,14 +13,14 @@
 namespace integrator
 {
     /* Define the ODE_system value, which is e.g. the dy_dr in the NSmodel class */
-    typedef vector (*ODE_system)(const double, const vector& , const void*);
+    typedef vector (*ODE_system)(const NUMERIC, const vector& , const void*);
 
     /* the integrator works in steps of r and the integrated variables */
-    typedef std::pair<double, vector> step;
+    typedef std::pair<NUMERIC, vector> step;
 
     /* function pointer to event conditions, tests whether a condition is fulfilled */
-    typedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params);
-    /* typedef std::function<bool(const double r, const double dr, const vector& y, const vector& dy, const void*params)> event_condition;*/
+    typedef bool (*event_condition)(const NUMERIC r, const NUMERIC dr, const vector& y, const vector& dy, const void*params);
+    /* typedef std::function<bool(const NUMERIC r, const NUMERIC dr, const vector& y, const vector& dy, const void*params)> event_condition;*/
 
     /* Event
      * describes an integration "event" which can be checked during integration (e.g. a stopping condition)
@@ -37,8 +37,8 @@ namespace integrator
         std::vector<step> steps;
         bool active;
         std::string name;
-        double target_accuracy;
-        Event(event_condition condition, bool stopping_condition=false, std::string name="", double target_accuracy=0.) : condition(condition), stopping_condition(stopping_condition),
+        NUMERIC target_accuracy;
+        Event(event_condition condition, bool stopping_condition=false, std::string name="", NUMERIC target_accuracy=0.) : condition(condition), stopping_condition(stopping_condition),
                                                                         active(false), name(name), target_accuracy(target_accuracy) {}
         /* This resets the event before an integration - whether this is called depends on the clean_events parameter in the IntegrationOptions */
         void reset() { steps.clear(); active=false; }
@@ -60,14 +60,14 @@ namespace integrator
      */
     struct IntegrationOptions {
         int max_step;
-        double target_error;
-        double min_stepsize;
-        double max_stepsize;
+        NUMERIC target_error;
+        NUMERIC min_stepsize;
+        NUMERIC max_stepsize;
 		bool force_max_stepsize;
         bool save_intermediate;
         int verbose;
         bool clean_events;
-        IntegrationOptions(const int max_step=1000000, const double target_error=1e-14, const double min_stepsize=1e-16, const double max_stepsize=1e-2, const bool force_max_stepsize=false, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
+        IntegrationOptions(const int max_step=1000000, const NUMERIC target_error=1e-14_num, const NUMERIC min_stepsize=1e-16_num, const NUMERIC max_stepsize=1e-2_num, const bool force_max_stepsize=false, const bool save_intermediate=false, const int verbose=0, bool clean_events=true)
                             : max_step(max_step), target_error(target_error), min_stepsize(min_stepsize), max_stepsize(max_stepsize), force_max_stepsize(force_max_stepsize), save_intermediate(save_intermediate), verbose(verbose), clean_events(clean_events) {}
     };
 
@@ -75,18 +75,18 @@ namespace integrator
     enum  return_reason  {endpoint_reached=1, stepsize_underflow, iteration_number_exceeded,  event_stopping_condition};
 
     /* Runge-Kutta Fehlberg stepper that does one step at a time */
-    bool RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options);
+    bool RKF45_step(ODE_system dy_dr, NUMERIC &r, NUMERIC &dr, vector& y, const void* params, const IntegrationOptions& options);
 
     /* Checks if events require smaller stepsize and only accepts steps if they do*/
-    int RKF45_step_event_tester(ODE_system dy_dr, step& current_step, double& dr, const void* params,
+    int RKF45_step_event_tester(ODE_system dy_dr, step& current_step, NUMERIC& dr, const void* params,
                                             const std::vector<Event>& events, const IntegrationOptions& options);
 
     /* Full Runge-Kutta Fehlberg IVP integrator, steps are output in results vector*/
-    int RKF45(ODE_system dy_dr, const double r0, const vector y0, const double r_end, const void* params,
+    int RKF45(ODE_system dy_dr, const NUMERIC r0, const vector y0, const NUMERIC r_end, const void* params,
                             std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options);
 
     /* A simple cumulative trapezoid integration algorithm */
-    void cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res);
+    void cumtrapz(const std::vector<NUMERIC>& x, const std::vector<NUMERIC>& y, std::vector<NUMERIC>& res);
 
 }
 

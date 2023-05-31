@@ -14,22 +14,22 @@
 // PHYSICAL REVIEW D 105, 123010 (2022)
 // generally, this "two fluid FBS" can describe any neutron star made out of two non-coupling fluids (only interact gravitationally) with each their EoS.
 // it must not necessarily be neuron-matter + dark matter, but can be a combination of two arbitrary fluids with EoS.
-// constructor: EOS (ptr), EOS2 (ptr), mu (double), lambda (double)
+// constructor: EOS (ptr), EOS2 (ptr), mu (NUMERIC), lambda (NUMERIC)
 class TwoFluidFBS : public NSTwoFluid {
 
 public:
 	// define variables in case we use the effective bosonic EoS:
-	double mu = 1., lambda = 1.;
+	NUMERIC mu = 1._num, lambda = 1._num;
 
 	//std::shared_ptr<EquationOfState> EOS_fluid2;	// EOS of the second fluid
 
-    TwoFluidFBS(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, double mu, double lambda)
+    TwoFluidFBS(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, NUMERIC mu, NUMERIC lambda)
             : NSTwoFluid(EOS1, EOS2), mu(mu), lambda(lambda) {}
 
 	/* EOM are identical for any two fluid system, no matter what kind of EoS is used, threfore it is not necessary to re-declare the ODEs here.
 	   See the parent class for details about the implementation. */
 
-    vector get_initial_conditions(const double r_init=R_INIT) const; // holds the FBS init conditions
+    vector get_initial_conditions(const NUMERIC r_init=R_INIT) const; // holds the FBS init conditions
 
     static std::vector<std::string> labels();
 };

@@ -6,7 +6,7 @@ namespace ublas = boost::numeric::ublas;
  * It perfoms one RKF45 step and saves the results in the updated r, stepsize dr and y
  * If the stepsize is large enough it is reduced for the next step
  * */
-bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, const void* params, const IntegrationOptions& options)
+bool integrator::RKF45_step(ODE_system dy_dr, NUMERIC &r, NUMERIC &dr, vector& y, const void* params, const IntegrationOptions& options)
 {
     // intermediate steps:
     int n = y.size();
@@ -17,18 +17,18 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
 
         // runge kutta Fehlberg steps for all ODEs:
         k1 = dr * dy_dr(r, y, params);
-        k2 = dr * dy_dr(r + 1.0 / 4.0 * dr, y + 1.0 / 4.0 * k1, params);
-        k3 = dr * dy_dr(r + 3.0 / 8.0 * dr, y + 3.0 / 32.0 * k1 + 9.0 / 32.0 * k2, params);
-        k4 = dr * dy_dr(r + 12.0 / 13.0 * dr, y + 1932.0 / 2197.0 * k1 - 7200.0 / 2197.0 * k2 + 7296.0 / 2197.0 * k3, params);
-        k5 = dr * dy_dr(r + dr, y + 439.0 / 216.0 * k1 - 8.0 * k2 + 3680.0 / 513.0 * k3 - 845.0 / 4104.0 * k4, params);
-        k6 = dr * dy_dr(r + 1.0 / 2.0 * dr, y - 8.0 / 27.0 * k1 + 2.0 * k2 - 3544.0 / 2565.0 * k3 + 1859.0 / 4104.0 * k4 - 11.0 / 40.0 * k5, params);
+        k2 = dr * dy_dr(r + 1._num / 4._num * dr, y + 1._num / 4._num * k1, params);
+        k3 = dr * dy_dr(r + 3._num / 8._num * dr, y + 3._num / 32._num * k1 + 9._num / 32._num * k2, params);
+        k4 = dr * dy_dr(r + 12._num / 13._num * dr, y + 1932._num / 2197._num * k1 - 7200._num / 2197._num * k2 + 7296._num / 2197._num * k3, params);
+        k5 = dr * dy_dr(r + dr, y + 439._num / 216._num * k1 - 8._num * k2 + 3680._num / 513._num * k3 - 845._num / 4104._num * k4, params);
+        k6 = dr * dy_dr(r + 1._num / 2._num * dr, y - 8._num / 27._num * k1 + 2._num * k2 - 3544._num / 2565._num * k3 + 1859._num / 4104._num * k4 - 11._num / 40._num * k5, params);
 
         // 4th and 5th order accurate steps:
-		dV_04 = 25.0 / 216.0 * k1 + 1408.0 / 2565.0 * k3 + 2197.0 / 4104.0 * k4 - 1.0 / 5.0 * k5; // + O(x^5)
-        dV_05 = 16.0 / 135.0 * k1 + 6656.0 / 12825.0 * k3 + 28561.0 / 56430.0 * k4 - 9.0 / 50.0 * k5 + 2.0 / 55.0 * k6; // + O(x^6)
+		dV_04 = 25._num / 216._num * k1 + 1408._num / 2565._num * k3 + 2197._num / 4104._num * k4 - 1._num / 5._num * k5; // + O(x^5)
+        dV_05 = 16._num / 135._num * k1 + 6656._num / 12825._num * k3 + 28561._num / 56430._num * k4 - 9._num / 50._num * k5 + 2._num / 55._num * k6; // + O(x^6)
 
         if( vector::is_nan(dV_05) || vector::is_nan(dV_04)) {
-            dr *= 0.5;
+            dr *= 0.5_num;
             if (dr < options.min_stepsize) {
                 if(options.verbose > 0)
                     std::cout << "Nan found" << dV_05 << dV_04 << k1 << k2 << k3 << k4 << k5 << k6 << "\n  for r=" << r << ", dr=" << dr <<  std::endl;
@@ -47,11 +47,11 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
 		}
 
         // approximating the truncation error:
-        double truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
-		//double truncation_error = ublas::norm_2(dV_05 - dV_04) * dr; // 2-Norm
+        NUMERIC truncation_error = ublas::norm_inf(dV_05 - dV_04) * dr; // inf-Norm
+		//NUMERIC truncation_error = ublas::norm_2(dV_05 - dV_04) * dr; // 2-Norm
 
 		if (truncation_error > options.target_error) {
-			dr *= 0.5;     // truncation error is too large. We repeat the iteration with smaller stepsize
+			dr *= 0.5_num;     // truncation error is too large. We repeat the iteration with smaller stepsize
 
             if (dr < options.min_stepsize) {
                 // error is not acceptable but the stepsize cannot get any smaller:
@@ -77,7 +77,7 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
             r += dr;
             y += dV_05;
 
-            dr *= 2.0;
+            dr *= 2.0_num;
 			if (dr > options.max_stepsize)
                 dr = options.max_stepsize;   // enforce maximal stepsize
 
@@ -91,11 +91,11 @@ bool integrator::RKF45_step(ODE_system dy_dr, double &r, double &dr, vector& y, 
 	}
 }
 
-int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, double& step_size, const void* params,
+int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, NUMERIC& step_size, const void* params,
                                             const std::vector<Event>& events, const IntegrationOptions& options) {
 
-    double r;
-    double dr;
+    NUMERIC r;
+    NUMERIC dr;
     vector y, dy;
     bool step_success = false;
 
@@ -110,11 +110,11 @@ int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, do
         dy = dy_dr(r, y, params);
         // iterate through all defined events and check if they would turn active
         for(auto it = events.begin(); it != events.end(); ++it) {
-            if ( it->active || it->target_accuracy <= 0.)
+            if ( it->active || it->target_accuracy <= 0._num)
                 continue;
 
             if(it->condition(r, dr, y, dy, params)) {
-                if ( dr > it->target_accuracy*1.001 ) { // do these require higher accuracy?
+                if ( dr > it->target_accuracy*1.001_num ) { // do these require higher accuracy?
                     step_success = false;
                     if (options.verbose > 1)
                         std::cout << "event " << it->name << " required higher accuracy at r = " << r << " where stepsize = " << dr << " but req " << it->target_accuracy << std::endl;
@@ -124,11 +124,11 @@ int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, do
         if (step_success) // none would be active or target accuracy is achieved
             break;
 
-        if (dr <= options.min_stepsize*1.001) { // cannot achieve better accuracy
+        if (dr <= options.min_stepsize*1.001_num) { // cannot achieve better accuracy
             step_success= false;
             break;
         }
-        step_size = std::max(dr/4., options.min_stepsize); // otherwise try again with smaller stepsize
+        step_size = std::max(dr/4._num, options.min_stepsize); // otherwise try again with smaller stepsize
     }
     current_step.first = r;
     current_step.second = y;
@@ -143,10 +143,10 @@ int integrator::RKF45_step_event_tester(ODE_system dy_dr, step& current_step, do
  * The initial values are given by y0. The params pointer can be arbitrary and is passed on to dy_dr
  * The initial and last step are saved in results (unless options.save_intermediate == true)
  * and any number of events can be tracked throughout the evolution with the events vector */
-int integrator::RKF45(ODE_system dy_dr, const double r0, const vector y0, const double r_end, const void* params,
+int integrator::RKF45(ODE_system dy_dr, const NUMERIC r0, const vector y0, const NUMERIC r_end, const void* params,
                             std::vector<step>& results, std::vector<Event>& events, const IntegrationOptions& options)
 {
-    double step_size = options.max_stepsize;        // initial stepsize
+    NUMERIC step_size = options.max_stepsize;        // initial stepsize
     vector dy;
     integrator::step current_step = std::make_pair(r0, y0);
 
@@ -215,13 +215,13 @@ int integrator::RKF45(ODE_system dy_dr, const double r0, const vector y0, const 
 
 /* cumulative trapezoid integration for the pair x,y
  * output is saved in res */
-void integrator::cumtrapz(const std::vector<double>& x, const std::vector<double>& y, std::vector<double>& res) {
+void integrator::cumtrapz(const std::vector<NUMERIC>& x, const std::vector<NUMERIC>& y, std::vector<NUMERIC>& res) {
     if( x.size() != y.size() || x.size() == 0)
         return;
-    res = std::vector<double>(x.size(), 0.);
+    res = std::vector<NUMERIC>(x.size(), 0._num);
 
     for(unsigned int i = 1; i < x.size(); i++) {
-        res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2.;
+        res[i] = (x[i]-x[i-1]) * (y[i] + y[i-1])/2._num;
         res[i] += res[i-1];
     }
 }

@@ -21,26 +21,26 @@
 int Example_Star() {
 
     // define bosonic field parameters
-    double mu = 10.;
-    double lambda = 0.;
+    NUMERIC mu = 10._num;
+    NUMERIC lambda = 0._num;
 
     // define EoS
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
     //auto Polytrope = std::make_shared<PolytropicEoS>();
 
     // define central star parameters
-    double rho_0 = 0.004;
-    double phi_0 = 0.06;
+    NUMERIC rho_0 = 0.004_num;
+    NUMERIC phi_0 = 0.06_num;
     std::vector<integrator::step> steps;
 
     // define FBS instance
-    FermionBosonStar fbs(EOS_DD2, mu, lambda, 0., rho_0, phi_0);
+    FermionBosonStar fbs(EOS_DD2, mu, lambda, 0._num, rho_0, phi_0);
 
     // find omega through bisection
-    double omega_0 = 1., omega_1 = 10.;
-    //int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=500, double delta_omega=1e-15, int verbose=0);
+    NUMERIC omega_0 = 1._num, omega_1 = 10._num;
+    //int bisection(NUMERIC omega_0, NUMERIC omega_1, int n_mode=0, int max_step=500, NUMERIC delta_omega=1e-15, int verbose=0);
     if(fbs.bisection(omega_0, omega_1) == -1)
-        return 0.;
+        return 0._num;
 
     // evaluate model
     fbs.evaluate_model(steps);
@@ -51,7 +51,7 @@ int Example_Star() {
     FermionBosonStarTLN fbstln(fbs);
 
     // find phi_1_0 through bisection and evaluate
-    double phi_1_0_l = phi_0*1e-3, phi_1_0_r = 1e5*phi_0;
+    NUMERIC phi_1_0_l = phi_0*1e-3_num, phi_1_0_r = 1e5_num*phi_0;
     time_point p1{clock_type::now()};
     fbstln.bisection_phi_1(phi_1_0_l, phi_1_0_r);
 
@@ -71,19 +71,19 @@ int Example_Star() {
 // compute here e.g. a few configurations with the full system and with the effective EOS for different lambda, to check if they produce the same results.
 void test_effectiveEOS_pure_boson_star() {
 
-	double mu = 0.5;
-	double Lambda_int = 10.;
-	double lambda = Lambda_int*8*M_PI*mu*mu;
+	NUMERIC mu = 0.5_num;
+	NUMERIC Lambda_int = 10._num;
+	NUMERIC lambda = Lambda_int*8._num*M_PI*mu*mu;
 
 	// create the phi_c-rho_c-grid:
 	const unsigned NstarsPhi = 10;
 	const unsigned NstarsRho = 1;
-	std::vector<double> rho_c_grid(NstarsRho, 0.0), phi_c_grid(NstarsPhi, 0.0);
+	std::vector<NUMERIC> rho_c_grid(NstarsRho, 0._num), phi_c_grid(NstarsPhi, 0._num);
 
-	double rho_cmin = 1e-10;	// = [saturation_density] / 0.15 * 2.886376934e-6 * 939.565379 -> includig conversion factors from saturation density to code units
-	double rho_cmax = 5e-3;
-	double phi_cmin = 1e-5;
-	double phi_cmax = 0.055;
+	NUMERIC rho_cmin = 1e-10_num;	// = [saturation_density] / 0.15 * 2.886376934e-6 * 939.565379 -> includig conversion factors from saturation density to code units
+	NUMERIC rho_cmax = 5e-3_num;
+	NUMERIC phi_cmin = 1e-5_num;
+	NUMERIC phi_cmax = 0.055_num;
 	
 	utilities::fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 1);
     utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
@@ -123,52 +123,71 @@ void test_effectiveEOS_pure_boson_star() {
 
 void test_single_fermion_proca_star() {
 
-	double mu = 1.0;
-	double Lambda_int = 0.;
-	double lambda = Lambda_int*8*M_PI*mu*mu; //Lambda_int*mu*mu; when using units of Minamisuji (2018)
+	NUMERIC mu = 1.0_num;
+	NUMERIC Lambda_int = 0.0_num;
+	NUMERIC lambda = Lambda_int*8._num*M_PI*mu*mu; //Lambda_int*mu*mu; when using units of Minamisuji (2018)
 
-	double rho_0 = 0.0; //5e-3;
-	double E_0 = 0.1 / 1.41421356237309 ;/// 8. / M_PI;
+	NUMERIC sat_to_code = 0.15_num * 2.886376934e-6_num * 939.565379_num;	// conversion factor from saturation density to code units
+	NUMERIC rho_0 = 9.0_num * sat_to_code; //5e-3;
+	NUMERIC E_0 = 0.18_num ;/// 8. / M_PI;
 
 	auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
-	FermionProcaStar fps_model(EOS_DD2, mu, lambda, 0.0, rho_0, E_0);    // create model for star
+	FermionProcaStar fps_model(EOS_DD2, mu, lambda, 0._num, rho_0, E_0);    // create model for star
+	FermionBosonStar fbs_model(EOS_DD2, mu, lambda, 0._num, rho_0, E_0);	// also create a FBS for comparisons sake
 
-	const double omega_0 = 1., omega_1 = 20.;  // upper and lower bound for omega in the bisection search
+	std::string plotname = "FPS/posterplot1-radial-FPS-5rho_sat-m01-l0-E_0-" + std::to_string(E_0);
+	plotname = "FPS/bisection-fail-test-radial-profiles";
+	const NUMERIC omega_0 = 1.0_num /*2.12055_num*/, omega_1 = 10.0_num/* 3.2499911682_num */;  // upper and lower bound for omega in the bisection search
 
-	int bisection_success = fps_model.bisection(omega_0, omega_1,0);  // compute bisection
-		if (bisection_success == -1) {
+	int bisection_success1 = fps_model.bisection(omega_0, omega_1,0);  // compute bisection
+	//fps_model.omega = 2.1399911682_num;
+		if (bisection_success1 == -5) {
             std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << std::endl;
 		}
 		else {
-			std::vector<integrator::step> results;
+			std::vector<integrator::step> results1;
 			integrator::IntegrationOptions intOpts = integrator::IntegrationOptions();
-            fps_model.evaluate_model(results, intOpts, "plots/FPS/first_fps_test.txt");   // evaluate the model but do not save the intermediate data into txt file
+            fps_model.evaluate_model(results1, intOpts, "plots/"+plotname+".txt");   // evaluate the model and save the intermediate data into txt file
 		}
+	// do the same for the FBS:
+	/*
+	plotname = "FPS/posterplot1-radial-FBS-5rho_sat-m01-l0-E_0-" + std::to_string(E_0);
+	int bisection_success2 = fbs_model.bisection(omega_0, omega_1,0);  // compute bisection
+		if (bisection_success2 == -1) {
+            std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << std::endl;
+		}
+		else {
+			std::vector<integrator::step> results2;
+			integrator::IntegrationOptions intOpts = integrator::IntegrationOptions();
+            fbs_model.evaluate_model(results2, intOpts, "plots/"+plotname+".txt");   // evaluate the model and save the intermediate data into txt file
+		}*/
 
 	std::cout << "calculation complete!" << std::endl;
 	std::cout << "global quantities:" << std::endl;
 	std::cout << std::fixed << std::setprecision(10) << fps_model << std::endl;
+	std::cout << std::fixed << std::setprecision(10) << fbs_model << std::endl;
 }
 
 
 void compute_fermionProcaStar_grid() {
 
-	double mu = 1.0;
-	double Lambda_int = 1.0 * 2.; // factor 2 to convert to the number of minamisuji
-	double lambda = Lambda_int*mu*mu;// Lambda_int*8*M_PI*mu*mu;
+	NUMERIC mu = 1.0_num;
+	NUMERIC Lambda_int = 0.0_num; // factor 2 to convert to the number of minamisuji
+	NUMERIC lambda = Lambda_int*8._num*M_PI*mu*mu;// Lambda_int*8*M_PI*mu*mu;
 
 	// create the E_c-rho_c-grid:
-	const unsigned NstarsVec = 60;	// number of pure FPS
+	const unsigned NstarsVec = 80;	// number of pure FPS
 	const unsigned NstarsRho = 1;	// number of pure NS
-	std::vector<double> rho_c_grid(NstarsRho, 0.0), E_c_grid(NstarsVec, 0.0);
+	std::vector<NUMERIC> rho_c_grid(NstarsRho, 0.0_num), E_c_grid(NstarsVec, 0.0_num);
 
-	double rho_cmin = 0.0;
-	double rho_cmax = 1e-10;
-	double E_cmin = 1e-6;
+	NUMERIC sat_to_code = 0.15_num * 2.886376934e-6_num * 939.565379_num;	// conversion factor from saturation density to code units
+	NUMERIC rho_cmin = 2.0_num * sat_to_code;
+	NUMERIC rho_cmax = 12.0_num * sat_to_code;
+	NUMERIC E_cmin = 1e-5_num;
 
-	double E_cmax = 3.2 / 1.41421356237309; // beware: E_cmax MUST have: E_cmax < m / sqrt(lambda) = 1/4*sqrt(pi*Lambda_int)
-	if (lambda > 0. && E_cmax > mu/std::sqrt(lambda)) {
-		E_cmax = 0.99*mu/std::sqrt(lambda);
+	NUMERIC E_cmax = 3.2_num; //3.2 / 1.41421356237309; // beware: E_cmax MUST have: E_cmax < m / sqrt(lambda) = 1/4*sqrt(pi*Lambda_int)
+	if (lambda > 0._num && E_cmax > mu/std::sqrt(lambda)) {
+		E_cmax = 0.99_num*mu/std::sqrt(lambda);
 	}
 		
 	
@@ -177,13 +196,22 @@ void compute_fermionProcaStar_grid() {
 
 	// declare different EOS types:
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
+	auto EOS_POLYTROPE = std::make_shared<PolytropicEoS>();
 
 	std::vector<FermionProcaStar> FPS_curve;
 
 	calc_rhophi_curves_FPS(mu, lambda, EOS_DD2, rho_c_grid, E_c_grid, FPS_curve, 2, 0);
 
-	std::string plotname = "FPS/Minamisuji_fig3_reproduction-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	std::string plotname = "FPS/Minamisuji_fig3_reproduction-unitchange-new-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	plotname = "FPS/bisection-fail-test3";
 	write_MRphi_curve<FermionProcaStar>(FPS_curve, "plots/" + plotname + ".txt");
+	std::cout << "Finished FPS!" << std::endl;
+
+	std::vector<FermionBosonStar> MRphi_curve;
+	// calc the unperturbed equilibrium solutions:
+    //calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, E_c_grid, MRphi_curve,2);
+	plotname = "FPS/posterplot2-MR-FBS-m1-l0-rhoc-9";
+	//write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
 	
 }
 
@@ -193,8 +221,8 @@ int create_MR_curve() {
     const unsigned NstarsPhi = 30;   // number of MR curves of constant rho_c
 
     // define common star parameters:
-    double mu = 1.;        // DM mass
-    double lambda = 0.0;   // self-interaction parameter
+    NUMERIC mu = 1._num;        // DM mass
+    NUMERIC lambda = 0._num;   // self-interaction parameter
 
     constexpr bool calcTln = true;
 
@@ -204,12 +232,12 @@ int create_MR_curve() {
 
 
     // declare initial conditions:
-    double rho_cmin = 0.;   // central density of first star (good for DD2 is 0.0005)
-    double phi_cmin = 0.;    // central value of scalar field of first star
-    double rho_cmax = 5e-3;
-    double phi_cmax = 0.1;
+    NUMERIC rho_cmin = 0._num;   // central density of first star (good for DD2 is 0.0005)
+    NUMERIC phi_cmin = 0._num;    // central value of scalar field of first star
+    NUMERIC rho_cmax = 5e-3_num;
+    NUMERIC phi_cmax = 0.1_num;
 
-    std::vector<double> rho_c_grid(Nstars, 0.), phi_c_grid(NstarsPhi, 0.), NbNf_grid;
+    std::vector<NUMERIC> rho_c_grid(Nstars, 0._num), phi_c_grid(NstarsPhi, 0._num), NbNf_grid;
 
     utilities::fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 3);
     utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 3);

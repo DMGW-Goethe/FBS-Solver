@@ -1,22 +1,22 @@
 #include "fbs_tln.hpp"
 
 /* This event triggers when dphi_1 is diverging i.e. dphi_1 > 1e6 */
-const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true, "dphi_1_diverging");
+const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const NUMERIC r, const NUMERIC dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6_num); }, true, "dphi_1_diverging");
 
 /* This event triggers when phi_1 is negative, used for zero counting */
-const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0.; }, false, "phi_1_negative");
+const integrator::Event FermionBosonStarTLN::phi_1_negative = integrator::Event([](const NUMERIC r, const NUMERIC dr, const vector& y, const vector& dy, const void*params) { return y[7] < 0._num; }, false, "phi_1_negative");
 /* This event triggers when phi_1 is positive  */
-const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0.; }, false, "phi_1_positive");
+const integrator::Event FermionBosonStarTLN::phi_1_positive = integrator::Event([](const NUMERIC r, const NUMERIC dr, const vector& y, const vector& dy, const void*params) { return y[7] > 0._num; }, false, "phi_1_positive");
 
 
 /* This function gives the initial conditions for the FBS integration
  * with a_0 = 1,  alpha_0 = 1,  phi_0 = this->phi_0, Psi = 0, P_0 = EOS(rho_0)
  *  H_0 = H_0 * r_0^2,  dH_0 = 2 H_0 r , phi_1_0 = phi_0 r_0^3,  dphi_1_0 = phi_0 3 r_0^2
  * at the position r_0=r_init */
-vector FermionBosonStarTLN::get_initial_conditions(double r_init) const {
-    r_init = (r_init < 0. ? this->r_init : r_init);
-    return vector( {1.0, 1.0, this->phi_0, 0., this->rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0.) : 0.,
-                                                             this->H_0*r_init*r_init, 2.*this->H_0*r_init, this->phi_1_0*pow(r_init,3), 3.*this->phi_1_0*pow(r_init,2)});
+vector FermionBosonStarTLN::get_initial_conditions(NUMERIC r_init) const {
+    r_init = (r_init < 0._num ? this->r_init : r_init);
+    return vector( {1.0_num, 1.0_num, this->phi_0, 0._num, this->rho_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(this->rho_0, 0._num) : 0._num,
+                                                             this->H_0*r_init*r_init, 2._num*this->H_0*r_init, this->phi_1_0*pow(r_init,3), 3._num*this->phi_1_0*pow(r_init,2)});
 }
 
 /* This function gives the system of ODEs for the FBS + TLN star
@@ -24,47 +24,47 @@ vector FermionBosonStarTLN::get_initial_conditions(double r_init) const {
  *
  *  This function is called by the integrator during the integration
  * */
-vector FermionBosonStarTLN::dy_dr(const double r, const vector& vars) const {
-    const double a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
-    double P = vars[4];
-    const double H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
+vector FermionBosonStarTLN::dy_dr(const NUMERIC r, const vector& vars) const {
+    const NUMERIC a = vars[0], alpha = vars[1], phi = vars[2], Psi = vars[3];
+    NUMERIC P = vars[4];
+    const NUMERIC H = vars[5],  dH_dr = vars[6],  phi_1 = vars[7], dphi_1_dr = vars[8];
 
     EquationOfState& myEOS = *(this->EOS);
 
-    double e, de_dP, dP_de;	// total energy density, and derivatives w.r.t. pressure P
-    if(P <= 0. || P < myEOS.min_P() || P < P_ns_min)  {
-        P = 0.; e = 0., de_dP = 0.;
+    NUMERIC e, de_dP, dP_de;	// total energy density, and derivatives w.r.t. pressure P
+    if(P <= 0._num || P < myEOS.min_P() || P < P_ns_min)  {
+        P = 0._num; e = 0._num, de_dP = 0._num;
     } else {
         e = myEOS.get_e_from_P(P);
-        dP_de = e > myEOS.min_e() ? myEOS.dP_de(e) : 0.;
-        de_dP = dP_de > 0. ? 1./dP_de : 0.;
+        dP_de = e > myEOS.min_e() ? myEOS.dP_de(e) : 0._num;
+        de_dP = dP_de > 0._num ? 1._num/dP_de : 0._num;
     }
 
     vector dy_dr = FermionBosonStar::dy_dr(r, vars); // use equations as given in parent class
-    const double da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
+    const NUMERIC da_dr = dy_dr[0],  dalpha_dr = dy_dr[1], dphi_dr = dy_dr[2], dPsi_dr = dy_dr[3], dP_dr = dy_dr[4];
 
     // The equations for the bosonic field potential
-    const double V = mu*mu*phi*phi + lambda/2.*phi*phi*phi*phi;
-    const double dV_deps = mu*mu + lambda*phi*phi;
-    const double ddV_deps2 = lambda;
+    const NUMERIC V = mu*mu*phi*phi + lambda/2._num*phi*phi*phi*phi;
+    const NUMERIC dV_deps = mu*mu + lambda*phi*phi;
+    const NUMERIC ddV_deps2 = lambda;
 
     // additional TLN equations
-    const double ddalpha_dr2 = 4.*M_PI*omega*omega*(2.*r*phi*phi*a*da_dr + 2.*r*phi*a*a*Psi + phi*phi*a*a)/alpha
-                                + ( 4.*M_PI*r*a*a*(-omega*omega*phi*phi/alpha/alpha + P - V + Psi*Psi/a/a)
+    const NUMERIC ddalpha_dr2 = 4._num*M_PI*omega*omega*(2._num*r*phi*phi*a*da_dr + 2._num*r*phi*a*a*Psi + phi*phi*a*a)/alpha
+                                + ( 4._num*M_PI*r*a*a*(-omega*omega*phi*phi/alpha/alpha + P - V + Psi*Psi/a/a)
                                     + (a*a - 1.)/2./r ) * dalpha_dr
-                                + ( 4.*M_PI*r* ( 2.*P*a*da_dr - 2.*V*a*da_dr - 2.*phi*a*a*Psi*dV_deps + a*a*dP_dr + 2.*Psi*dPsi_dr)
-                                    + 4.*M_PI*a*a*(P - V) + 4.*M_PI*Psi*Psi + a*da_dr/r + (1. - a*a)/2./r/r )*alpha;
+                                + ( 4._num*M_PI*r* ( 2._num*P*a*da_dr - 2._num*V*a*da_dr - 2._num*phi*a*a*Psi*dV_deps + a*a*dP_dr + 2._num*Psi*dPsi_dr)
+                                    + 4._num*M_PI*a*a*(P - V) + 4._num*M_PI*Psi*Psi + a*da_dr/r + (1._num - a*a)/2._num/r/r )*alpha;
 
-    const double ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2./r) * dH_dr
-                            + (8.*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1.+ de_dP) + 8.*M_PI *dphi_dr*dphi_dr*(3. + de_dP)
-                                    - 2.*ddalpha_dr2/alpha + 2.*dalpha_dr*da_dr/alpha/a + 4.*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3.+ de_dP) - dalpha_dr/r/alpha*(7. + de_dP)
-                                    + 6*a*a/r/r) * H
-                            + (16.*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1. - de_dP) + 16.*M_PI*phi*a*a*dV_deps/r*(1. +de_dP) - 16.*M_PI* dPsi_dr/r*(3. + de_dP)
-                                    + 16.*M_PI*dphi_dr*da_dr/r/a *(3. + de_dP) + 16.*M_PI*dalpha_dr*dphi_dr/r/alpha*(1. - de_dP) - 32.*M_PI*dphi_dr/r/r*(3. + de_dP)) * phi_1;
+    const NUMERIC ddH_dr2 = (da_dr/a - dalpha_dr/alpha - 2._num/r) * dH_dr
+                            + (8._num*omega*omega*M_PI*phi*phi*a*a/alpha/alpha*(-1._num+ de_dP) + 8._num*M_PI *dphi_dr*dphi_dr*(3._num + de_dP)
+                                    - 2._num*ddalpha_dr2/alpha + 2._num*dalpha_dr*da_dr/alpha/a + 4._num*dalpha_dr*dalpha_dr/alpha/alpha - da_dr/r/a*(3._num+ de_dP) - dalpha_dr/r/alpha*(7._num + de_dP)
+                                    + 6._num*a*a/r/r) * H
+                            + (16._num*omega*omega*M_PI*phi*a*a/r/alpha/alpha*(1._num - de_dP) + 16._num*M_PI*phi*a*a*dV_deps/r*(1._num +de_dP) - 16._num*M_PI* dPsi_dr/r*(3._num + de_dP)
+                                    + 16._num*M_PI*dphi_dr*da_dr/r/a *(3._num + de_dP) + 16._num*M_PI*dalpha_dr*dphi_dr/r/alpha*(1._num - de_dP) - 32._num*M_PI*dphi_dr/r/r*(3._num + de_dP)) * phi_1;
 
-    const double ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
-                                + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2.)*dphi_dr )* H
-                                + (-omega*omega*a*a/alpha/alpha + 32.*M_PI*Psi*Psi + 2.*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6.*a*a/r/r)*phi_1;
+    const NUMERIC ddphi_1_dr2 = (da_dr/a - dalpha_dr/alpha)* dphi_1_dr
+                                + (omega*omega*r*phi*a*a/alpha/alpha - r*dPsi_dr + (r*da_dr/a + r*dalpha_dr/alpha -2._num)*dphi_dr )* H
+                                + (-omega*omega*a*a/alpha/alpha + 32._num*M_PI*Psi*Psi + 2._num*phi*phi*a*a*ddV_deps2 + a*a*dV_deps - da_dr/r/a + dalpha_dr/r/alpha + 6._num*a*a/r/r)*phi_1;
 
     /*std::cout << "r = " << r
                 << ", ddalpha_dr2 = " << ddalpha_dr2
@@ -88,20 +88,20 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     const int step_number = results.size();
     // calculate parameters for unperturbed star
     // FermionBosonStar::calculate_star_parameters(results, events); // If the class instance is instantiated from an existing fbs instance we don't need this
-    bool phi_converged = this->phi_0 <= 0.;
+    bool phi_converged = this->phi_0 <= 0._num;
 
-    if (this->phi_0 > 0.) {
-        if(this->R_B_0 >  0.) // we have artifically set phi to 0 at some point which makes our lifes much easier
+    if (this->phi_0 > 0._num) {
+        if(this->R_B_0 >  0._num) // we have artifically set phi to 0 at some point which makes our lifes much easier
             phi_converged = true;
     }
     // std::cout << "calculate_star_parameters with phi_converged = " << phi_converged << std::endl;
 
     /* The quantity to compute is y = r H' / H
      * at the point where both components have converged */
-    auto M_func = [&results](int index) { return results[index].first / 2. * (1. - 1./pow(results[index].second[0], 2)); };
+    auto M_func = [&results](int index) { return results[index].first / 2._num * (1._num - 1._num/pow(results[index].second[0], 2)); };
     auto y_func = [&results](int index) { return results[index].first * results[index].second[6]/ results[index].second[5]; };
-    auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2.;  };
-    double y = 0., R_ext = 0., M_ext = 0.;
+    auto dy_func = [&results, &y_func] (int i) { return (y_func(i+1) - y_func(i))/(results[i+1].first - results[i].first)/2. + (y_func(i) - y_func(i-1))/(results[i].first - results[i-1].first)/2._num;  };
+    NUMERIC y = 0._num, R_ext = 0._num, M_ext = 0._num;
 
 
     if(phi_converged) {
@@ -115,7 +115,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
         R_ext = results[index_ext].first;
     }
     else {
-        if(this->R_F > 100.*this->R_B) { // in this case, the fermionic part dominates the bosonic part, so we can read out the TLN where the fermionic part vanishes
+        if(this->R_F > 100._num*this->R_B) { // in this case, the fermionic part dominates the bosonic part, so we can read out the TLN where the fermionic part vanishes
             int index_R_F = 0;
             while ( results[index_R_F].first < this->R_F && index_R_F < step_number-1)
                 index_R_F++;
@@ -128,7 +128,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
         else { // implement procedure from Sennet 2017 (https://arxiv.org/pdf/1704.08651.pdf)
             // to find the starting point see where y actually has a minimum
             int index_bs_radius = 1;
-            while(results[index_bs_radius].first < this->R_B/1e3  && index_bs_radius < step_number-2)
+            while(results[index_bs_radius].first < this->R_B/1000._num  && index_bs_radius < step_number-2)
                 index_bs_radius++;
             int index_y_min = index_bs_radius;
             while(y_func(index_y_min) < y_func(index_y_min-1) && index_y_min < step_number-2)
@@ -142,7 +142,7 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
                         ||  ( y_func(i) > y_func(i-1) && dy_func(i) < dy_func(i-1) && dy_func(i) < dy_func(i+1)) ) {
                     indices_maxima.push_back(i);
                 }
-                if(y_func(i) < 0.) // here something funky is happening so stop
+                if(y_func(i) < 0._num) // here something funky is happening so stop
                     break;
             }
             int index_y;
@@ -158,14 +158,14 @@ void FermionBosonStarTLN::calculate_star_parameters(const std::vector<integrator
     // std::cout << "R_F=" << R_F <<", R_B=" <<  R_B << ", R_ext = " << R_ext << ", y = " << y << std::endl;
 
     // now that we found y, calculate k2
-    double C = M_ext / R_ext; // the compactness at the extraction point
+    NUMERIC C = M_ext / R_ext; // the compactness at the extraction point
 
     /* tidal deformability as taken from https://arxiv.org/pdf/0711.2420.pdf */
-    double lambda_tidal = 16./15.*pow(this->M_T, 5)* /* pow(M_ext, 5) */ pow(1.-2.*C, 2)* (2. + 2.*C*(y-1.) - y)
-                    / (2.*C*(6. - 3.*y + 3.*C*(5.*y-8.))
-                        + 4.*pow(C,3)*(13. - 11.*y + C*(3.*y-2.) + 2.*C*C*(1. + y))
-                        + 3.* pow(1. - 2.*C, 2) *(2. - y + 2.*C*(y-1))*  log(1.-2.*C)   );
-    double k2 = 3./2. * lambda_tidal / pow(R_ext, 5);
+    NUMERIC lambda_tidal = 16._num/15._num*pow(this->M_T, 5)* /* pow(M_ext, 5) */ pow(1._num -2._num*C, 2)* (2._num + 2._num*C*(y-1._num) - y)
+                    / (2._num*C*(6._num - 3._num*y + 3._num*C*(5._num*y-8._num))
+                        + 4._num*pow(C,3)*(13._num - 11._num*y + C*(3._num*y-2._num) + 2._num*C*C*(1._num + y))
+                        + 3._num* pow(1._num - 2._num*C, 2) *(2._num - y + 2._num*C*(y-1))*  log(1._num -2._num*C)   );
+    NUMERIC k2 = 3._num/2._num * lambda_tidal / pow(R_ext, 5);
 
     /*std::cout << "C = " << C << ", y = " << y  << ", k2 = " << k2
                 << ", a= " << (2. + 2.*C*(y-1.) - y)
@@ -218,9 +218,9 @@ void FermionBosonStarTLN::evaluate_model(std::vector<integrator::step>& results,
 
 
 
-int FermionBosonStarTLN::bisection_phi_1_find_mode(double& phi_1_0_l, double& phi_1_0_r, int n_mode, int max_steps, int verbose) {
+int FermionBosonStarTLN::bisection_phi_1_find_mode(NUMERIC& phi_1_0_l, NUMERIC& phi_1_0_r, int n_mode, int max_steps, int verbose) {
 
-    double phi_1_0_mid;
+    NUMERIC phi_1_0_mid;
     int n_roots_0, n_roots_1, n_roots_mid;   // number of roots in phi_1(r) (number of roots corresponds to the modes of the scalar field)
     int steps = 0;
     const bool force_phi_to_0 = true;
@@ -277,9 +277,9 @@ int FermionBosonStarTLN::bisection_phi_1_find_mode(double& phi_1_0_l, double& ph
     return 0;
 }
 
-int FermionBosonStarTLN::bisection_phi_1_converge_through_infty_behavior(double& phi_1_0_l, double& phi_1_0_r, int max_steps, double delta_phi_1, int verbose) {
+int FermionBosonStarTLN::bisection_phi_1_converge_through_infty_behavior(NUMERIC& phi_1_0_l, NUMERIC& phi_1_0_r, int max_steps, NUMERIC delta_phi_1, int verbose) {
 
-    double phi_1_0_mid;
+    NUMERIC phi_1_0_mid;
     int n_inft_0, n_inft_1, n_inft_mid;
     int steps = 0;
     const int index_phi_1 = 7;
@@ -294,23 +294,23 @@ int FermionBosonStarTLN::bisection_phi_1_converge_through_infty_behavior(double&
 
     this->phi_1_0 = phi_1_0_l;
     FermionBosonStar::integrate_and_avoid_phi_divergence(results_0, events, intOpts, force_phi_to_0);
-    n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0.;    // save if sign(Phi_1(inf)) is positive or negative
+    n_inft_0 = results_0[results_0.size()-1].second[index_phi_1] > 0._num;    // save if sign(Phi_1(inf)) is positive or negative
 
     this->phi_1_0 = phi_1_0_r;
     FermionBosonStar::integrate_and_avoid_phi_divergence(results_1, events, intOpts, force_phi_to_0);
-    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0.;
+    n_inft_1 = results_1[results_1.size()-1].second[index_phi_1] > 0._num;
 
     if (verbose > 0)
         std::cout << "start with phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r =" << phi_1_0_r << " with n_inft=" << n_inft_1 << std::endl;
 
-    steps =0;
+    steps = 0;
     /* iterate until accuracy in phi_1 was reached or max number of steps exceeded */
 
     while( (phi_1_0_r - phi_1_0_l)/phi_1_0_l > delta_phi_1 && steps < max_steps) {
-        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2.;
+        phi_1_0_mid = (phi_1_0_l + phi_1_0_r)/2._num;
         this->phi_1_0 = phi_1_0_mid;
         FermionBosonStar::integrate_and_avoid_phi_divergence(results_mid, events, intOpts, force_phi_to_0);
-        n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0.;  // save if sign(Phi_1(inf)) is positive or negative
+        n_inft_mid = results_mid[results_mid.size()-1].second[index_phi_1] > 0._num;  // save if sign(Phi_1(inf)) is positive or negative
         if (verbose > 1)
             std::cout << steps << ": phi_1_0_mid = " << phi_1_0_mid << " with n_inft= " << n_inft_mid << std::endl;
 
@@ -327,7 +327,7 @@ int FermionBosonStarTLN::bisection_phi_1_converge_through_infty_behavior(double&
         steps++;
     }
 
-    double last_r = results_mid[results_mid.size()-1].first;
+    NUMERIC last_r = results_mid[results_mid.size()-1].first;
     if (verbose > 0)
         std::cout << "after " << steps << " steps found phi_1_0_l =" << phi_1_0_l << " with n_inft=" << n_inft_0 << " and phi_1_0_r=" << phi_1_0_r << " with n_inft=" << n_inft_1
                     << "\n  last_r = " << last_r << " vs R_F_0 = " << this->R_F_0 << "and R_B = " << this->R_B << std::endl;
@@ -340,14 +340,14 @@ int FermionBosonStarTLN::bisection_phi_1_converge_through_infty_behavior(double&
  *  via a bisection algorithm, similarly to omega
  * This algorithm does not adjust the range
  * The result depends on H_0, do not change afterwards */
-int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int n_mode, int max_steps, double delta_phi_1, int verbose) {
+int FermionBosonStarTLN::bisection_phi_1(NUMERIC phi_1_0_l, NUMERIC phi_1_0_r, int n_mode, int max_steps, NUMERIC delta_phi_1, int verbose) {
 
     if(phi_1_0_r < phi_1_0_l)
         std::swap(phi_1_0_l, phi_1_0_r);
 
     // if phi_0 = 0 then we don't need a bisection
-    if (this->phi_0 == 0.) {
-        this->phi_1_0 = 0.;
+    if (this->phi_0 == 0._num) {
+        this->phi_1_0 = 0._num;
         return 0;
     }
 

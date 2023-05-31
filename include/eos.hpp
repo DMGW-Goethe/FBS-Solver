@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdexcept> // for std::runtime_error
 #include <map>
+#include "vector.hpp" // for NUMERIC
 
 // a class to contain tabulated EOS
 // reads in a EOS table in the constructor.
@@ -21,23 +22,23 @@
 class EquationOfState
 {
 public:
-    virtual double get_P_from_rho(const double rho, const double epsilon)  = 0;
-	virtual double get_P_from_e(const double e)  = 0;
-	virtual double get_e_from_P(const double P)  = 0;
-    virtual double dP_drho(const double rho, double epsilon) = 0;
-	virtual double dP_de(const double e) = 0;
+    virtual NUMERIC get_P_from_rho(const NUMERIC rho, const NUMERIC epsilon)  = 0;
+	virtual NUMERIC get_P_from_e(const NUMERIC e)  = 0;
+	virtual NUMERIC get_e_from_P(const NUMERIC P)  = 0;
+    virtual NUMERIC dP_drho(const NUMERIC rho, NUMERIC epsilon) = 0;
+	virtual NUMERIC dP_de(const NUMERIC e) = 0;
 
     /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
-    virtual double dP_de(const double rho, double epsilon)
-	{  return dP_de(rho*(1. + epsilon));  }
+    virtual NUMERIC dP_de(const NUMERIC rho, NUMERIC epsilon)
+	{  return dP_de(rho*(1._num + epsilon));  }
 
     /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
-	virtual void callEOS(double& myrho, double& epsilon, const double P) = 0;
+	virtual void callEOS(NUMERIC& myrho, NUMERIC& epsilon, const NUMERIC P) = 0;
 
 	/* Functions giving minimal P and minimal rho for the EoS to be valid */
-    virtual double min_P() = 0;		// minimal value of pressure
-    virtual double min_rho() = 0;	// minimal value of restmass density
-	virtual double min_e() = 0;	// minimal value of total energy density e:=rho(1+epsilon)
+    virtual NUMERIC min_P() = 0;		// minimal value of pressure
+    virtual NUMERIC min_rho() = 0;	// minimal value of restmass density
+	virtual NUMERIC min_e() = 0;	// minimal value of total energy density e:=rho(1+epsilon)
 
 };
 
@@ -50,27 +51,27 @@ public:
 class PolytropicEoS : public EquationOfState
 {
 protected:
-    double kappa, Gamma;
+    NUMERIC kappa, Gamma;
 
 public:
-    PolytropicEoS(const double kappa=100., const double Gamma =2.) : kappa(kappa), Gamma(Gamma) {}
+    PolytropicEoS(const NUMERIC kappa=100._num, const NUMERIC Gamma =2._num) : kappa(kappa), Gamma(Gamma) {}
 
     /* This gives the pressure P depending on the matter density rho. The internal energy density is ignored */
-    double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_e(const double etot_in);
-	double get_e_from_P(const double P_in);
+    NUMERIC get_P_from_rho(const NUMERIC rho_in, const NUMERIC epsilon);
+	NUMERIC get_P_from_e(const NUMERIC etot_in);
+	NUMERIC get_e_from_P(const NUMERIC P_in);
 
-	double dP_drho(const double rho, double epsilon);
+	NUMERIC dP_drho(const NUMERIC rho, NUMERIC epsilon);
 
     /* This gives the derivative dP/de depending on the matter density rho. The internal energy density is ignored */
-    double dP_de(const double e);
+    NUMERIC dP_de(const NUMERIC e);
     /* This gives the matter density rho and internal energy density depending on the pressure P */
-	void callEOS(double& myrho, double& epsilon, const double P);
+	void callEOS(NUMERIC& myrho, NUMERIC& epsilon, const NUMERIC P);
 
     /* Functions giving minimal P and minimal rho. For the polytrope both are 0. */
-    double min_P();
-    double min_rho();
-	double min_e();
+    NUMERIC min_P();
+    NUMERIC min_rho();
+	NUMERIC min_e();
 
 };
 
@@ -84,27 +85,27 @@ public:
 class CausalEoS : public EquationOfState
 {
 protected:
-    double eps_f, P_f;
+    NUMERIC eps_f, P_f;
 
 public:
-    CausalEoS(const double eps_f, const double P_f =0.) : eps_f(eps_f), P_f(P_f) {}
+    CausalEoS(const NUMERIC eps_f, const NUMERIC P_f =0._num) : eps_f(eps_f), P_f(P_f) {}
 
     /* This gives the pressure P depending on the matter density rho and internal energy epsilon */
-    double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_e(const double etot_in);
-	double get_e_from_P(const double P_in);
+    NUMERIC get_P_from_rho(const NUMERIC rho_in, const NUMERIC epsilon);
+	NUMERIC get_P_from_e(const NUMERIC etot_in);
+	NUMERIC get_e_from_P(const NUMERIC P_in);
 
     /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon */
-    double dP_de(const double e);
-	double dP_drho(const double rho, double epsilon);
+    NUMERIC dP_de(const NUMERIC e);
+	NUMERIC dP_drho(const NUMERIC rho, NUMERIC epsilon);
 
     /* This gives the matter density rho and internal energy epsilon depending on the pressure P */
-	void callEOS(double& myrho, double& epsilon, const double P);
+	void callEOS(NUMERIC& myrho, NUMERIC& epsilon, const NUMERIC P);
 
     /* Functions giving minimal P and minimal rho. For the causal EoS both are 0. */
-    double min_P();
-    double min_rho();
-	double min_e();
+    NUMERIC min_P();
+    NUMERIC min_rho();
+	NUMERIC min_e();
 };
 
 
@@ -112,27 +113,27 @@ public:
 class EffectiveBosonicEoS : public EquationOfState
 {
 protected:
-    double rho0;	// parameter computed from boson mass and self-interaction-parameter, corresponds to total energy density of the boson-fluid
+    NUMERIC rho0;	// parameter computed from boson mass and self-interaction-parameter, corresponds to total energy density of the boson-fluid
 					// rho0 = mu^4 / ( 2 * lambda ) in our normalization-convention for Phi and lambda (different convention to the two papers below:)
 					// compare to: PHYSICAL REVIEW LETTERS VOLUME 57, Number 20 17 NOVEMBER 1986 Boson Stars: Gravitational Equilibria of Self-Gravitating scalar fields
 					// and: Tidal deformability of dark matter admixed neutron stars PHYSICAL REVIEW D 105, 123010 (2022)
-	double mu, lambda;	// make the variables part of the class explicitly
+	NUMERIC mu, lambda;	// make the variables part of the class explicitly
 public:
-    EffectiveBosonicEoS(const double mu=1.0, const double lambda =1.0) : rho0(std::pow(mu,4) / (2.* lambda)), mu(mu), lambda(lambda) {}
+    EffectiveBosonicEoS(const NUMERIC mu=1._num, const NUMERIC lambda =1._num) : rho0(std::pow(mu,4) / (2._num* lambda)), mu(mu), lambda(lambda) {}
 
-    double get_P_from_rho(const double rho_in, const double epsilon);
-	double get_P_from_e(const double etot_in);
-	double get_e_from_P(const double P_in);
-	void callEOS(double& myrho, double& epsilon, const double P);
-    double dP_drho(const double rho, double epsilon);
-	double dP_de(const double etot);
+    NUMERIC get_P_from_rho(const NUMERIC rho_in, const NUMERIC epsilon);
+	NUMERIC get_P_from_e(const NUMERIC etot_in);
+	NUMERIC get_e_from_P(const NUMERIC P_in);
+	void callEOS(NUMERIC& myrho, NUMERIC& epsilon, const NUMERIC P);
+    NUMERIC dP_drho(const NUMERIC rho, NUMERIC epsilon);
+	NUMERIC dP_de(const NUMERIC etot);
 
-	double get_mu();
-	double get_lambda();
+	NUMERIC get_mu();
+	NUMERIC get_lambda();
 
-    double min_P();
-    double min_rho();
-	double min_e();
+    NUMERIC min_P();
+    NUMERIC min_rho();
+	NUMERIC min_e();
 };
 
 
@@ -145,10 +146,10 @@ public:
 class EoStable : public EquationOfState
 {
 protected:
-	std::vector<double> rho_table, P_table, e_table;
+	std::vector<NUMERIC> rho_table, P_table, e_table;
 
 public:
-    EoStable(const std::vector<double>& rho_table, const std::vector<double>& P_table, const std::vector<double>& e_table)
+    EoStable(const std::vector<NUMERIC>& rho_table, const std::vector<NUMERIC>& P_table, const std::vector<NUMERIC>& e_table)
         : rho_table(rho_table), P_table(P_table), e_table(e_table) {}
 
     /* Constructor expects link to file */
@@ -161,19 +162,19 @@ public:
     bool load_from_file(const std::string filename, std::map<std::string, int> indices);
 
     /* This gives the pressure P depending on the matter density rho and internal energy epsilon by linear interpolation of the table*/
-	void callEOS(double& myrho, double& epsilon, const double P);
-    double dP_drho(const double rho, double epsilon);
-	double dP_de(const double e);
+	void callEOS(NUMERIC& myrho, NUMERIC& epsilon, const NUMERIC P);
+    NUMERIC dP_drho(const NUMERIC rho, NUMERIC epsilon);
+	NUMERIC dP_de(const NUMERIC e);
     /* This gives the derivative dP/de depending on the matter density rho and internal energy epsilon by linear interpolation */
     /* This gives the matter density rho and internal energy epsilon depending on the pressure P by linear interpolation*/
-    double get_P_from_rho(const double rho, const double epsilon);
-	double get_P_from_e(const double e);
-	double get_e_from_P(const double P);
+    NUMERIC get_P_from_rho(const NUMERIC rho, const NUMERIC epsilon);
+	NUMERIC get_P_from_e(const NUMERIC e);
+	NUMERIC get_e_from_P(const NUMERIC P);
 
     /* Functions giving minimal P and minimal rho. These depend on the lowest values in the tables */
-    double min_P();
-    double min_rho();
-	double min_e();
+    NUMERIC min_P();
+    NUMERIC min_rho();
+	NUMERIC min_e();
 
 };
 

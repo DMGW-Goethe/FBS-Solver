@@ -8,9 +8,9 @@
 #include "integrator.hpp"
 #include "plotting.hpp"
 
-#define R_INIT 1e-10    // the initial integration radius
-#define R_MAX 500.      // the general maximum integration radius (might be increased if not sufficient)
-#define P_ns_min 1e-15  // the minimum pressure for the "boundary" of the NS
+#define R_INIT 1e-10_num    // the initial integration radius
+#define R_MAX 500._num      // the general maximum integration radius (might be increased if not sufficient)
+#define P_ns_min 1e-15_num  // the minimum pressure for the "boundary" of the NS
 
 /*  NSmodel
  * this is an abstract class that is supposed to be the backbone for
@@ -22,7 +22,7 @@
  * */
 class NSmodel {
 protected:
-    double r_init, r_end;
+    NUMERIC r_init, r_end;
 public:
     /* A pointer to the Equation of State describing the neutron star matter */
     std::shared_ptr<EquationOfState> EOS;
@@ -31,16 +31,16 @@ public:
     NSmodel(std::shared_ptr<EquationOfState> EOS) : r_init(R_INIT), r_end(R_MAX), EOS(EOS) {}
 
     /* This function gives the derivatives for the differential equations */
-    virtual vector dy_dr(const double r, const vector& vars) const = 0;
+    virtual vector dy_dr(const NUMERIC r, const vector& vars) const = 0;
 
     /* This is a static wrapper function, that calls the dy_dr function */
-    static vector dy_dr_static(const double r, const vector& y, const void* params);
+    static vector dy_dr_static(const NUMERIC r, const vector& y, const void* params);
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
-    virtual vector get_initial_conditions(double r_init=R_INIT) const = 0;
+    virtual vector get_initial_conditions(NUMERIC r_init=R_INIT) const = 0;
 
     /* This function calls the integrator and returns the results of the integration */
-    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), double r_init=-1., double r_end=-1.) const;
+    int integrate(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, const vector initial_conditions, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), NUMERIC r_init=-1., NUMERIC r_end=-1.) const;
 
     /* For easy output the class should define an << operator */
     friend std::ostream& operator<<(std::ostream&, const NSmodel&);

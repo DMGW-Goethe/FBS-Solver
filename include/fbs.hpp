@@ -7,9 +7,9 @@
 #include "plotting.hpp"
 #include "nsmodel.hpp"
 
-#define PHI_converged 1e-4 // compared to phi / phi_0, when the bosonic component has converged sufficiently
-#define INT_converged 1e-7
-#define M_T_converged 1e-15 // leftover from previous attempts to characterize convergence
+#define PHI_converged 1e-4_num // compared to phi / phi_0, when the bosonic component has converged sufficiently
+#define INT_converged 1e-7_num
+#define M_T_converged 1e-15_num // leftover from previous attempts to characterize convergence
 
 
 /* FermionBosonStar
@@ -39,36 +39,36 @@ protected:
     /* Calculates the parameters M_T, N_B, N_F, R_B, R_F_0 for a given integration contained in results,events */
     void calculate_star_parameters(const std::vector<integrator::step>& results, const std::vector<integrator::Event>& events);
 
-    int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, double& R_B_0, bool force=false, double r_init=-1., double r_end=-1.) const;
+    int find_bosonic_convergence(std::vector<integrator::step>& results, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOps, NUMERIC& R_B_0, bool force=false, NUMERIC r_init=-1., NUMERIC r_end=-1.) const;
     /* Integrates the star until the bosonic field is sufficiently converged phi/phi_0 < PHI_converged, pauses the integration, sets phi=0, and continues the integration
      * to avoid the divergence that is otherwise present due to numerical properties of the system. Only call when omega is found after the bisection! */
-    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), bool force = false, std::vector<int> additional_zero_indices={}, double r_init=-1., double r_end=-1.);
+    int integrate_and_avoid_phi_divergence(std::vector<integrator::step>& result, std::vector<integrator::Event>& events, integrator::IntegrationOptions intOpts = integrator::IntegrationOptions(), bool force = false, std::vector<int> additional_zero_indices={}, NUMERIC r_init=-1., NUMERIC r_end=-1.);
 
-    int bisection_converge_through_infty_behavior(double omega_0, double omega_1, int n_mode, int max_steps, double delta_omega, int verbose);
-    int bisection_find_mode(double& omega_0, double& omega_1, int n_mode, int max_steps, int verbose);
-    int bisection_expand_range(double& omega_0, double& omega_1, int n_mode, int& n_roots_0, int& n_roots_1, int verbose);
+    int bisection_converge_through_infty_behavior(NUMERIC omega_0, NUMERIC omega_1, int n_mode, int max_steps, NUMERIC delta_omega, int verbose);
+    int bisection_find_mode(NUMERIC& omega_0, NUMERIC& omega_1, int n_mode, int max_steps, int verbose);
+    int bisection_expand_range(NUMERIC& omega_0, NUMERIC& omega_1, int n_mode, int& n_roots_0, int& n_roots_1, int verbose);
 
     public:
-    double mu, lambda, omega;
-    double rho_0, phi_0;
-    double M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0, R_G;
+    NUMERIC mu, lambda, omega;
+    NUMERIC rho_0, phi_0;
+    NUMERIC M_T, N_B, N_F, R_B, R_B_0, R_F, R_F_0, R_G;
 
     /* Constructor for the FBS class, just sets the relevant values of the class */
-    FermionBosonStar(std::shared_ptr<EquationOfState> EOS, double mu, double lambda=0., double omega=0., double rho_0=0., double phi_0=0.)
+    FermionBosonStar(std::shared_ptr<EquationOfState> EOS, NUMERIC mu, NUMERIC lambda=0., NUMERIC omega=0., NUMERIC rho_0=0., NUMERIC phi_0=0.)
             : NSmodel(EOS), mu(mu), lambda(lambda), omega(omega), rho_0(rho_0), phi_0(phi_0), M_T(0.), N_B(0.), N_F(0.), R_B(0.), R_B_0(0.), R_F(0.), R_F_0(0.), R_G(0.) {}
 
     /* The differential equations describing the FBS. The quantities are a, alpha, P, phi, and Psi, as described in https://arxiv.org/pdf/2110.11997.pdf */
-    vector dy_dr(const double r, const vector& vars) const;
+    vector dy_dr(const NUMERIC r, const vector& vars) const;
 
     /* This function requires mu, lambda, rho_0, phi_0 to be set. It finds the corresponding eigenfrequency omega for the nth mode.
      * omega_0, and omega_1 describe a range in which omega is expected, but the function can extend that range if found to be insufficient*/
-    int bisection(double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16, int verbose=0);
+    int bisection(NUMERIC omega_0, NUMERIC omega_1, int n_mode=0, int max_step=200, NUMERIC delta_omega=1e-16, int verbose=0);
 
     /* The initial conditions for a, alpha, phi, Psi, and P */
-    virtual vector get_initial_conditions(double r_init=-1.) const;
+    virtual vector get_initial_conditions(NUMERIC r_init=-1.) const;
 
     /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/N_F = NbNf_ratio */
-    void shooting_NbNf_ratio(double NbNf_ratio, double NbNf_accuracy, double omega_0, double omega_1, int n_mode=0, int max_step=200, double delta_omega=1e-16);
+    void shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode=0, int max_step=200, NUMERIC delta_omega=1e-16_num);
 
     /* Integrates the DE while avoiding the phi divergence and calculates the FBS properties
      * Returns the results and optionally ouputs them into a file*/

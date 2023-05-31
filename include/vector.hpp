@@ -1,6 +1,11 @@
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
 
+#define NUMERIC long double
+
+// user-defined literal to automatically convert every floating-point constant to NUMERIC type
+inline NUMERIC operator "" _num(long double d) {return (NUMERIC)d;}
+
 // include the external boost/ublas library and use the n-dimensional vector class
 // see: https://www.boost.org/
 #include <boost/numeric/ublas/vector.hpp>
@@ -12,11 +17,11 @@ namespace ublas = boost::numeric::ublas;
 
 /* this class is simply a wrapper for the ublas::vector class
  * that includes a convenient constructor and some nan checks */
-class vector : public ublas::vector<double> {
+class vector : public ublas::vector<NUMERIC> {
 public:
-    using ublas::vector<double>::vector;
+    using ublas::vector<NUMERIC>::vector;
 
-    vector(std::initializer_list<double> list); // created a vector with size len(list)
+    vector(std::initializer_list<NUMERIC> list); // created a vector with size len(list)
 
     vector sub_range(int begin, int end) const ;
 

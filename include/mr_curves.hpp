@@ -20,7 +20,7 @@
 #include "fps.hpp"
 
 using clock_type = std::chrono::steady_clock;
-using second_type = std::chrono::duration<double, std::ratio<1> >;
+using second_type = std::chrono::duration<NUMERIC, std::ratio<1> >;
 typedef std::chrono::time_point<clock_type> time_point;
 
 
@@ -50,14 +50,14 @@ void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename) 
 template <typename U>
 void calc_rhophi_curves(std::vector<U>& MRphi_curve, int verbose = 1, int mode = 0) {
 
-    const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
+    const NUMERIC omega_0 = 1._num, omega_1 = 10._num;  // upper and lower bound for omega in the bisection search
 
     unsigned int done = 0;
 
     time_point start3{clock_type::now()};
     #pragma omp parallel for schedule(dynamic)
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1);  // compute bisection
+        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1, 1e-16_num);  // compute bisection
 		if (bisection_success == -1)
             std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
         else
@@ -67,7 +67,7 @@ void calc_rhophi_curves(std::vector<U>& MRphi_curve, int verbose = 1, int mode =
         done++;
 
         if(verbose >1)
-            std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0 << "%" << std::endl;
+            std::cout << "Progress: "<< float(done) / MRphi_curve.size() * 100.0_num << "%" << std::endl;
     }
     time_point end3{clock_type::now()};
     if(verbose > 0) {
@@ -78,14 +78,14 @@ void calc_rhophi_curves(std::vector<U>& MRphi_curve, int verbose = 1, int mode =
 }
 
 //void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose=1);
-void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose=1);
+void calc_rhophi_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose=1);
 
-void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve);
+void calc_NbNf_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve);
 
 void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, int verbose=1);
 
-void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu=1, double lambda=1);
+void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<NUMERIC>& rho1_c_grid, const std::vector<NUMERIC>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, NUMERIC mu=1._num, NUMERIC lambda=1._num);
 
-void calc_rhophi_curves_FPS(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& E_c_grid, std::vector<FermionProcaStar>& MRphi_curve, int verbose=1, int mode = 0);
+void calc_rhophi_curves_FPS(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& E_c_grid, std::vector<FermionProcaStar>& MRphi_curve, int verbose=1, int mode = 0);
 
 #endif
