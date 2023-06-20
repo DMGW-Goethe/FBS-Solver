@@ -5,7 +5,7 @@
 // -----------------------------------------------------
 // by changing this, one can chose the wanted floating-point precision.
 // "out-of the box" supported data types are 'double' and 'long double'
-#define NUMERIC long double
+#define NUMERIC double
 // user-defined literal to automatically convert every floating-point constant to NUMERIC type
 inline NUMERIC operator "" _num(long double d) {return (NUMERIC)d;}
 
