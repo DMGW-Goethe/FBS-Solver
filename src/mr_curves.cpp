@@ -17,7 +17,7 @@ void calc_rhophi_curves(std::vector<U>& MRphi_curve, int verbose, int mode = 0);
 */
 
 
-// compute curves of constant rho_c and phi_c:
+// compute curves of constant rho_c and phi_c.
 void calc_rhophi_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0._num);    // create model for star
@@ -36,40 +36,44 @@ void calc_rhophi_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfSt
     calc_rhophi_curves(MRphi_curve, verbose);
 }
 
+/*
+compute curves of constant rho_c and Nb/(Nf+Nb)-ratio:
+Templated functions must be defined in the hpp file, therefore the following lines are just a placeholder for the sake of readability.
+If you want to see the function definition, refer to mr_curves.hpp.
+template <typename V>
+void calc_NbNf_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& NbNf_grid, std::vector<V>& MRphi_curve, int verbose) {
+*/
 
-// compute curves of constant rho_c and Nb/NF-ratio:
-void calc_NbNf_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve) {
-    MRphi_curve.clear();
+/*
+void calc_NbNf_curves(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
+    
+	MRphi_curve.clear();
     MRphi_curve.reserve(rho_c_grid.size()*NbNf_grid.size());
-
     // set initial conditions for every star in the list:
     for (unsigned j = 0; j < NbNf_grid.size(); j++) {
         for(unsigned i = 0; i < rho_c_grid.size(); i++) {
-            FermionBosonStar fbs(EOS, mu, lambda, 0._num);  // create a star
-            fbs.rho_0 = rho_c_grid[i]; fbs.phi_0 = 1e-10_num;
+            FermionBosonStar fbs(EOS, mu, lambda, 0._num, rho_c_grid[i], 0._num);  // create a star
+            //fbs.rho_0 = rho_c_grid[i]; fbs.phi_0 = 0.0_num;
             MRphi_curve.push_back(fbs);
         }
     }
-
     // compute the MR-diagrams:
     NUMERIC omega_0 = 1._num, omega_1 = 10._num;
-
     unsigned int done = 0;
-
-    #pragma omp parallel for schedule(dynamic, 10)
-    for(unsigned i = 0; i < NbNf_grid.size(); i++) {
-        for(unsigned j = 0; j < rho_c_grid.size() ; j++) {
+	std::cout << "start loop" << std::endl;
+    #pragma omp parallel for schedule(dynamic, 4)
+    for(unsigned j = 0; j < rho_c_grid.size() ; j++) {
+		for(unsigned i = 0; i < NbNf_grid.size(); i++) {
             int index = i*rho_c_grid.size() + j;
-            MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4_num, omega_0, omega_1);  // compute star with set NbNf ratio
-            //MRphi_curve[index].evaluate_model();   // evaluate the model but do not save the intermediate data into txt file
-
+            MRphi_curve[index].shooting_NbNf_ratio(NbNf_grid[i], 1e-4_num, omega_0, omega_1, 0, 200, 1e-16_num, 2);  // compute star with set Nb/(Nf+Nb) ratio
+            MRphi_curve[index].evaluate_model();
+			done++;
             std::cout << "Progress: "<< float(done) / (NbNf_grid.size() * rho_c_grid.size()) * 100.0 << "%" << std::endl;
         }
     }
-
     std::cout << "end loop" << std::endl;
 }
-
+*/
 
 // compute the tidal love number for curves of constant rho_c and phi_c:
 // the calculation of the unperturbed solution must be performed before, and only then this function can be called because it uses the equilibrium results from calc_rhophi_curves()
@@ -141,7 +145,7 @@ void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_
 }
 
 
-// compute curves of constant rho_c and E_c forthe Fermion-Proca Star:
+// compute curves of constant rho_c and E_c for the Fermion-Proca Star:
 void calc_rhophi_curves_FPS(NUMERIC mu, NUMERIC lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<NUMERIC>& rho_c_grid, const std::vector<NUMERIC>& E_c_grid, std::vector<FermionProcaStar>& MRphi_curve, int verbose, int mode) {
 
     FermionProcaStar fps_model(EOS, mu, lambda);    // create model for star
