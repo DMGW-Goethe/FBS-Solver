@@ -423,12 +423,12 @@ int FermionBosonStar::bisection(NUMERIC omega_0, NUMERIC omega_1, int n_mode, in
         // re-try the bisection but for different bounds omega_0 and omega_1:
 		int max_tries = 20; int tries = 0;
 		while (tries < max_tries) {
-			if (verbose > -1) {std::cout << "Bisection skipped over the wanted root. Try again with different bounds omega_0 and omega_1. try:" << tries << std::endl;}
+			if (verbose > -1) {std::cout << "Bisection skipped over the wanted root. Try again with different bounds omega_0 and omega_1. try number:" << tries << std::endl;}
 			omega_0 = 1.0; //this->omega * (0.9_num - tries*0.05_num);
 			omega_1 = this->omega * (1.1_num + tries*0.31415936_num); // increase the upper range for the bisection by some amount
 			result = this->bisection_find_mode(omega_0, omega_1, n_mode, max_steps, verbose);
 			tries++;
-			if (!result) {break;}
+			if (!result) {if(verbose > -1){std::cout << "re-try was successful after " << tries << " tries" << std::endl;} break;}
 		}
 	}
 	if(result) {return result;}
@@ -438,86 +438,70 @@ int FermionBosonStar::bisection(NUMERIC omega_0, NUMERIC omega_1, int n_mode, in
 }
 
 
-// uses the bisection method to calculate a FBS solution with fixed rho_c and fixed particle ratio Nb/Nf
+// uses the bisection method to calculate a FBS solution with fixed rho_c and fixed dark matter mass ratio Nb/(Nf+Nb)
 // optimized phi_c and omega in the process.
-void FermionBosonStar::shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode, int max_steps, NUMERIC delta_omega) {
+void FermionBosonStar::shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode, int max_steps, NUMERIC delta_omega, int verbose) {
 
-    // calc the FBS solution once using an initial Phi value
-    NUMERIC my_NbNf;
-    NUMERIC phi_c_init = this->phi_0;
-
-    while (true) {
-
+	if (NbNf_ratio == 0._num) {
+		if (verbose > 0){std::cout << "we have a pure neutron star. No need for shooting" << std::endl;}
+		this->phi_0 = 0._num;
+		this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+        this->evaluate_model();
+		return;
+	}
+    // before the bisection, calculate the FBS solution once using an initial Phi value
+    NUMERIC range_test_for_NbNf;
+    NUMERIC phi_c_init = 0.1_num;
+	this->phi_0 = phi_c_init;
+	if (verbose > 0){std::cout << "start range correction" << std::endl;}
+	int i = 0;
+    while (i < max_steps) {
         this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
         this->evaluate_model();
-        // obtain the ration Nb/Nf
-        my_NbNf = this->N_B / this->N_F;
-        // check if obtained ratio is above the wanted ratio
-        // if yes, we perform a bisection search in the range [0, Phi_initial]
-        // if no, we increase Phi_initial by an amount and perform the above steps again
-
-        if (NbNf_ratio < my_NbNf) {
-            // the calculated ratio is above the wanted ratio. We can now perform the bisection search!
-            break;
-        }
-        // the wanted ratio is above the calculated ratio. Increase the phi-field for higher ratio Nb/Nf
-        if (my_NbNf > 1e-5_num) {
-            phi_c_init = phi_c_init*2._num;
-        } else{
-            phi_c_init = phi_c_init*100._num;
-        }
-
-        this->phi_0 = phi_c_init;
-        continue;
+        // obtain the ratio Nb/(Nf+Nb)
+        range_test_for_NbNf = this->N_B / (this->N_F + this->N_B);
+        // check if obtained ratio 'range_test_for_NbNf' is above the wanted ratio:
+        // if yes, we perform a bisection search in the range [0, phi_c_init]
+        // if no, we increase phi_c_init by an amount until the range covers the wanted value for Nb/(Nf+Nb)
+        if (NbNf_ratio < range_test_for_NbNf) {break;}
+        else {phi_c_init = phi_c_init*2._num; this->phi_0 = phi_c_init;}
+        i++;
+        if (verbose > 1) {std::cout << "iteration=" << i << " phi_c_init=" << phi_c_init << " range_test_for_NbNf=" << range_test_for_NbNf << std::endl;}
     }
 
-    // now perform te bisection until the wanted accuracy is reached:
-    // define a few local variables:
-    NUMERIC phi_c_0 = 1e-20_num;
-    NUMERIC phi_c_1 = phi_c_init;
-    NUMERIC phi_c_mid = (phi_c_0 + phi_c_1) / 2._num;
+    // now perform the bisection until the wanted ration is found with sufficient accuracy:
+    NUMERIC phi_c_0 = 0.0_num; 		// lower bound of bisection
+    NUMERIC phi_c_1 = phi_c_init; 	// upper bound of bisection
+    NUMERIC phi_c_mid = (phi_c_0 + phi_c_1) / 2._num;	// mid point in phi
+    NUMERIC NbNf_0 = 0.0_num;	// is zero because scalar field is zero
+	NUMERIC NbNf_1 = 100._num;	// initialize with some random large number
+    NUMERIC NbNf_mid;
 
-    NUMERIC NbNf_0;
-    NUMERIC NbNf_mid;    // NbNftio of the mid point in phi
-    NUMERIC NbNf_1 = my_NbNf;
-
-    //NUMERIC my_omega;
-
-    this->phi_0 = phi_c_0;
-    this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
-    this->evaluate_model();
-    NbNf_0 = this->N_B / this->N_F;
-
-    int i = 0;
-    // continue bisection until the wanted accuracy was reached
+    i = 0;	// reset variable
+    // start bisection
+	if (verbose > 0){std::cout << "start NbNf-ratio bisection" << std::endl;}
     while ( (std::abs(NbNf_0 - NbNf_1) > NbNf_accuracy) && (i < max_steps) ) {
-        i++;
-
+		
         phi_c_mid = (phi_c_0 + phi_c_1) / 2.;
 
         this->phi_0 = phi_c_mid;
         this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
-        //my_omega = this->omega;
         this->evaluate_model();
-        // obtain the ration Nb/Nf
-        NbNf_mid = this->N_B / this->N_F;
+        NbNf_mid = this->N_B / (this->N_F + this->N_B);
 
         if (NbNf_mid < NbNf_ratio) {
-            // the mid point is below the wanted ratio and we can adjust the lower bound
+            		// the mid point is below the wanted ratio and we can adjust the lower bound
             NbNf_0 = NbNf_mid;
             phi_c_0 = phi_c_mid;
-            continue;
-        }
-        else if (NbNf_mid > NbNf_ratio) {
-            // the mid point is above the wanted ratio and we can adjust the upper bound
+			if (verbose > 1){std::cout << "NbNf_mid is smaller than wanted ratio" << std::endl;}
+        } else {	// the mid point is above the wanted ratio and we can adjust the upper bound
             NbNf_1 = NbNf_mid;
             phi_c_1 = phi_c_mid;
-            continue;
+			if (verbose > 1){std::cout << "NbNf_mid is larger than wanted ratio" << std::endl;}
         }
-
+		i++;
+		if (verbose > 1){std::cout << "iteration=" << i << " NbNf_0=" << NbNf_0 << " NbNf_1=" << NbNf_1 << " NbNf_mid=" << NbNf_mid << " NbNf_ratio=" << NbNf_ratio << std::endl;}
     }
-    // the now obtained omega and phi_c values are now optimized for the wanted Nb/Nf and we can quit the function
-
 }
 
 /* This function takes the result of an integration of the FBS system
