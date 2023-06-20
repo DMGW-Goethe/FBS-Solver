@@ -192,6 +192,89 @@ int FermionProcaStar::integrate_and_avoid_phi_divergence(std::vector<integrator:
 }
 
 
+// uses the bisection method to calculate a FBS solution with fixed rho_c and fixed dark matter mass ratio Nb/(Nf+Nb)
+// optimized phi_c and omega in the process.
+void FermionProcaStar::shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode, int max_steps, NUMERIC delta_omega, int verbose) {
+
+	if (NbNf_ratio == 0._num) {
+		if (verbose > 0){std::cout << "we have a pure neutron star. No need for shooting" << std::endl;}
+		this->E_0 = 0._num; this->phi_0 = this->E_0;
+		this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+        this->evaluate_model();
+		return;
+	}
+    // before the bisection, find the ideal upper and lower bounds for E_0. Also chek for edge cases:
+	// beware: E_0 MUST have: E_0 < m / sqrt(lambda) = 1/4*sqrt(pi*Lambda_int)
+    NUMERIC range_test_for_NbNf;
+    NUMERIC E0_init = 0.1_num;
+
+	if (verbose > 0){std::cout << "start upper bound correction for E_0" << std::endl;}
+	int i = 0;
+	if (abs(lambda) > 0._num) {	// a nonzero self-interaction produces an upper bound for the central value of E_0
+		E0_init = 0.999_num*mu/std::sqrt(lambda);	// maximum allowed value for E_0
+		this->E_0 = E0_init; this->phi_0 = this->E_0;
+		// chek if the maximum possible value of E_0 is able to produce a high enough Nb/(Nf+Nb)-ratio for the bisection:
+		// if yes, we perform a bisection search in the range [0, E0_init]
+		// if no, we cannot do the bisection and exit this function
+		this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+		this->evaluate_model();
+		range_test_for_NbNf = this->N_B / (this->N_F + this->N_B);
+		if (NbNf_ratio > range_test_for_NbNf) {
+			if (verbose > 0){std::cout << "maximal possible E_0 is not large enough to produce the wanted Nb/(Nf+Nb)-ratio" << std::endl;}
+			return;
+		}
+	} 
+	else {	// self-interaction is zero, there is no upper bound for E_0 and we can chose a suitable value
+		this->E_0 = E0_init; this->phi_0 = this->E_0;
+		if (verbose > 0){std::cout << "start range correction" << std::endl;}
+    	while (i < max_steps) {
+			this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+			this->evaluate_model();
+			// obtain the ratio Nb/(Nf+Nb)
+			range_test_for_NbNf = this->N_B / (this->N_F + this->N_B);
+			// check if obtained ratio 'range_test_for_NbNf' is above the wanted ratio:
+			// if yes, we perform a bisection search in the range [0, E0_init]
+			// if no, we increase E0_init by an amount until the range covers the wanted value for Nb/(Nf+Nb)
+			if (NbNf_ratio < range_test_for_NbNf) {break;}
+			else {E0_init = E0_init*2._num; this->E_0 = E0_init; this->phi_0 = this->E_0;}
+			i++;
+			if (verbose > 1) {std::cout << "iteration=" << i << " E0_init=" << E0_init << " range_test_for_NbNf=" << range_test_for_NbNf << std::endl;}
+    	}
+	}
+    // now perform the bisection until the wanted ratio is found with sufficient accuracy:
+    NUMERIC E0_0 = 0.0_num; 		// lower bound of bisection
+    NUMERIC E0_1 = E0_init; 	// upper bound of bisection
+    NUMERIC E0_mid = (E0_0 + E0_1) / 2._num;	// mid point in phi
+    NUMERIC NbNf_0 = 0.0_num;	// is zero because scalar field is zero
+	NUMERIC NbNf_1 = 100._num;	// initialize with some random large number
+    NUMERIC NbNf_mid;
+
+    i = 0;	// reset variable
+    // start bisection
+	if (verbose > 0){std::cout << "start NbNf-ratio bisection" << std::endl;}
+    while ( (std::abs(NbNf_0 - NbNf_1) > NbNf_accuracy) && (i < max_steps) ) {
+		
+        E0_mid = (E0_0 + E0_1) / 2.;
+
+        this->E_0 = E0_mid; this->phi_0 = this->E_0;
+        this->bisection(omega_0, omega_1, n_mode, max_steps, delta_omega);
+        this->evaluate_model();
+        NbNf_mid = this->N_B / (this->N_F + this->N_B);
+
+        if (NbNf_mid < NbNf_ratio) {
+            		// the mid point is below the wanted ratio and we can adjust the lower bound
+            NbNf_0 = NbNf_mid;
+            E0_0 = E0_mid;
+			if (verbose > 1){std::cout << "NbNf_mid is smaller than wanted ratio" << std::endl;}
+        } else {	// the mid point is above the wanted ratio and we can adjust the upper bound
+            NbNf_1 = NbNf_mid;
+            E0_1 = E0_mid;
+			if (verbose > 1){std::cout << "NbNf_mid is larger than wanted ratio" << std::endl;}
+        }
+		i++;
+		if (verbose > 1){std::cout << "iteration=" << i << " NbNf_0=" << NbNf_0 << " NbNf_1=" << NbNf_1 << " NbNf_mid=" << NbNf_mid << " NbNf_ratio=" << NbNf_ratio << std::endl;}
+    }
+}
 
 /* FUNCTIONS TO COMPUTE MACROSCOPIC PARAMETERS OF THE STAR */
 

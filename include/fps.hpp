@@ -63,8 +63,8 @@ public:
     /* The initial conditions for a, alpha, phi, E, B, and P */
     virtual vector get_initial_conditions(NUMERIC r_init=-1.) const;
 
-    /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/N_F = NbNf_ratio */
-    //void shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode=0, int max_step=200, NUMERIC delta_omega=1e-16);
+    /* This requires mu, lambda, and rho_0 to be set. It finds phi_0, omega, such that N_B/(N_F+N_B) = NbNf_ratio */
+    void shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accuracy, NUMERIC omega_0, NUMERIC omega_1, int n_mode=0, int max_step=200, NUMERIC delta_omega=1e-16_num, int verbose = 0);
 
     /* Integrates the ODE while avoiding the E and B (?) divergence and calculates the FPS properties
      * Returns the results and optionally ouputs them into a file*/
