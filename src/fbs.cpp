@@ -469,7 +469,7 @@ void FermionBosonStar::shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accu
         if (verbose > 1) {std::cout << "iteration=" << i << " phi_c_init=" << phi_c_init << " range_test_for_NbNf=" << range_test_for_NbNf << std::endl;}
     }
 
-    // now perform the bisection until the wanted ration is found with sufficient accuracy:
+    // now perform the bisection until the wanted ratio is found with sufficient accuracy:
     NUMERIC phi_c_0 = 0.0_num; 		// lower bound of bisection
     NUMERIC phi_c_1 = phi_c_init; 	// upper bound of bisection
     NUMERIC phi_c_mid = (phi_c_0 + phi_c_1) / 2._num;	// mid point in phi
