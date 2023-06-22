@@ -221,6 +221,7 @@ void FermionProcaStar::shooting_NbNf_ratio(NUMERIC NbNf_ratio, NUMERIC NbNf_accu
 		range_test_for_NbNf = this->N_B / (this->N_F + this->N_B);
 		if (NbNf_ratio > range_test_for_NbNf) {
 			if (verbose > 0){std::cout << "maximal possible E_0 is not large enough to produce the wanted Nb/(Nf+Nb)-ratio" << std::endl;}
+			this->E_0 = 0._num; this->phi_0 = 0._num; this->rho_0 = 0._num; // we obtained a solution with not the wanted ratio. Set star params to zero to mark the wrong results
 			return;
 		}
 	} 
