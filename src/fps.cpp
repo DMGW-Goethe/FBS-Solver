@@ -352,6 +352,7 @@ void FermionProcaStar::calculate_star_parameters(const std::vector<integrator::s
         v = results[i].second;
 		NUMERIC dV = this->mu*this->mu + this->lambda * (v[3]*v[3]/v[0]/v[0] - v[2]*v[2]/v[1]/v[1]);
 		NUMERIC dE_dr = this->omega* v[3] - dV * v[3] * v[1]*v[1] / this->omega;
+		if (this->omega == 0._num) {dE_dr=0._num;}	// need this failsafe to avoid singularity and wrong R_G computation for pure NS
         N_B_integrand[i] = 8._num*M_PI * v[3] * (this->omega * v[3] - dE_dr) * r[i] * r[i] / (v[0]*v[1]);  // get bosonic mass (paricle number) for each r
         if (v[4] < P_ns_min || v[4] < this->EOS->min_P())
             rho = 0._num;
