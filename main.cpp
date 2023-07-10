@@ -129,14 +129,14 @@ void test_single_fermion_proca_star() {
 
 	NUMERIC sat_to_code = 0.15_num * 2.886376934e-6_num * 939.565379_num;	// conversion factor from saturation density to code units
 	NUMERIC rho_0 = 9.0_num * sat_to_code; //5e-3;
-	NUMERIC E_0 = 0.18_num ;/// 8. / M_PI;
+	NUMERIC E_0 = 0._num;//0.18_num ;/// 8. / M_PI;
 
 	auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
 	FermionProcaStar fps_model(EOS_DD2, mu, lambda, 0._num, rho_0, E_0);    // create model for star
 	FermionBosonStar fbs_model(EOS_DD2, mu, lambda, 0._num, rho_0, E_0);	// also create a FBS for comparisons sake
 
 	std::string plotname = "FPS/posterplot1-radial-FPS-5rho_sat-m01-l0-E_0-" + std::to_string(E_0);
-	plotname = "FPS/bisection-fail-test-radial-profiles";
+	plotname = "FPS/thesisplot-single-NS-DD2-1_7Msun";
 	const NUMERIC omega_0 = 1.0_num /*2.12055_num*/, omega_1 = 10.0_num/* 3.2499911682_num */;  // upper and lower bound for omega in the bisection search
 
 	int bisection_success1 = fps_model.bisection(omega_0, omega_1,0);  // compute bisection
@@ -169,25 +169,25 @@ void test_single_fermion_proca_star() {
 }
 
 
-void compute_fermionProcaStar_grid() {
+void compute_fermionProcaStar_grid(NUMERIC mu_in, NUMERIC Lambda_int_in) {
 
-	NUMERIC mu = 2.0_num;
-	NUMERIC Lambda_int = 50.0_num; // factor 2 to convert to the number of minamisuji
+	NUMERIC mu = mu_in;
+	NUMERIC Lambda_int = Lambda_int_in; // factor 2 to convert to the number of minamisuji
 	NUMERIC lambda = Lambda_int*8._num*M_PI*mu*mu;// Lambda_int*8*M_PI*mu*mu;
 
 	// create the E_c-rho_c-grid:
-	const unsigned NstarsVec = 40;	// number of pure FPS
-	const unsigned NstarsRho = 40;	// number of pure NS
+	const unsigned NstarsVec = 100;	// number of pure FPS
+	const unsigned NstarsRho = 100;	// number of pure NS
 	std::vector<NUMERIC> rho_c_grid(NstarsRho, 0.0_num), E_c_grid(NstarsVec, 0.0_num);
 
 	NUMERIC sat_to_code = 0.15_num * 2.886376934e-6_num * 939.565379_num;	// conversion factor from saturation density to code units
-	NUMERIC rho_cmin = 1e-4_num * sat_to_code;
-	NUMERIC rho_cmax = 10.0_num * sat_to_code;
-	NUMERIC E_cmin = 1e-5_num;
+	NUMERIC rho_cmin = 0.0_num; //0.1_num * sat_to_code;
+	NUMERIC rho_cmax = 12.0_num * sat_to_code; // 5e-3;
+	NUMERIC E_cmin = 0._num;
 
 	NUMERIC E_cmax = 0.1_num; //3.2 / 1.41421356237309; // beware: E_cmax MUST have: E_cmax < m / sqrt(lambda) = 1/4*sqrt(pi*Lambda_int)
 	if (lambda > 0._num && E_cmax > mu/std::sqrt(lambda)) {
-		E_cmax = 0.99_num*mu/std::sqrt(lambda);
+		E_cmax = 0.999_num*mu/std::sqrt(lambda);
 	}
 		
 	
@@ -198,19 +198,23 @@ void compute_fermionProcaStar_grid() {
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
 	auto EOS_POLYTROPE = std::make_shared<PolytropicEoS>();
 
+	auto EOS_APR = std::make_shared<EoStable>("EOS_tables/eos_SRO_APR_SNA_version.beta");
+	auto EOS_KDE0v1 = std::make_shared<EoStable>("EOS_tables/eos_SRO_KDE0v1_SNA_version.beta");
+	auto EOS_LNS = std::make_shared<EoStable>("EOS_tables/eos_SRO_LNS_SNA_version.beta");
+	auto EOS_FSG = std::make_shared<EoStable>("EOS_tables/eos_HS_FSG_with_electrons.beta");
+
 	std::vector<FermionProcaStar> FPS_curve;
 
 	calc_rhophi_curves_FPS(mu, lambda, EOS_DD2, rho_c_grid, E_c_grid, FPS_curve, 2, 0);
-
-	std::string plotname = "FPS/Minamisuji_fig3_reproduction-unitchange-new-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
-	plotname = "FPS/bisection-fail-test7";
+	std::string plotname = "FPS/production-100x100-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	//plotname = "FPS/thesisplot-pureNS-DD2-1_7Msun";
 	write_MRphi_curve<FermionProcaStar>(FPS_curve, "plots/" + plotname + ".txt");
 	std::cout << "Finished FPS!" << std::endl;
 
-	std::vector<FermionBosonStar> MRphi_curve;
+	//std::vector<FermionBosonStar> MRphi_curve;
 	// calc the unperturbed equilibrium solutions:
     //calc_rhophi_curves(mu, lambda, EOS_DD2, rho_c_grid, E_c_grid, MRphi_curve,2);
-	plotname = "FPS/posterplot2-MR-FBS-m1-l0-rhoc-9";
+	//plotname = "FPS/posterplot2-MR-FBS-m1-l0-rhoc-9";
 	//write_MRphi_curve<FermionBosonStar>(MRphi_curve, "plots/" + plotname + ".txt");
 	
 }
@@ -269,18 +273,18 @@ int create_MR_curve() {
 void compute_boson_fraction_grid() {
 
 	NUMERIC mu = 1.0_num;
-	NUMERIC Lambda_int = 0.0_num; // factor 2 to convert to the number of minamisuji
+	NUMERIC Lambda_int = 50.0_num; // factor 2 to convert to the number of minamisuji
 	NUMERIC lambda = Lambda_int*8._num*M_PI*mu*mu;// Lambda_int*8*M_PI*mu*mu;
 
-	// create the rho_c-grid to boson-fraction grid:
-	const unsigned NstarsRho = 30;	// number of stars per NbNf line
-	const unsigned NstarsNbNf = 3;	// number of NbNf lines
+	// create the rho_c-grid to boson-fraction grid
+	const unsigned NstarsRho = 10;	// number of stars per NbNf line
+	const unsigned NstarsNbNf = 2;	// number of NbNf lines
 	std::vector<NUMERIC> rho_c_grid(NstarsRho, 0.0_num), NbNf_grid(NstarsNbNf, 0.0_num);
 
 	NUMERIC sat_to_code = 0.15_num * 2.886376934e-6_num * 939.565379_num;	// conversion factor from saturation density to code units
 	NUMERIC rho_cmin = 1e-0_num * sat_to_code;
 	NUMERIC rho_cmax = 9.0_num * sat_to_code;
-	NUMERIC NbNf_min = 0.0_num;
+	NUMERIC NbNf_min = 0.1_num;
 	NUMERIC NbNf_max = 0.2_num;
 
 	utilities::fillValuesPowerLaw(NbNf_min, NbNf_max, NbNf_grid, 1);
@@ -289,20 +293,21 @@ void compute_boson_fraction_grid() {
 	// declare different EOS types:
     auto EOS_DD2 = std::make_shared<EoStable>("EOS_tables/eos_HS_DD2_with_electrons.beta");
 	auto EOS_POLYTROPE = std::make_shared<PolytropicEoS>();
-
+/*
 	std::vector<FermionBosonStar> FBS_curve;
 	calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, FBS_curve, 1);
-	std::string plotname = "FPS/test-NbNB-ratio-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
+	std::string plotname = "FPS/test-NbNB-ratio-FBS-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
 	//plotname = "FPS/bisection-fail-test7";
 	write_MRphi_curve<FermionBosonStar>(FBS_curve, "plots/" + plotname + ".txt");
 	std::cout << "Finished FBS!" << std::endl;
-	
-		/*
+*/	
+		
 	std::vector<FermionProcaStar> FPS_curve;
-    calc_NbNf_curves_FPS(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, FPS_curve);
-	plotname = "FPS/posterplot2-MR-FBS-m1-l0-rhoc-9";
+    calc_NbNf_curves(mu, lambda, EOS_DD2, rho_c_grid, NbNf_grid, FPS_curve, 0);
+	std::string plotname = "FPS/test-NbNB-ratio-FPS-mu_" + std::to_string(mu) + "_Lambdaint_" + std::to_string(Lambda_int);
 	write_MRphi_curve<FermionProcaStar>(FPS_curve, "plots/" + plotname + ".txt");
-		*/
+	std::cout << "Finished FBS!" << std::endl;
+		
 }
 
 int main() {
@@ -317,8 +322,10 @@ int main() {
 	// test two-fluid EOS with effective bosonic EoS:
 	//test_effectiveEOS_pure_boson_star();
 	//test_single_fermion_proca_star();
-	//compute_fermionProcaStar_grid();
-	compute_boson_fraction_grid();
+	compute_fermionProcaStar_grid(0.1_num, 0._num);
+	compute_fermionProcaStar_grid(0.1_num, 10._num);
+	compute_fermionProcaStar_grid(0.1_num, 100._num);
+	//compute_boson_fraction_grid();
 
     // ----------------------------------------------------------------
 
