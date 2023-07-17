@@ -1,5 +1,7 @@
 #include "plotting.hpp"
 
+using namespace FBS;
+
 #ifdef DEBUG_PLOTTING
 namespace plt = matplotlibcpp;
 #endif

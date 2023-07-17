@@ -15,7 +15,7 @@
 
 // --------------------------------------------------------------------
 
-
+using namespace FBS;
 
 int Example_Star() {
 
@@ -83,7 +83,7 @@ void test_effectiveEOS_pure_boson_star() {
 	double rho_cmax = 5e-3;
 	double phi_cmin = 1e-5;
 	double phi_cmax = 0.055;
-	
+
 	utilities::fillValuesPowerLaw(phi_cmin, phi_cmax, phi_c_grid, 1);
     utilities::fillValuesPowerLaw(rho_cmin, rho_cmax, rho_c_grid, 1);
 
@@ -172,14 +172,14 @@ int create_MR_curve() {
 int main() {
 
     // integrate a single star
-    // Example_Star();
+    Example_Star();
 
     // create an MR curve
     //create_MR_curve();
 	// ----------------------------------------------------------------
 
 	// test two-fluid EOS with effective bosonic EoS:
-	test_effectiveEOS_pure_boson_star();
+	//test_effectiveEOS_pure_boson_star();
 
     // ----------------------------------------------------------------
 

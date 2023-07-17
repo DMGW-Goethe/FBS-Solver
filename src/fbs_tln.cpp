@@ -1,5 +1,7 @@
 #include "fbs_tln.hpp"
 
+using namespace FBS;
+
 /* This event triggers when dphi_1 is diverging i.e. dphi_1 > 1e6 */
 const integrator::Event FermionBosonStarTLN::dphi_1_diverging = integrator::Event([](const double r, const double dr, const vector& y, const vector& dy, const void*params) { return (std::abs(y[8]) > 1e6); }, true, "dphi_1_diverging");
 
@@ -364,7 +366,8 @@ int FermionBosonStarTLN::bisection_phi_1(double phi_1_0_l, double phi_1_0_r, int
 
 
 /* This calls the parent class output and adds additional values */
-std::ostream& operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
+
+std::ostream& FBS::operator<<(std::ostream& os, const FermionBosonStarTLN& fbs) {
     return os   << (FermionBosonStar)fbs   << " "   // parent class parameters
                 << fbs.k2                  << " "   // tidal love number
                 << fbs.lambda_tidal        << " "   // dimensionfull tidal love number

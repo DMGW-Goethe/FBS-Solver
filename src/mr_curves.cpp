@@ -1,5 +1,7 @@
 #include "mr_curves.hpp"
 
+using namespace FBS;
+
 /*
 Function to write the FBS data into a txt file.
 Templated functions must be defined in the hpp file, therefore the following lines are just a placeholder for the sake of readability.
@@ -8,7 +10,7 @@ template <typename T>
 void write_MRphi_curve(const std::vector<T>& MRphi_curve, std::string filename);
 */
 
-void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
+void FBS::calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
 
     const double omega_0 = 1., omega_1 = 10.;  // upper and lower bound for omega in the bisection search
 
@@ -38,7 +40,7 @@ void calc_rhophi_curves(std::vector<FermionBosonStar>& MRphi_curve, int verbose)
 }
 
 // compute curves of constant rho_c and phi_c:
-void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
+void FBS::calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& phi_c_grid, std::vector<FermionBosonStar>& MRphi_curve, int verbose) {
 
     FermionBosonStar fbs_model(EOS, mu, lambda, 0.);    // create model for star
     MRphi_curve.clear();
@@ -58,7 +60,7 @@ void calc_rhophi_curves(double mu, double lambda, std::shared_ptr<EquationOfStat
 
 
 // compute curves of constant rho_c and Nb/NF-ratio:
-void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve) {
+void FBS::calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState> EOS, const std::vector<double>& rho_c_grid, const std::vector<double>& NbNf_grid, std::vector<FermionBosonStar>& MRphi_curve) {
     MRphi_curve.clear();
     MRphi_curve.reserve(rho_c_grid.size()*NbNf_grid.size());
 
@@ -93,7 +95,7 @@ void calc_NbNf_curves(double mu, double lambda, std::shared_ptr<EquationOfState>
 
 // compute the tidal love number for curves of constant rho_c and phi_c:
 // the calculation of the unperturbed solution must be performed before, and only then this function can be called because it uses the equilibrium results from calc_rhophi_curves()
-void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, int verbose) {
+void FBS::calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::vector<FermionBosonStarTLN>& MRphik2_curve, int verbose) {
 
 	MRphik2_curve.clear();  MRphik2_curve.reserve(MRphi_curve.size());
 
@@ -132,10 +134,10 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
     }
 }
 
-void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu, double lambda) {
-	
+void FBS::calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu, double lambda) {
+
 	TwoFluidFBS fbs_model(EOS1, EOS2, mu, lambda);    // create model for star
-	
+
     MRphi_curve.clear();
     MRphi_curve.reserve(rho1_c_grid.size()*rho2_c_grid.size());
 

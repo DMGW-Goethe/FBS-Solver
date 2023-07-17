@@ -1,5 +1,4 @@
-#ifndef NS_TWOFLUID_HPP
-#define NS_TWOFLUID_HPP
+#pragma once
 
 #include <utility>  // for std::swap
 
@@ -8,6 +7,7 @@
 #include "integrator.hpp"
 #include "nsmodel.hpp"
 
+namespace FBS {
 
 // this is a class modeling a fermion boson star in the two-fluid ansatz, akin to
 // PHYSICAL REVIEW D 105, 123010 (2022)
@@ -46,5 +46,6 @@ public:
     static const integrator::Event all_Pressure_zero;
 };
 
+std::ostream& operator<<(std::ostream&, const NSTwoFluid&);
 
-#endif
+}

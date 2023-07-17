@@ -1,5 +1,4 @@
-#ifndef NSMODEL_HPP
-#define NSMODEL_HPP
+#pragma once
 
 #include <utility>  // for std::swap
 
@@ -7,6 +6,8 @@
 #include "eos.hpp"
 #include "integrator.hpp"
 #include "plotting.hpp"
+
+namespace FBS {
 
 #define R_INIT 1e-10    // the initial integration radius
 #define R_MAX 500.      // the general maximum integration radius (might be increased if not sufficient)
@@ -20,6 +21,7 @@
  * The r_init and r_end values describe the integration range. This can depend
  *  on the parameters involved, so it is a class member.
  * */
+
 class NSmodel {
 protected:
     double r_init, r_end;
@@ -50,6 +52,5 @@ public:
 
 
 
+}
 
-
-#endif

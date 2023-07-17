@@ -1,5 +1,6 @@
 #include "utilities.hpp"
 
+using namespace FBS;
 
 void utilities::fillValuesPowerLaw(const double minValue, const double maxValue, std::vector<double>& values, const int power)
 {
@@ -7,7 +8,7 @@ void utilities::fillValuesPowerLaw(const double minValue, const double maxValue,
 		values[0] = minValue;
 		return;
 	}
-	
+
 	if(power == 1)
     {
         const double dValue = double(maxValue - minValue) / double(values.size() - 1);

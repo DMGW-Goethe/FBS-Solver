@@ -1,5 +1,7 @@
 #include "integrator.hpp"
 
+using namespace FBS;
+
 namespace ublas = boost::numeric::ublas;
 
 /* This function takes as input the ODE_system, the position r, the current stepsize dr, and the parameters y

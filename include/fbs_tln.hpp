@@ -1,5 +1,4 @@
-#ifndef FBS_TLN_HPP
-#define FBS_TLN_HPP
+#pragma once
 
 #include <utility>  // for std::swap
 
@@ -8,6 +7,8 @@
 #include "plotting.hpp"
 #include "nsmodel.hpp"
 #include "fbs.hpp"
+
+namespace FBS {
 
 /* FermionBosonStarTLN
  * This class models a perturbed fermion boson star (FBS). Here, the perturbations
@@ -73,5 +74,6 @@ public:
     static const integrator::Event dphi_1_diverging, phi_1_negative, phi_1_positive;
 };
 
+std::ostream& operator<<(std::ostream&, const FermionBosonStarTLN&);
 
-#endif
+}

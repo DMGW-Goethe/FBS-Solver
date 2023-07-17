@@ -5,13 +5,13 @@ from libcpp.utility cimport pair
 from libcpp.vector cimport vector as stdvector
 
 
-cdef extern from "vector.hpp":
+cdef extern from "vector.hpp" namespace "FBS":
     cdef cppclass vector:
         ctypedef size_t size_type
         double& operator[](size_type)
         size_type size()
 
-cdef extern from "eos.hpp":
+cdef extern from "eos.hpp" namespace "FBS":
     cdef cppclass EquationOfState:
         void callEOS(double& myrho, double& epsilon, const double P)
         double get_P_from_rho(const double rho_in, const double epsilon)
@@ -28,7 +28,7 @@ cdef extern from "eos.hpp":
         CausalEoS(const double eps_f, const double P_f)
 
 
-cdef extern from "integrator.hpp" namespace "integrator":
+cdef extern from "integrator.hpp" namespace "FBS::integrator":
     ctypedef pair[double, vector] step
     ctypedef bool (*event_condition)(const double r, const double dr, const vector& y, const vector& dy, const void*params)
 
@@ -52,7 +52,7 @@ cdef extern from "integrator.hpp" namespace "integrator":
 
 
 
-cdef extern from "nsmodel.hpp":
+cdef extern from "nsmodel.hpp" namespace "FBS":
     cdef cppclass FermionBosonStar:
         FermionBosonStar( shared_ptr[EoStable], double mu, double lam, double omega, double rho_0, double phi_0) except +
 
@@ -104,7 +104,7 @@ cdef extern from "nsmodel.hpp":
         const Event phi_1_positive
 
 
-cdef extern from "mr_curves.hpp":
+cdef extern from "mr_curves.hpp" namespace "FBS":
     void write_MRphi_curve(const stdvector[FermionBosonStar]& MRphi_curve, string filename);
     void write_MRphi_curve(const stdvector[FermionBosonStarTLN]& MRphi_curve, string filename);
 

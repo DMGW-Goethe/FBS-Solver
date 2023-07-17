@@ -1,5 +1,7 @@
 #include "eos.hpp"
 
+using namespace FBS;
+
 /******************
  * PolytropicEoS *
  ******************/

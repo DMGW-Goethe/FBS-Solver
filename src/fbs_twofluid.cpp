@@ -1,5 +1,7 @@
 #include "fbs_twofluid.hpp"
 
+using namespace FBS;
+
 /***********************
  * TwoFluidFBS *
  ***********************/
@@ -16,5 +18,5 @@ vector TwoFluidFBS::get_initial_conditions(const double r_init) const {
 
 std::vector<std::string> TwoFluidFBS::labels() {
     // labels for the effective bosonic EOS case:
-    return std::vector<std::string>({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "M_F", "N_F", "R_B", "R_B_0", "M_B", "N_B", "M_B/M_F", "N_B/N_F", "C", "k2", "lambda_tidal"}); 
+    return std::vector<std::string>({"M_T", "rho_0", "phi_0", "R_F", "R_F_0", "M_F", "N_F", "R_B", "R_B_0", "M_B", "N_B", "M_B/M_F", "N_B/N_F", "C", "k2", "lambda_tidal"});
 }

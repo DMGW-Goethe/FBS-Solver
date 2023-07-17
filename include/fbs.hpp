@@ -1,5 +1,4 @@
-#ifndef FBS_HPP
-#define FBS_HPP
+#pragma once
 
 
 #include "vector.hpp"
@@ -11,6 +10,8 @@
 #define INT_converged 1e-7
 #define M_T_converged 1e-15 // leftover from previous attempts to characterize convergence
 
+
+namespace FBS {
 
 /* FermionBosonStar
  * This class models a fermion boson star (FBS)
@@ -77,7 +78,7 @@ protected:
     void evaluate_model();
 
     /* This function outputs parameters and properties, in the order given by the labels function */
-    friend std::ostream& operator<<(std::ostream&, const FermionBosonStar&);
+    friend std::ostream& operator <<(std::ostream&, const FermionBosonStar&);
     static std::vector<std::string> labels();
 
     /* These events are used for different integration purposes */
@@ -85,5 +86,7 @@ protected:
 
 };
 
+std::ostream& operator <<(std::ostream&, const FermionBosonStar&);
 
-#endif
+}
+

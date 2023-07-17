@@ -1,13 +1,13 @@
-#ifndef RK45_HPP
-#define RK45_HPP
+#pragma once
 
 #include <iostream>
 #include <vector>   // for std::vector
 #include <utility>  // for std::pair
 #include <stdexcept> // for std::runtime_error
-// #include <functional> // for std::function
 
 #include "vector.hpp"
+
+namespace FBS {
 
 // A class to hold the ODE solver with the option to define events during integration.
 namespace integrator
@@ -90,4 +90,4 @@ namespace integrator
 
 }
 
-#endif
+}

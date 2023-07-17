@@ -1,5 +1,7 @@
 #include "ns_twofluid.hpp"
 
+using namespace FBS;
+
 /***********************
  * NSTwoFluid *
  ***********************/
@@ -8,7 +10,7 @@
 vector NSTwoFluid::get_initial_conditions(const double r_init) const {
 
     return vector({0.0, 0.0, 0.0, rho1_0 > this->EOS->min_rho() ? this->EOS->get_P_from_rho(rho1_0, 0.) : 0.,
-                    rho2_0 > this->EOS_fluid2->min_rho() ? this->EOS_fluid2->get_P_from_rho(rho2_0, 0.) : 0., 2.0});      
+                    rho2_0 > this->EOS_fluid2->min_rho() ? this->EOS_fluid2->get_P_from_rho(rho2_0, 0.) : 0., 2.0});
 
 }
 
@@ -216,7 +218,7 @@ void NSTwoFluid::evaluate_model(std::vector<integrator::step> &results, std::str
     this->calculate_star_parameters(results, events);
 }
 
-std::ostream &operator<<(std::ostream &os, const NSTwoFluid &fbs) {
+std::ostream& FBS::operator<<(std::ostream &os, const NSTwoFluid &fbs) {
 
     return os << fbs.M_T << " "					// total gravitational mass
               << fbs.rho1_0 << " "				// central density of 1st fluid

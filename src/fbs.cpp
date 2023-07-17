@@ -1,5 +1,6 @@
 #include "fbs.hpp"
 
+using namespace FBS;
 /*   Events   */
 /* This event triggers when M is sufficiently converged, i.e. dM_dr < M_T_converged
  *  (not in use anymore) */
@@ -650,7 +651,7 @@ void FermionBosonStar::evaluate_model(std::vector<integrator::step>& results, in
 }
 
 /* Outputs the star parameters and properties */
-std::ostream& operator<<(std::ostream& os, const FermionBosonStar& fbs) {
+std::ostream& FBS::operator <<(std::ostream& os, const FermionBosonStar& fbs) {
     return os   << fbs.M_T                   << " "   // total gravitational mass
                 << fbs.rho_0                 << " "   // central density
                 << fbs.phi_0                 << " "   // central scalar field

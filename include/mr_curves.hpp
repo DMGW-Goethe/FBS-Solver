@@ -1,5 +1,4 @@
-#ifndef MR_CURVES_HPP
-#define MR_CURVES_HPP
+#pragma once
 
 #include <iostream> // for i/o e.g. std::cout etc.
 #include <cmath>	// for mathematical functions
@@ -17,6 +16,8 @@
 #include "fbs_twofluid.hpp"
 #include "fbs.hpp"
 #include "fbs_tln.hpp"
+
+namespace FBS {
 
 using clock_type = std::chrono::steady_clock;
 using second_type = std::chrono::duration<double, std::ratio<1> >;
@@ -54,4 +55,4 @@ void calc_MRphik2_curve(const std::vector<FermionBosonStar>& MRphi_curve,  std::
 
 void calc_twofluidFBS_curves(std::shared_ptr<EquationOfState> EOS1, std::shared_ptr<EquationOfState> EOS2, const std::vector<double>& rho1_c_grid, const std::vector<double>& rho2_c_grid, std::vector<TwoFluidFBS>& MRphi_curve, double mu=1, double lambda=1);
 
-#endif
+}

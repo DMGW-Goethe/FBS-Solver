@@ -1,5 +1,4 @@
-#ifndef EOS_HPP
-#define EOS_HPP
+#pragma once
 
 #include <vector>
 #include <cmath>
@@ -9,9 +8,8 @@
 #include <stdexcept> // for std::runtime_error
 #include <map>
 
-// a class to contain tabulated EOS
-// reads in a EOS table in the constructor.
-// Then it serves as a look-up table for the EOS (p=p(rho,epsilon,...)) to use in the integrator.
+
+namespace FBS{
 
 /* Equation of State
  *  an abstract class to model what an equation of state should contain
@@ -177,4 +175,5 @@ public:
 
 };
 
-#endif
+
+}

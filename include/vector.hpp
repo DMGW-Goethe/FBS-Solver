@@ -1,5 +1,4 @@
-#ifndef VECTOR_HPP
-#define VECTOR_HPP
+#pragma once
 
 // include the external boost/ublas library and use the n-dimensional vector class
 // see: https://www.boost.org/
@@ -7,6 +6,8 @@
 //#include <boost/numeric/ublas/vector_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
 //#include <boost/range.hpp>
+
+namespace FBS{
 
 namespace ublas = boost::numeric::ublas;
 
@@ -23,4 +24,4 @@ public:
     static bool is_nan(const vector& v);    // functions to check for NaNs
 };
 
-#endif
+}

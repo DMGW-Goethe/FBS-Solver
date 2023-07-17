@@ -1,5 +1,4 @@
-#ifndef PLOTTING_HPP
-#define PLOTTING_HPP
+#pragma once
 
 #include <iostream> // for i/o e.g. std::cout etc.
 #include <iomanip> 	// for std::fixed and std::fixesprecission()
@@ -14,6 +13,7 @@
 #include "matplotlibcpp.h"
 #endif
 
+namespace FBS{
 
 namespace plotting {
 
@@ -23,4 +23,5 @@ void plot_evolution(const std::vector<integrator::step>& results, const std::vec
 
 
 }
-#endif
+
+}
