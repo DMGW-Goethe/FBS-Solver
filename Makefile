@@ -2,8 +2,8 @@ CC := g++
 
 AR := ar rv
 
-# Comment to remove OMP support
-OMP:=1
+# OpenMP support commented out for usage with clang compiler 
+# OMP:=1
 
 # Uncomment to allow for plotting at runtime - incompatible with pyfbs!
 # DEBUG_PLOTTING:=1
