@@ -20,7 +20,7 @@ PYTHON := python3
 PYFBS_DIR := pyfbs
 PYFBS_FILES := $(PYFBS_DIR)/cpyfbs.pxd $(PYFBS_DIR)/pyfbs.pyx
 
-CPPFLAGS := -I$(INC_DIR)
+CPPFLAGS := -std=c++20 -I$(INC_DIR)
 CFLAGS   := -Wall -O3 -g -fPIC
 LDFLAGS :=
 LDLIBS :=
