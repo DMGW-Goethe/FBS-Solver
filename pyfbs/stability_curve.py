@@ -165,9 +165,12 @@ def filter_stab_curve_data(sol_array, indices, stab_curve):
 
 
 # converts a stability curve in rho_c-phi_c space into MR space, so that a polygon can be constructed from it
-def stab_curve_to_MR(sol_array, indices, old_stabcurve, num_rho_stars, num_phi_stars):
+def stab_curve_to_MR(sol_array, indices, old_stabcurve):
+	# first, get some useful quantities from the list of all values
+	numStarsRho = len(np.unique(df[:,indices["rho_0"]]))
+	numStarsPhi = len(np.unique(df[:,indices["phi_0"]]))
 
-	MR_stabcurve = [] # list which holds arrays with 2 entries
+ 	MR_stabcurve = [] # list which holds arrays with 2 entries
 
 	# iterate through the stability curve in the rhoc-phi_c diagram and find the nearest point to each stab curve segment respectively:
 	for i in range(len(old_stabcurve)):
@@ -177,8 +180,8 @@ def stab_curve_to_MR(sol_array, indices, old_stabcurve, num_rho_stars, num_phi_s
 	# now the lines of rho_c=0 and phi_c=0 need to be added to the curve:
 	# line where rho_c = 0:
 	MR_stabcurve_rho0 = []
-	for j in range(num_phi_stars):
-		index = j*num_rho_stars
+	for j in range(numStarsPhi):
+		index = j*numStarsRho
 		MRpoint = [sol_array[index][indices['M_T']], sol_array[index][indices['R_F_0']]] # [M, R] point
 		# iterate until the point is not on the stability curve anymore
 		if (sol_array[index][indices['phi_0']] > old_stabcurve[len(old_stabcurve)-1][1]):   #check for phi_c < phi_c stabcurve
@@ -188,7 +191,7 @@ def stab_curve_to_MR(sol_array, indices, old_stabcurve, num_rho_stars, num_phi_s
 
 	# line where phi_c = 0:
 	MR_stabcurve_phi0 = []
-	for j in range(num_rho_stars):
+	for j in range(numStarsRho):
 		index = j
 		MRpoint = [sol_array[index][indices['M_T']], sol_array[index][indices['R_F_0']]] # [M, R] point
 		if (sol_array[index][indices['rho_0']] > old_stabcurve[0][0]):   #check for rho_c < rho_c stabcurve
