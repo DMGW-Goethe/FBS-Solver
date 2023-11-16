@@ -170,7 +170,7 @@ def stab_curve_to_MR(sol_array, indices, old_stabcurve):
 	numStarsRho = len(np.unique(df[:,indices["rho_0"]]))
 	numStarsPhi = len(np.unique(df[:,indices["phi_0"]]))
 
- 	MR_stabcurve = [] # list which holds arrays with 2 entries
+	MR_stabcurve = [] # list which holds arrays with 2 entries
 
 	# iterate through the stability curve in the rhoc-phi_c diagram and find the nearest point to each stab curve segment respectively:
 	for i in range(len(old_stabcurve)):
