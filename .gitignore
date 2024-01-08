@@ -5,7 +5,7 @@ a.out
 main.out
 plots/*
 *.json
-*.txt
+plots
 libfbs.a
 __pycache__
 pyfbs/pyfbs.cpp
