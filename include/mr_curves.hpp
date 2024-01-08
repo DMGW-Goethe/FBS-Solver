@@ -57,7 +57,7 @@ void calc_rhophi_curves(std::vector<U>& MRphi_curve, int verbose = 1, int mode =
     time_point start3{clock_type::now()};
     #pragma omp parallel for schedule(dynamic)
     for(unsigned int i = 0; i < MRphi_curve.size(); i++) {
-        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1, 1e-16_num);  // compute bisection
+        int bisection_success = MRphi_curve[i].bisection(omega_0, omega_1, mode);  // compute bisection
 		if (bisection_success == -1)
             std::cout << "Bisection failed with omega_0=" << omega_0 << ", omega_1=" << omega_1 << " for " << MRphi_curve[i] << std::endl;
         else

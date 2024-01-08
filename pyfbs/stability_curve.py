@@ -3,6 +3,7 @@ import matplotlib.path as mplPath # to check if a point is inside a polygon
 import matplotlib.pyplot as plt	# for the contour plot
 import pandas as pd
 
+from . import plotting
 
 # find the nearest point in the rho_c-phi_c diagram to a given input point
 def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
@@ -27,8 +28,102 @@ def findnearest_to_stabcurve(sol, stabcurve_point, index1, index2):
 def refactorList(list, n):
 	return [list[i:i+n] for i in range(0, len(list), n)]
 
+
+def find_stabcurve_vectorfield(lines, df, indices, curve_index):
+
+	#lines = sorted(lines, key=len, reverse=True)
+	#stab_curve = lines[0]
+	rhoVals = sorted(np.unique(df[:,indices["rho_0"]]))
+	phiVals = sorted(np.unique(df[:,indices["phi_0"]]))
+	numStarsRho = len(rhoVals)
+	numStarsPhi = len(phiVals)
+	E_0_max = max(phiVals)
+
+	# filter out a pure boson star:
+	pureBS = plotting.searchPureBS(df, indices)
+	#pureBS = np.array([sol for sol in pureBS if np.abs(sol[indices[Y]]) < 10 * ylim[1] and np.abs(sol[indices[Y]]) > ylim[0]])
+	pureBS_MT = pureBS[:,indices["M_T"]]
+	pureBS_E0 = pureBS[:,indices["phi_0"]]
+	
+	M_T_index = 0
+	for i in range(1,len(pureBS_MT)):
+		M_T_index = i
+		if pureBS_MT[i-1] > pureBS_MT[i]:
+			break
+		
+	#print(M_T_index)
+	#print(len(pureBS_MT))
+	#print(pureBS_MT)
+	if M_T_index >= (len(pureBS_MT)-2):
+		# we have only a section of the stability curve (i.e. stab curve does NOT touch the y-axis)
+		lines = sorted(lines, key=len, reverse=True)
+		stab_curve = lines[curve_index]
+		#stab_curve = np.append(np.array([[5.0, 5.1], [6.0, 6.1]]), stab_curve, axis=0)
+		stab_curve = np.append(np.array([[0.0, E_0_max], [stab_curve[0][0], E_0_max]]), stab_curve, axis=0) # add line connecting the max E_0-value with rho_c>0 to the point with E
+		return stab_curve
+	else:	# the stability curve is either included completely or is cut into two pieces
+		lines = sorted(lines, key=len, reverse=True)
+		stab_curve = lines[curve_index]
+		stab_curve_phivals = stab_curve[:,1]
+		#print("stab_curve entries")
+		#print(stab_curve)
+		#print(stab_curve_phivals)
+		if max(stab_curve_phivals) < 0.999*E_0_max:
+			# the stab curve is completely included inside the stability plot
+			lines = sorted(lines, key=len, reverse=True)
+			stab_curve = lines[curve_index]
+			return stab_curve
+		else:
+			# the stab curve is cut into two parts. Here we must stitch parts of the stabilitycurve together to one:
+			# first find the stabcurve which touches the x-axis at the correct point:
+			# filter out a pure boson star:
+			pureNS = plotting.searchPureNS(df, indices)
+			#pureBS = np.array([sol for sol in pureBS if np.abs(sol[indices[Y]]) < 10 * ylim[1] and np.abs(sol[indices[Y]]) > ylim[0]])
+			pureNS_MT = pureNS[:,indices["M_T"]]
+			pureNS_rho0 = pureNS[:,indices["rho_0"]]
+			M_T_index2 = 0
+			for i in range(1,len(pureNS_MT)):
+				M_T_index2 = i
+				if pureNS_MT[i-1] > pureNS_MT[i]:
+					break
+			
+			last_stable_rhoc = pureNS_rho0[M_T_index2]
+			# second, find the stabcurve which touches the y-axis at the right point
+			last_stable_phic = pureBS_E0[M_T_index]
+			# here we must stitch parts of the stabilitycurve together
+			# loop through each stab line to find the correct one and then take the longest of the found ones:
+			phic_axis_lines = []
+			rhoc_axis_lines = []
+			print(lines)
+			for line in lines:
+				if abs(line[0,1]/last_stable_phic -1.) < 0.15: #this line touches the y-axis at the right point
+					phic_axis_lines.append(line)
+				if abs(line[-1,0]/last_stable_rhoc -1.) < 0.15: #this line touches the y-axis at the right point
+					rhoc_axis_lines.append(line)
+			phic_axis_lines = sorted(phic_axis_lines, key=len, reverse=True)
+			rhoc_axis_lines = sorted(rhoc_axis_lines, key=len, reverse=True)
+			phi_c_line = phic_axis_lines[0]
+			rho_c_line = rhoc_axis_lines[0]
+			# stitch both lines together to get one stability line:
+			return np.append(phi_c_line, rho_c_line, axis=0)
+
+
+
+
+	# check if the whole stabcurve is included in the range:
+	#points in stabcurve have with [rho_c, Phi_c]
+	#for i in range(len(lines)):
+	#	#lines[i][index_in_line][(rho or phi)]
+	#	tmpline = lines[i]
+	#	tmpline[:][1]
+
+	lines = sorted(lines, key=len, reverse=True)
+	stab_curve = lines[curve_index]
+	return stab_curve
+
+
 # Calculates the stability curve according to the paper by Henriques et al. "Stabiliy of Boson-Fermion Stars"
-def calc_stability_curve(df, indices, debug = False, curve_index=0, rhoCutoff = 1, phiCutoff = 1):
+def calc_stability_curve(df, indices, debug = False, curve_index=0, rhoCutoff = 1, phiCutoff = 1, isFPS = False):
 	# first, get some useful quantities from the list of all values
 	rhoVals = sorted(np.unique(df[:,indices["rho_0"]]))
 	phiVals = sorted(np.unique(df[:,indices["phi_0"]]))
@@ -89,9 +184,19 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0, rhoCutoff = 
 	for line in contours.collections[0].get_paths():
 		lines.append(line.vertices)
 
-	lines = sorted(lines, key=len, reverse=True)
-	stab_curve = lines[curve_index]
+	if isFPS:
+		stab_curve = find_stabcurve_vectorfield(lines, df, indices, curve_index)
+		#lines = sorted(lines, key=len, reverse=True)
+		#stab_curve = lines[curve_index]
+	else:
+		lines = sorted(lines, key=len, reverse=True)
+		stab_curve = lines[curve_index]
 
+	#print(lines)
+	#print(lines[curve_index])
+	#stab_curve = np.append(np.array([[5.0, 5.1], [6.0, 6.1]]), stab_curve, axis=0)
+	#print(stab_curve)
+	#exit()
 	ax.clear()
 	plt.close(fig)
 
@@ -126,6 +231,7 @@ def calc_stability_curve(df, indices, debug = False, curve_index=0, rhoCutoff = 
 		plt.legend(loc = "upper right")
 		plt.show()
 
+	#exit()
 	return stab_curve
 
 
